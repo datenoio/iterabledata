@@ -10,9 +10,11 @@ try:
 except ImportError:
     HAS_DELTALAKE = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import WriteNotSupportedError, ReadError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import ReadError, WriteNotSupportedError
+from ..types import Row
 
 
 class DeltaIterable(BaseFileIterable):
@@ -132,16 +134,6 @@ class DeltaIterable(BaseFileIterable):
         row = next(self.iterator)
         self.pos += 1
         return row
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk Delta records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single Delta record - not supported"""

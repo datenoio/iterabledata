@@ -28,8 +28,11 @@ if __name__ == "__main__":
 def create_dbf_fixture():
     """Create a DBF file with the same data as other fixtures"""
     # Import here to avoid import errors when script is imported
-    import dbf  # noqa: F401
-    from fixdata import FIXTURES  # noqa: F401
+    import dbf
+
+    # noqa: F401
+    from fixdata import FIXTURES
+    # noqa: F401
 
     # Get the directory where this script is located
     script_dir = os.path.dirname(os.path.abspath(__file__))

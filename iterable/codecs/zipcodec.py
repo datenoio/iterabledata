@@ -25,9 +25,13 @@ class ZIPCodec(BaseCodec):
         self._fileobj = self._archiveobj.open(fnames[0], self.filemode)
         return self._fileobj
 
-    def close(self):
-        self._fileobj.close()
-        self._archiveobj.close()
+    def close(self) -> None:
+        if self._fileobj is not None:
+            self._fileobj.close()
+            self._fileobj = None
+        if getattr(self, "_archiveobj", None) is not None:
+            self._archiveobj.close()
+            self._archiveobj = None
 
     @staticmethod
     def id():

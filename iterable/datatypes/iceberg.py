@@ -12,9 +12,11 @@ try:
 except ImportError:
     HAS_PYICEBERG = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import WriteNotSupportedError, ReadError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import ReadError, WriteNotSupportedError
+from ..types import Row
 
 
 class IcebergIterable(BaseFileIterable):
@@ -169,16 +171,6 @@ class IcebergIterable(BaseFileIterable):
             return row
         except (StopIteration, EOFError, ValueError):
             raise StopIteration from None
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk Iceberg records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single Iceberg record"""

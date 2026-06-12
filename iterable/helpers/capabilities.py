@@ -9,8 +9,8 @@ from __future__ import annotations
 import inspect
 from typing import TYPE_CHECKING
 
-from .detect import DATATYPE_REGISTRY, READ_ONLY_FORMATS, _load_symbol, _get_format_registry
 from ..exceptions import FormatDetectionError
+from .detect import READ_ONLY_FORMATS, _get_format_registry, _load_symbol
 
 if TYPE_CHECKING:
     from ..base import BaseIterable
@@ -43,7 +43,7 @@ def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, bool | N
 
     # Check for read/write methods
     caps["readable"] = hasattr(format_class, "read") and callable(getattr(format_class, "read", None))
-    
+
     # Check for write support - first check READ_ONLY_FORMATS registry for quick lookup
     format_id = None
     try:
@@ -51,7 +51,7 @@ def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, bool | N
             format_id = format_class.id()
     except (AttributeError, TypeError):
         pass
-    
+
     # Quick check: if format is in READ_ONLY_FORMATS registry, it's definitely not writable
     if format_id and format_id.lower() in READ_ONLY_FORMATS:
         caps["writable"] = False
@@ -64,9 +64,10 @@ def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, bool | N
             # is overridden with actual implementation
             try:
                 # Get the write method
-                write_method = getattr(format_class, "write")
+                write_method = format_class.write
                 # Check if it's the base class method (BaseIterable.write)
                 from ..base import BaseIterable
+
                 if write_method is BaseIterable.write:
                     # It's the base class default - not supported
                     caps["writable"] = False
@@ -79,10 +80,14 @@ def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, bool | N
                         # it's likely just raising the error
                         if "WriteNotSupportedError" in source:
                             # Count non-comment, non-docstring lines
-                            lines = [l.strip() for l in source.split("\n") 
-                                    if l.strip() and not l.strip().startswith("#") 
-                                    and not l.strip().startswith('"""') 
-                                    and not l.strip().startswith("'''")]
+                            lines = [
+                                line.strip()
+                                for line in source.split("\n")
+                                if line.strip()
+                                and not line.strip().startswith("#")
+                                and not line.strip().startswith('"""')
+                                and not line.strip().startswith("'''")
+                            ]
                             # If only 1-3 lines (def + docstring + raise), it's not supported
                             if len(lines) <= 3:
                                 caps["writable"] = False
@@ -100,7 +105,7 @@ def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, bool | N
                 caps["writable"] = has_write_method
         else:
             caps["writable"] = False
-    
+
     caps["bulk_read"] = hasattr(format_class, "read_bulk") and callable(getattr(format_class, "read_bulk", None))
     caps["bulk_write"] = hasattr(format_class, "write_bulk") and callable(getattr(format_class, "write_bulk", None))
 
@@ -138,27 +143,32 @@ def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, bool | N
         # is_streaming() is an instance method, so we need to check it on an instance
         # However, creating an instance might fail if dependencies are missing or if
         # the format requires a filename. We'll try a best-effort approach.
-        
+
         # Known non-streaming formats (from memory audit)
         # These formats load entire files into memory
         KNOWN_NON_STREAMING_FORMATS = {
-            "feed", "rss", "atom",  # Feed formats
+            "feed",
+            "rss",
+            "atom",  # Feed formats
             "arff",  # ARFF format
-            "html", "htm",  # HTML format
+            "html",
+            "htm",  # HTML format
             "toml",  # TOML format
             "hocon",  # HOCON format
             "edn",  # EDN format
             "bencode",  # Bencode format
             "asn1",  # ASN.1 format
-            "ical", "ics",  # iCal format
-            "turtle", "ttl",  # Turtle RDF format
+            "ical",
+            "ics",  # iCal format
+            "turtle",
+            "ttl",  # Turtle RDF format
             "vcf",  # VCF format
             "mhtml",  # MHTML format
             "flexbuffers",  # FlexBuffers format
             "px",  # PC-Axis format
             "mvt",  # MVT (Mapbox Vector Tile) - single tile per file
         }
-        
+
         # Check if format ID is in known non-streaming list
         # Try to get format ID from static method
         format_id = None
@@ -167,15 +177,19 @@ def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, bool | N
                 format_id = format_class.id()
         except (AttributeError, TypeError):
             pass
-        
+
         if format_id and format_id.lower() in KNOWN_NON_STREAMING_FORMATS:
             caps["streaming"] = False
         else:
             # Try to determine streaming capability by checking if is_streaming() exists
             # and if the format has a _should_use_streaming method (indicates conditional streaming)
-            has_streaming_method = hasattr(format_class, "is_streaming") and callable(getattr(format_class, "is_streaming", None))
-            has_conditional_streaming = hasattr(format_class, "_should_use_streaming") and callable(getattr(format_class, "_should_use_streaming", None))
-            
+            has_streaming_method = hasattr(format_class, "is_streaming") and callable(
+                getattr(format_class, "is_streaming", None)
+            )
+            has_conditional_streaming = hasattr(format_class, "_should_use_streaming") and callable(
+                getattr(format_class, "_should_use_streaming", None)
+            )
+
             # Formats with conditional streaming (like JSON, GeoJSON, TopoJSON) support streaming
             # for large files but may load small files entirely
             if has_conditional_streaming:
@@ -443,43 +457,6 @@ def supports_write(format_id: str) -> bool:
     """
     capabilities = get_format_capabilities(format_id)
     writable = capabilities.get("writable")
-    
-    # Return False if None (format couldn't be loaded) or explicitly False
-    return bool(writable)
 
-
-def supports_write(format_id: str) -> bool:
-    """Check if a format supports write operations.
-
-    This is a convenience function that checks if a format has write support.
-    It returns True only if the format explicitly implements write methods
-    (not just the base class default that raises WriteNotSupportedError).
-
-    Args:
-        format_id: Format identifier (file extension or format name)
-
-    Returns:
-        True if format supports writing, False otherwise
-
-    Raises:
-        ValueError: If format_id is not recognized
-        ImportError: If format class cannot be loaded (optional dependency missing)
-
-    Example:
-        >>> if supports_write("csv"):
-        ...     print("CSV format supports writing")
-        ... else:
-        ...     print("CSV format is read-only")
-        CSV format supports writing
-
-        >>> if supports_write("pcap"):
-        ...     print("PCAP format supports writing")
-        ... else:
-        ...     print("PCAP format is read-only")
-        PCAP format is read-only
-    """
-    capabilities = get_format_capabilities(format_id)
-    writable = capabilities.get("writable")
-    
     # Return False if None (format couldn't be loaded) or explicitly False
     return bool(writable)

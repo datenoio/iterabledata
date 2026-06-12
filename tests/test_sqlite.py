@@ -81,7 +81,7 @@ def test_sqlite_list_tables():
         conn.execute("INSERT INTO users (id, name) VALUES (1, 'test')")
         conn.commit()
         conn.close()
-        
+
         reader3 = SQLiteIterable(tmp_path, mode="r", table="users")
         _ = reader3.read()  # Ensure connection is open
         tables3 = reader3.list_tables()

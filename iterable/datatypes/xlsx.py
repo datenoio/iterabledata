@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import typing
+from typing import Any
 
 from openpyxl import load_workbook
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from typing import Any
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
 
 
 def read_row_keys(rownum, ncols, sheet):
@@ -134,7 +134,10 @@ class XLSXIterable(BaseFileIterable):
         """Read bulk XLSX records"""
         chunk = []
         for _n in range(0, num):
-            row = next(self.cursor)
+            try:
+                row = next(self.cursor)
+            except StopIteration:
+                break
             tmp = list()
             for cell in row:
                 tmp.append(str(cell.value))

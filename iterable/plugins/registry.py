@@ -66,8 +66,7 @@ class PluginRegistry:
         """
         if format_id in self._formats and not override:
             raise ValueError(
-                f"Format '{format_id}' is already registered. "
-                "Use override=True to replace existing registration."
+                f"Format '{format_id}' is already registered. Use override=True to replace existing registration."
             )
 
         self._formats[format_id] = (module_path, class_name)
@@ -98,8 +97,7 @@ class PluginRegistry:
         """
         if codec_id in self._codecs and not override:
             raise ValueError(
-                f"Codec '{codec_id}' is already registered. "
-                "Use override=True to replace existing registration."
+                f"Codec '{codec_id}' is already registered. Use override=True to replace existing registration."
             )
 
         self._codecs[codec_id] = (module_path, class_name)
@@ -138,9 +136,7 @@ class PluginRegistry:
         if metadata:
             self._metadata[f"database_driver:{engine_name}"] = metadata
 
-        logger.debug(
-            f"Registered database driver plugin: {engine_name} -> {module_path}.{class_name}"
-        )
+        logger.debug(f"Registered database driver plugin: {engine_name} -> {module_path}.{class_name}")
 
     def register_validation_rule(
         self,
@@ -194,8 +190,7 @@ class PluginRegistry:
         """
         if engine_name in self._engines and not override:
             raise ValueError(
-                f"Engine '{engine_name}' is already registered. "
-                "Use override=True to replace existing registration."
+                f"Engine '{engine_name}' is already registered. Use override=True to replace existing registration."
             )
 
         self._engines[engine_name] = (module_path, class_name)
@@ -378,9 +373,7 @@ def register_database_driver(
         metadata: Optional metadata dictionary
         override: If True, allow overriding existing registration
     """
-    get_plugin_registry().register_database_driver(
-        engine_name, module_path, class_name, metadata, override
-    )
+    get_plugin_registry().register_database_driver(engine_name, module_path, class_name, metadata, override)
 
 
 def register_validation_rule(

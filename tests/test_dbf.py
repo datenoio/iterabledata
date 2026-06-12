@@ -1,7 +1,10 @@
+import io
+
 import pytest
 from fixdata import FIXTURES
 
 from iterable.datatypes import DBFIterable
+from iterable.exceptions import ReadError
 
 
 class TestDBF:
@@ -98,3 +101,9 @@ class TestDBF:
         assert row["ID"] == int(FIXTURES[0]["id"])
         assert row["NAME"] == FIXTURES[0]["name"]
         iterable.close()
+
+    def test_requires_filename_not_stream(self):
+        """DBF requires a file path; stream/codec raises ReadError."""
+        with pytest.raises(ReadError) as exc_info:
+            DBFIterable(stream=io.BytesIO(b"x"))
+        assert "file path" in str(exc_info.value).lower() or "filename" in str(exc_info.value).lower()

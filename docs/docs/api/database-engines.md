@@ -39,30 +39,30 @@ ClickHouse is a high-performance columnar OLAP database optimized for analytical
 
 ### MySQL/MariaDB
 
-**Status**: 🚧 Planned  
+**Status**: ✅ Available  
 **Driver**: `pymysql`  
 **Optional dependency**: `pymysql`
 
 ### Microsoft SQL Server
 
-**Status**: 🚧 Planned  
+**Status**: ✅ Available  
 **Driver**: `pyodbc`  
 **Optional dependency**: `pyodbc`
 
 ### SQLite
 
-**Status**: 🚧 Planned  
+**Status**: ✅ Available  
 **Driver**: `sqlite3` (standard library)
 
 ### MongoDB
 
-**Status**: 🚧 Planned  
+**Status**: ✅ Available  
 **Driver**: `pymongo`  
 **Optional dependency**: `pymongo`
 
 ### Elasticsearch/OpenSearch
 
-**Status**: 🚧 Planned  
+**Status**: ✅ Available  
 **Driver**: `elasticsearch`  
 **Optional dependency**: `elasticsearch`
 

@@ -7,7 +7,7 @@ import chardet
 
 from ..base import BaseCodec, BaseIterable
 from ..types import CodecArgs, IterableArgs
-from .debug import format_detection_logger, file_io_logger, is_debug_enabled
+from .debug import file_io_logger, format_detection_logger, is_debug_enabled
 
 
 def _load_symbol(module_path: str, symbol: str):
@@ -133,6 +133,8 @@ DATATYPE_REGISTRY: dict[str, tuple[str, str]] = {
     "toml": ("iterable.datatypes.toml", "TOMLIterable"),
     "delta": ("iterable.datatypes.delta", "DeltaIterable"),
     "cbor": ("iterable.datatypes.cbor", "CBORIterable"),
+    "cbors": ("iterable.datatypes.cbor", "CBORIterable"),
+    "cdf": ("iterable.datatypes.cdf", "CDFIterable"),
     "ods": ("iterable.datatypes.ods", "ODSIterable"),
     "sqlite": ("iterable.datatypes.sqlite", "SQLiteIterable"),
     "db": ("iterable.datatypes.sqlite", "SQLiteIterable"),
@@ -207,6 +209,8 @@ DATATYPE_REGISTRY: dict[str, tuple[str, str]] = {
     "ltsv": ("iterable.datatypes.ltsv", "LTSVIterable"),
     "px": ("iterable.datatypes.px", "PXIterable"),
     "kml": ("iterable.datatypes.kml", "KMLIterable"),
+    "kmz": ("iterable.datatypes.kmz", "KMZIterable"),
+    "gpx": ("iterable.datatypes.gpx", "GPXIterable"),
     "gml": ("iterable.datatypes.gml", "GMLIterable"),
     "shapefile": ("iterable.datatypes.shapefile", "ShapefileIterable"),
     "shp": ("iterable.datatypes.shapefile", "ShapefileIterable"),
@@ -224,6 +228,7 @@ DATATYPE_REGISTRY: dict[str, tuple[str, str]] = {
     "mvt": ("iterable.datatypes.mvt", "MVTIterable"),
     "pbf": ("iterable.datatypes.mvt", "MVTIterable"),
     "topojson": ("iterable.datatypes.topojson", "TopoJSONIterable"),
+    "feed": ("iterable.datatypes.feed", "FeedIterable"),
     "atom": ("iterable.datatypes.feed", "FeedIterable"),
     "rss": ("iterable.datatypes.feed", "FeedIterable"),
     "dxf": ("iterable.datatypes.dxf", "DXFIterable"),
@@ -233,8 +238,26 @@ DATATYPE_REGISTRY: dict[str, tuple[str, str]] = {
     "html": ("iterable.datatypes.html", "HTMLIterable"),
     "htm": ("iterable.datatypes.html", "HTMLIterable"),
     "arff": ("iterable.datatypes.arff", "ARFFIterable"),
+    "trig": ("iterable.datatypes.trig", "TriGIterable"),
+    "n3": ("iterable.datatypes.n3", "N3Iterable"),
+    "trix": ("iterable.datatypes.trix", "TriXIterable"),
+    "xlsb": ("iterable.datatypes.xlsb", "XLSBIterable"),
+    "fasta": ("iterable.datatypes.fasta", "FASTAIterable"),
+    "fa": ("iterable.datatypes.fasta", "FASTAIterable"),
+    "fna": ("iterable.datatypes.fasta", "FASTAIterable"),
+    "faa": ("iterable.datatypes.fasta", "FASTAIterable"),
+    "fastq": ("iterable.datatypes.fastq", "FASTQIterable"),
+    "fq": ("iterable.datatypes.fastq", "FASTQIterable"),
+    "graphml": ("iterable.datatypes.graphml", "GraphMLIterable"),
+    "gexf": ("iterable.datatypes.gexf", "GEXFIterable"),
+    "dot": ("iterable.datatypes.dot", "DOTIterable"),
+    "gv": ("iterable.datatypes.dot", "DOTIterable"),
+    "bam": ("iterable.datatypes.bam", "BAMIterable"),
+    "sam": ("iterable.datatypes.sam", "SAMIterable"),
     "vortex": ("iterable.datatypes.vortex", "VortexIterable"),
     "vtx": ("iterable.datatypes.vortex", "VortexIterable"),
+    # Usable via explicit format override: iterableargs={"format": "zipxml", "tagname": ...}
+    "zipxml": ("iterable.datatypes.zipxml", "ZIPXMLSource"),
 }
 
 CODEC_REGISTRY: dict[str, tuple[str, str]] = {
@@ -287,12 +310,36 @@ READ_ONLY_FORMATS: set[str] = {
     "mvt",
     "pbf",  # alias for mvt
     "netcdf",
+    "cdf",
+    "nc",  # alias for netcdf
     "psv",
     "xls",
     "xlsx",
     "xml",
     "zipped",
     "zipxml",
+    "kmz",
+    "gpx",
+    # Bioinformatics formats (read-only)
+    "fasta",
+    "fa",  # alias for fasta
+    "fna",  # alias for fasta
+    "faa",  # alias for fasta
+    "fastq",
+    "fq",  # alias for fastq
+    "bam",
+    "sam",
+    # RDF formats (read-only)
+    "trig",
+    "n3",
+    "trix",
+    # Graph formats (read-only)
+    "graphml",
+    "gexf",
+    "dot",
+    "gv",  # alias for dot
+    # Spreadsheet formats (read-only)
+    "xlsb",
 }
 
 
@@ -389,11 +436,27 @@ TEXT_DATA_TYPES = [
     "ltsv",
     "px",
     "kml",
+    "kmz",
+    "gpx",
     "gml",
     "csvw",
     "html",
     "htm",
     "arff",
+    "trig",
+    "n3",
+    "trix",
+    "fasta",
+    "fa",
+    "fna",
+    "faa",
+    "fastq",
+    "fq",
+    "graphml",
+    "gexf",
+    "dot",
+    "gv",
+    "sam",
 ]
 
 
@@ -452,6 +515,13 @@ FLAT_TYPES = [
     "html",
     "htm",
     "arff",
+    "xlsb",
+    "fasta",
+    "fa",
+    "fastq",
+    "fq",
+    "bam",
+    "sam",
     "vortex",
     "vtx",
 ]
@@ -645,7 +715,7 @@ def detect_file_type(filename: str, fileobj=None, debug: bool = False) -> FileTy
 
     format_registry = _get_format_registry()
     codec_registry = _get_codec_registry()
-    
+
     if len(parts) == 2:
         if parts[-1] in format_registry:
             result["datatype"] = _datatype_class(parts[-1])
@@ -693,8 +763,7 @@ def detect_file_type(filename: str, fileobj=None, debug: bool = False) -> FileTy
                 result["detection_method"] = method
                 if debug or is_debug_enabled():
                     format_detection_logger.debug(
-                        f"Content-based detection: {detected_format} "
-                        f"(confidence: {confidence:.2f}, method: {method})"
+                        f"Content-based detection: {detected_format} (confidence: {confidence:.2f}, method: {method})"
                     )
 
     if debug or is_debug_enabled():
@@ -903,6 +972,10 @@ def open_iterable(
     """
     import os
 
+    # Normalize path-like (e.g. pathlib.Path) to str for .lower() and path checks
+    if not isinstance(filename, str):
+        filename = os.fspath(filename) if hasattr(filename, "__fspath__") else str(filename)
+
     if debug or is_debug_enabled():
         file_io_logger.debug(f"Opening file: {filename} (mode: {mode}, engine: {engine})")
 
@@ -912,6 +985,7 @@ def open_iterable(
     # Enable debug mode if requested
     if debug:
         from .debug import enable_debug_mode
+
         enable_debug_mode()
 
     # Pass debug flag to iterableargs for downstream use
@@ -1034,25 +1108,41 @@ def open_iterable(
             pass
 
     if not result["success"]:
-        from ..exceptions import FormatDetectionError
+        # Allow explicit format override (e.g. for atomic write temp files like .tmp)
+        explicit_format = iterableargs.get("format")
+        if explicit_format:
+            format_id = explicit_format.lower()
+            format_registry = _get_format_registry()
+            if format_id in format_registry:
+                result["datatype"] = _datatype_class(format_id)
+                result["success"] = True
+                result["codec"] = None
+                result["confidence"] = 1.0
+                result["detection_method"] = "explicit"
 
-        raise FormatDetectionError(
-            filename=filename,
-            reason=f"Could not detect file type from filename or content. "
-            f"Supported formats: {', '.join(sorted(set(DATATYPE_REGISTRY.keys())))}",
-        )
+        if not result["success"]:
+            from ..exceptions import FormatDetectionError
 
-    # Extract file type from filename for DuckDB validation
-    parts = filename.lower().rsplit(".", 2)
-    detected_filetype = None
-    detected_codec = None
+            raise FormatDetectionError(
+                filename=filename,
+                reason=f"Could not detect file type from filename or content. "
+                f"Supported formats: {', '.join(sorted(set(DATATYPE_REGISTRY.keys())))}",
+            )
 
-    codec_registry = _get_codec_registry()
-    if len(parts) == 2:
-        detected_filetype = parts[-1]
-    elif len(parts) > 2:
-        detected_filetype = parts[-2] if parts[-1] in codec_registry else parts[-1]
-        detected_codec = parts[-1] if parts[-1] in codec_registry else None
+    # Extract file type from filename for DuckDB validation (or from explicit format)
+    if result.get("detection_method") == "explicit":
+        detected_filetype = iterableargs.get("format", "").lower() or None
+        detected_codec = None
+    else:
+        parts = filename.lower().rsplit(".", 2)
+        detected_filetype = None
+        detected_codec = None
+        codec_registry = _get_codec_registry()
+        if len(parts) == 2:
+            detected_filetype = parts[-1]
+        elif len(parts) > 2:
+            detected_filetype = parts[-2] if parts[-1] in codec_registry else parts[-1]
+            detected_codec = parts[-1] if parts[-1] in codec_registry else None
 
     # Validate DuckDB engine support
     if engine == "duckdb":
@@ -1073,10 +1163,8 @@ def open_iterable(
     datatype_name = result["datatype"].__name__ if result["datatype"] else "unknown"
 
     if debug or is_debug_enabled():
-        file_io_logger.debug(
-            f"Creating iterable: format={datatype_name}, codec={result['codec'].__name__ if result['codec'] else 'none'}, "
-            f"engine={engine}"
-        )
+        codec_name = result["codec"].__name__ if result["codec"] else "none"
+        file_io_logger.debug(f"Creating iterable: format={datatype_name}, codec={codec_name}, engine={engine}")
 
     try:
         # If we have a cloud storage stream, pass it appropriately

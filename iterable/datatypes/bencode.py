@@ -16,8 +16,10 @@ except ImportError:
         HAS_BENCODEPY = False
         HAS_BENCODE = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..types import Row
 
 
 class BencodeIterable(BaseFileIterable):
@@ -116,16 +118,6 @@ class BencodeIterable(BaseFileIterable):
             return row
         else:
             return {"value": row}
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk Bencode records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single Bencode record"""

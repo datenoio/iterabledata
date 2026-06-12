@@ -9,9 +9,10 @@ try:
 except ImportError:
     HAS_EZDXF = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import WriteNotSupportedError, FormatParseError, ReadError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import FormatParseError, ReadError, WriteNotSupportedError
 
 
 class DXFIterable(BaseFileIterable):
@@ -131,9 +132,7 @@ class DXFIterable(BaseFileIterable):
         return False
 
     @staticmethod
-
-
-        def has_totals() -> bool:
+    def has_totals() -> bool:
         return True
 
     def totals(self):
@@ -154,12 +153,3 @@ class DXFIterable(BaseFileIterable):
         entity = next(self.iterator)
         self.pos += 1
         return entity
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk

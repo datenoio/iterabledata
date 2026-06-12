@@ -7,11 +7,10 @@ from typing import Any
 
 import chardet
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
 from ..helpers.utils import rowincount
 from ..types import Row
-from typing import Any
 
 DEFAULT_ENCODING = "utf8"
 DEFAULT_DELIMITER = ","
@@ -229,6 +228,15 @@ class CSVIterable(BaseFileIterable):
         """Returns True - CSV always streams row by row"""
         return True
 
+    def _ensure_writer(self, record: Row) -> None:
+        """Create writer on first write when keys were not set at open."""
+        if self.writer is None and self.mode in ["w", "wr"] and self.fobj is not None:
+            self.keys = list(record.keys()) if isinstance(record, dict) else list(record)
+            self.writer = DictWriter(
+                self.fobj, fieldnames=self.keys, delimiter=self.delimiter, quotechar=self.quotechar
+            )
+            self.writer.writeheader()
+
     def write(self, record: Row) -> None:
         """Write single CSV record"""
         # Apply validation hooks if configured
@@ -237,6 +245,7 @@ class CSVIterable(BaseFileIterable):
             if validated is None:  # Skipped
                 return  # Don't write invalid row
             record = validated
+        self._ensure_writer(record)
         self.writer.writerow(record)
 
     def write_bulk(self, records: list[Row]) -> None:
@@ -249,4 +258,7 @@ class CSVIterable(BaseFileIterable):
                 if validated is not None:  # Not skipped
                     validated_records.append(validated)
             records = validated_records
+        if not records:
+            return
+        self._ensure_writer(records[0])
         self.writer.writerows(records)

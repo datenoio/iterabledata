@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import datetime
 import typing
+from typing import Any
 
 import xlrd
 from xlrd import open_workbook
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from typing import Any
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
 
 
 def read_row_keys(rownum, ncols, sheet):
@@ -141,7 +141,7 @@ class XLSIterable(BaseFileIterable):
         datemode = self.workbook.datemode
         for _n in range(0, num):
             if self.pos >= self.sheet.nrows:
-                raise StopIteration
+                break
             row = read_single_row(self.pos, ncols, datemode, self.keys, self.sheet)
             chunk.append(row)
             self.pos += 1

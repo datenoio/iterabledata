@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import typing
+from typing import Any
 
 from avro.datafile import DataFileReader
 from avro.io import DatumReader
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from typing import Any
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
 
 
 class AVROIterable(BaseFileIterable):
@@ -48,5 +48,8 @@ class AVROIterable(BaseFileIterable):
         """Read bulk records"""
         chunk = []
         for _n in range(0, num):
-            chunk.append(self.read())
+            try:
+                chunk.append(self.read())
+            except StopIteration:
+                break
         return chunk

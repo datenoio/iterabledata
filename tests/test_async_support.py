@@ -2,15 +2,15 @@
 Tests for async/await support (Phase 1: Foundation).
 """
 
-import pytest
 import asyncio
-import tempfile
 import os
+import tempfile
 
-from iterable.async_base import AsyncBaseIterable, AsyncBaseFileIterable
-from iterable.helpers.async_detect import aopen_iterable
-from iterable.base import BaseFileIterable
+import pytest
+
+from iterable.async_base import AsyncBaseFileIterable, AsyncBaseIterable
 from iterable.datatypes.csv import CSVIterable
+from iterable.helpers.async_detect import aopen_iterable
 from iterable.types import Row
 
 
@@ -83,6 +83,7 @@ class TestAsyncBaseFileIterable:
             temp_filename = f.name
 
         try:
+
             async def test():
                 sync_iterable = CSVIterable(filename=temp_filename)
                 async_iterable = AsyncBaseFileIterable(sync_iterable=sync_iterable)
@@ -101,6 +102,7 @@ class TestAsyncBaseFileIterable:
             temp_filename = f.name
 
         try:
+
             async def test():
                 sync_iterable = CSVIterable(filename=temp_filename)
                 sync_iterable.open()
@@ -121,6 +123,7 @@ class TestAsyncBaseFileIterable:
             temp_filename = f.name
 
         try:
+
             async def test():
                 sync_iterable = CSVIterable(filename=temp_filename)
                 sync_iterable.open()
@@ -142,6 +145,7 @@ class TestAsyncBaseFileIterable:
             temp_filename = f.name
 
         try:
+
             async def test():
                 sync_iterable = CSVIterable(filename=temp_filename)
                 sync_iterable.open()
@@ -167,6 +171,7 @@ class TestAOpenIterable:
             temp_filename = f.name
 
         try:
+
             async def test():
                 source = await aopen_iterable(temp_filename)
                 async with source:
@@ -189,6 +194,7 @@ class TestAOpenIterable:
             temp_filename = f.name
 
         try:
+
             async def test():
                 source = await aopen_iterable(temp_filename)
                 async with source:

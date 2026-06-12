@@ -5,18 +5,17 @@ reducing I/O wait time during sequential row processing.
 """
 
 from collections.abc import Iterator
-from typing import Any
 
 from ..types import Row
 
 
 class ReadAheadBuffer:
     """Buffer for prefetched rows with automatic refilling.
-    
+
     This class maintains a buffer of prefetched rows from a source iterator,
     automatically refilling the buffer when it drops below a threshold.
     This reduces I/O wait time by prefetching data ahead of consumption.
-    
+
     Example:
         >>> source = iter([1, 2, 3, 4, 5])
         >>> buffer = ReadAheadBuffer(source, buffer_size=3, refill_threshold=0.3)

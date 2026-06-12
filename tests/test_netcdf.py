@@ -31,7 +31,6 @@ class TestNetCDF:
     def test_openclose(self):
         """Test basic open/close"""
         import netCDF4
-        import numpy as np
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             temp_file = f.name
@@ -60,7 +59,6 @@ class TestNetCDF:
     def test_read_one(self):
         """Test reading single record"""
         import netCDF4
-        import numpy as np
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             temp_file = f.name
@@ -84,7 +82,6 @@ class TestNetCDF:
     def test_read_all(self):
         """Test reading all records"""
         import netCDF4
-        import numpy as np
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             temp_file = f.name
@@ -110,7 +107,6 @@ class TestNetCDF:
     def test_read_bulk(self):
         """Test bulk reading"""
         import netCDF4
-        import numpy as np
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             temp_file = f.name
@@ -135,7 +131,6 @@ class TestNetCDF:
     def test_has_totals(self):
         """Test totals method"""
         import netCDF4
-        import numpy as np
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             temp_file = f.name
@@ -158,7 +153,6 @@ class TestNetCDF:
     def test_list_tables(self):
         """Test listing variables (instance method)"""
         import netCDF4
-        import numpy as np
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             temp_file = f.name
@@ -184,7 +178,6 @@ class TestNetCDF:
     def test_list_tables_with_filename(self):
         """Test list_tables with filename parameter (class-like usage)"""
         import netCDF4
-        import numpy as np
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             temp_file = f.name
@@ -208,7 +201,6 @@ class TestNetCDF:
     def test_list_tables_reuses_dataset(self):
         """Test that list_tables reuses open dataset"""
         import netCDF4
-        import numpy as np
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             temp_file = f.name
@@ -234,7 +226,6 @@ class TestNetCDF:
     def test_automatic_detection(self):
         """Test automatic format detection via open_iterable"""
         import netCDF4
-        import numpy as np
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             temp_file = f.name
@@ -256,7 +247,6 @@ class TestNetCDF:
     def test_reset(self):
         """Test reset functionality"""
         import netCDF4
-        import numpy as np
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             temp_file = f.name
@@ -280,7 +270,6 @@ class TestNetCDF:
     def test_dimension_option(self):
         """Test specifying dimension via options"""
         import netCDF4
-        import numpy as np
 
         with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as f:
             temp_file = f.name

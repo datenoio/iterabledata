@@ -7,7 +7,8 @@ Provides the main validation pipeline for iterables.
 from __future__ import annotations
 
 import collections.abc
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 from ..helpers.detect import open_iterable
 from ..types import Row
@@ -47,8 +48,18 @@ def iterable(
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
 
-    # Statistics tracking
-    stats: ValidationStats = {
+    if mode == "stats":
+        # Stats mode is eager: drain the source and return the statistics dict
+        stats = _new_stats()
+        for _row, _errors in _validate_rows(iterable, rules, max_errors, stats):
+            pass
+        return stats
+
+    return _validate_rows(iterable, rules, max_errors, _new_stats(), mode=mode)
+
+
+def _new_stats() -> ValidationStats:
+    return {
         "total_rows": 0,
         "valid_rows": 0,
         "invalid_rows": 0,
@@ -56,9 +67,18 @@ def iterable(
         "errors_by_field": {},
     }
 
+
+def _validate_rows(
+    source: collections.abc.Iterable[Row],
+    rules: dict[str, list[str]],
+    max_errors: int | None,
+    stats: ValidationStats,
+    mode: str = "default",
+) -> Iterator[ValidationResult]:
+    """Validate rows one by one, updating stats and yielding per the mode."""
     error_count = 0
 
-    for row in iterable:
+    for row in source:
         stats["total_rows"] += 1
         errors: list[str] = []
 
@@ -95,21 +115,11 @@ def iterable(
             stats["invalid_rows"] += 1
 
         # Yield based on mode
-        if mode == "stats":
-            # Don't yield individual results, just collect stats
-            continue
-        elif mode == "invalid":
-            # Only yield invalid rows
+        if mode == "invalid":
             if errors:
                 yield (row, errors)
         elif mode == "valid":
-            # Only yield valid rows
             if not errors:
                 yield (row, [])
-        else:  # mode == "default"
-            # Yield all rows with their errors
+        else:  # mode == "default" (and stats mode, where results are discarded)
             yield (row, errors)
-
-    # Return stats if in stats mode
-    if mode == "stats":
-        return stats

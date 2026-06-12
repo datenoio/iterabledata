@@ -16,9 +16,11 @@ try:
 except ImportError:
     HAS_PYARROW = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import ReadError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import ReadError
+from ..types import Row
 
 DEFAULT_BATCH_SIZE = 1024
 
@@ -39,14 +41,10 @@ class VortexIterable(BaseFileIterable):
             options = {}
         if not HAS_VORTEX:
             raise ImportError(
-                "Vortex support requires 'vortex-data' package. "
-                "Install it with: pip install iterabledata[vortex]"
+                "Vortex support requires 'vortex-data' package. Install it with: pip install iterabledata[vortex]"
             )
         if not HAS_PYARROW:
-            raise ImportError(
-                "Vortex support requires 'pyarrow' package. "
-                "Install it with: pip install pyarrow"
-            )
+            raise ImportError("Vortex support requires 'pyarrow' package. Install it with: pip install pyarrow")
         # Vortex requires a file path, not a stream
         if stream is not None:
             raise ReadError(
@@ -226,16 +224,6 @@ class VortexIterable(BaseFileIterable):
             return row
         except StopIteration:
             raise StopIteration from None
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk Vortex records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single record"""

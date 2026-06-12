@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import typing
-
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import WriteNotSupportedError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import WriteNotSupportedError
+from ..types import Row
 
 try:
     from bs4 import BeautifulSoup
@@ -197,16 +198,6 @@ class HTMLIterable(BaseFileIterable):
         result = dict(zip(self.keys, row_values, strict=False))
         self.pos += 1
         return result
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk HTML table rows"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single HTML record (not supported)"""

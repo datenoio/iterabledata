@@ -54,9 +54,7 @@ class MongoDriver(DBDriver):
         try:
             from pymongo import MongoClient
         except ImportError:
-            raise ImportError(
-                "pymongo is required for MongoDB support. Install it with: pip install pymongo"
-            ) from None
+            raise ImportError("pymongo is required for MongoDB support. Install it with: pip install pymongo") from None
 
         # If source is already a MongoClient object, use it
         if hasattr(self.source, "list_database_names") and hasattr(self.source, "close"):
@@ -191,7 +189,9 @@ class MongoDriver(DBDriver):
                             else:
                                 raise ValueError(f"Invalid sort item: {item}")
                     else:
-                        raise ValueError(f"Invalid sort format: {sort}. Expected dict, list of tuples, or list of dicts")
+                        raise ValueError(
+                            f"Invalid sort format: {sort}. Expected dict, list of tuples, or list of dicts"
+                        )
 
                     find_kwargs["sort"] = sort_list
 
@@ -290,12 +290,11 @@ class MongoDriver(DBDriver):
             ValueError: If database is not specified
         """
         try:
-            from pymongo import MongoClient
             from urllib.parse import urlparse
+
+            from pymongo import MongoClient
         except ImportError:
-            raise ImportError(
-                "pymongo is required for MongoDB support. Install it with: pip install pymongo"
-            ) from None
+            raise ImportError("pymongo is required for MongoDB support. Install it with: pip install pymongo") from None
 
         try:
             # Parse connection string to extract database name if present

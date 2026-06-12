@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import typing
 from collections import defaultdict
+from typing import Any
 
 import lxml.etree as etree
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
+from ..base import BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
-from typing import Any
 
 PREFIX_STRIP = False
 PREFIX = ""
@@ -202,13 +202,3 @@ class XMLIterable(BaseFileIterable):
 
         self.pos += 1
         return row[self.tagname]
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk XML records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk

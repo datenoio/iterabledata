@@ -423,8 +423,8 @@ class TestDuckDBRefactoredEngine:
 
     def test_invalid_filename_raises_read_error(self):
         """Test that invalid filename parameter raises ReadError"""
-        from iterable.exceptions import ReadError
         from iterable.engines import DuckDBIterable
+        from iterable.exceptions import ReadError
 
         # DuckDB engine requires filename to be a string
         with pytest.raises(ReadError) as exc_info:

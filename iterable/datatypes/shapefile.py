@@ -9,8 +9,11 @@ try:
 except ImportError:
     HAS_SHAPEFILE = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import ReadError
+from ..types import Row
 
 
 def shape_to_geojson(shape_record, shape_obj):
@@ -47,7 +50,12 @@ class ShapefileIterable(BaseFileIterable):
     datamode = "binary"
 
     def __init__(
-        self, filename: str = None, stream: typing.IO[Any] | None = None, codec: BaseCodec | None = None, mode="r", options: dict[str, Any] | None = None
+        self,
+        filename: str = None,
+        stream: typing.IO[Any] | None = None,
+        codec: BaseCodec | None = None,
+        mode="r",
+        options: dict[str, Any] | None = None,
     ):
         if options is None:
             options = {}
@@ -75,6 +83,12 @@ class ShapefileIterable(BaseFileIterable):
         self.pos = 0
 
         if self.mode == "r":
+            if self.filename is None:
+                raise ReadError(
+                    "Shapefile requires a file path; stream and codec are not supported.",
+                    filename=None,
+                    error_code="RESOURCE_REQUIREMENT_NOT_MET",
+                )
             try:
                 # Open shapefile
                 self.reader = shapefile.Reader(self.filename)
@@ -119,16 +133,6 @@ class ShapefileIterable(BaseFileIterable):
         feature = next(self.iterator)
         self.pos += 1
         return feature
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk shapefile features"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single shapefile feature"""

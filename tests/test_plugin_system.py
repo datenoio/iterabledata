@@ -2,22 +2,21 @@
 Tests for plugin system functionality.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 
 from iterable.plugins import (
     PluginRegistry,
+    discover_plugins,
     get_plugin_registry,
-    register_format,
     register_codec,
     register_database_driver,
-    register_validation_rule,
     register_engine,
-    discover_plugins,
+    register_format,
+    register_validation_rule,
     reset_discovery,
 )
-from iterable.base import BaseIterable, BaseCodec
-from iterable.db.base import DBDriver
 
 
 class TestPluginRegistry:
@@ -36,9 +35,7 @@ class TestPluginRegistry:
     def test_register_format_with_metadata(self):
         """Test registering a format plugin with metadata."""
         metadata = {"version": "1.0.0", "author": "Test Author"}
-        self.registry.register_format(
-            "testformat", "test.module", "TestFormat", metadata=metadata
-        )
+        self.registry.register_format("testformat", "test.module", "TestFormat", metadata=metadata)
         assert self.registry.get_metadata("format:testformat") == metadata
 
     def test_register_format_duplicate(self):
@@ -50,9 +47,7 @@ class TestPluginRegistry:
     def test_register_format_override(self):
         """Test that override=True allows replacing registration."""
         self.registry.register_format("testformat", "test.module", "TestFormat")
-        self.registry.register_format(
-            "testformat", "other.module", "OtherFormat", override=True
-        )
+        self.registry.register_format("testformat", "other.module", "OtherFormat", override=True)
         assert self.registry.get_format("testformat") == ("other.module", "OtherFormat")
 
     def test_register_codec(self):
@@ -69,6 +64,7 @@ class TestPluginRegistry:
 
     def test_register_validation_rule(self):
         """Test registering a validation rule plugin."""
+
         def validator(value):
             return True, None
 
@@ -85,9 +81,7 @@ class TestPluginRegistry:
     def test_get_metadata(self):
         """Test getting plugin metadata."""
         metadata = {"version": "1.0.0"}
-        self.registry.register_format(
-            "testformat", "test.module", "TestFormat", metadata=metadata
-        )
+        self.registry.register_format("testformat", "test.module", "TestFormat", metadata=metadata)
         assert self.registry.get_metadata("format:testformat") == metadata
         assert self.registry.get_metadata("format:nonexistent") is None
 
@@ -127,6 +121,7 @@ class TestConvenienceFunctions:
 
     def test_register_validation_rule_function(self):
         """Test register_validation_rule convenience function."""
+
         def validator(value):
             return True, None
 

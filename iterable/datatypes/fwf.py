@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import typing
-
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..helpers.utils import rowincount
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..helpers.utils import rowincount
+from ..types import Row
 
 DEFAULT_ENCODING = "utf8"
 
@@ -84,16 +85,6 @@ class FixedWidthIterable(BaseFileIterable):
             record[name] = value
             start = end
         return record
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk fixed-width records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single fixed-width record"""

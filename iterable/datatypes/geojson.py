@@ -18,8 +18,10 @@ try:
 except ImportError:
     HAS_IJSON = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
 from typing import Any
+
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..types import Row
 
 
 class GeoJSONIterable(BaseFileIterable):

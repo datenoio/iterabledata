@@ -2,8 +2,6 @@
 Tests for ops.schema module.
 """
 
-import pytest
-
 from iterable.ops import schema
 
 

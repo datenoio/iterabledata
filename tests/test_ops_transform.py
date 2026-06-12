@@ -2,8 +2,6 @@
 Tests for ops.transform module.
 """
 
-import pytest
-
 from iterable.ops import transform
 
 

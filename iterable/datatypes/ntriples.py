@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import typing
-
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..helpers.utils import rowincount
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..helpers.utils import rowincount
+from ..types import Row
 
 
 class NTriplesIterable(BaseFileIterable):
@@ -172,16 +173,6 @@ class NTriplesIterable(BaseFileIterable):
 
             self.pos += 1
             return result
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk N-Triples records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def _format_uri_or_literal(
         self, value: str, value_type: str = None, datatype: str = None, language: str = None

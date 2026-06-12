@@ -15,8 +15,8 @@ from iterable.exceptions import (
     ReadError,
     ResourceError,
     ResourceLeakError,
-    StreamNotSeekableError,
     StreamingNotSupportedError,
+    StreamNotSeekableError,
     WriteError,
     WriteNotSupportedError,
 )
@@ -326,7 +326,6 @@ class TestExceptionIntegration:
 
     def test_write_not_supported_error_raised(self, tmp_path):
         """Test that WriteNotSupportedError is raised when writing to unsupported formats."""
-        import pytest
         from iterable.exceptions import WriteNotSupportedError
         from iterable.helpers.detect import open_iterable
 
@@ -335,7 +334,7 @@ class TestExceptionIntegration:
         pcap_file.write_bytes(b"dummy pcap data")
 
         # Reading should work
-        with open_iterable(str(pcap_file)) as source:
+        with open_iterable(str(pcap_file)):
             # Should be able to open for reading
             pass
 
@@ -349,7 +348,6 @@ class TestExceptionIntegration:
 
     def test_format_parse_error_raised_with_context(self, tmp_path):
         """Test that FormatParseError is raised with context in malformed files."""
-        import pytest
         from iterable.exceptions import FormatParseError
         from iterable.helpers.detect import open_iterable
 
@@ -374,10 +372,10 @@ class TestExceptionIntegration:
 
     def test_read_error_raised_for_resource_requirements(self, tmp_path):
         """Test that ReadError is raised when resource requirements aren't met."""
-        import pytest
+        import io
+
         from iterable.exceptions import ReadError
         from iterable.helpers.detect import open_iterable
-        import io
 
         # Try to open Vortex format with stream instead of filename
         stream = io.BytesIO(b"dummy data")
@@ -389,7 +387,6 @@ class TestExceptionIntegration:
 
     def test_format_not_supported_error_raised(self, tmp_path):
         """Test that FormatNotSupportedError is raised for unsupported formats."""
-        import pytest
         from iterable.exceptions import FormatNotSupportedError
         from iterable.helpers.detect import open_iterable
 
@@ -401,7 +398,7 @@ class TestExceptionIntegration:
         # If format detection fails and format is not supported, should raise FormatNotSupportedError
         # Note: This test may need to be adjusted based on actual behavior
         try:
-            with open_iterable(str(unknown_file)) as source:
+            with open_iterable(str(unknown_file)):
                 pass
         except FormatNotSupportedError as e:
             assert e.error_code == "FORMAT_NOT_SUPPORTED"
@@ -409,12 +406,13 @@ class TestExceptionIntegration:
 
     def test_exception_hierarchy_catching(self, tmp_path):
         """Test that exception hierarchy allows catching base exceptions."""
-        import pytest
-        from iterable.exceptions import IterableDataError, FormatError, ReadError
+        from iterable.exceptions import FormatError, IterableDataError
 
         # Create a file that will cause a format error
         jsonl_file = tmp_path / "test.jsonl"
         jsonl_file.write_text('{"invalid": json}\n')
+
+        from iterable.helpers.detect import open_iterable
 
         # Should be able to catch FormatParseError as FormatError
         with pytest.raises(FormatError):

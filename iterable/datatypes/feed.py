@@ -9,9 +9,11 @@ try:
 except ImportError:
     HAS_FEEDPARSER = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import WriteNotSupportedError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import WriteNotSupportedError
+from ..types import Row
 
 
 class FeedIterable(BaseFileIterable):
@@ -81,9 +83,7 @@ class FeedIterable(BaseFileIterable):
         return False
 
     @staticmethod
-
-
-        def has_totals() -> bool:
+    def has_totals() -> bool:
         return True
 
     def totals(self):
@@ -95,15 +95,6 @@ class FeedIterable(BaseFileIterable):
         entry = next(self.iterator)
         self.pos += 1
         return entry
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write not supported for feeds"""

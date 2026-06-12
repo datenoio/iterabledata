@@ -2,8 +2,6 @@
 Tests for ops.stats module.
 """
 
-import pytest
-
 from iterable.ops import stats
 
 

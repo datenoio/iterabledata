@@ -5,10 +5,11 @@ import json
 import logging
 import os
 import typing
-
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..helpers.utils import rowincount
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..helpers.utils import rowincount
+from ..types import Row
 
 DEFAULT_ENCODING = "utf8"
 DEFAULT_DELIMITER = ","
@@ -227,16 +228,6 @@ class CSVWIterable(BaseFileIterable):
 
         self.pos += 1
         return row
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk CSVW records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single CSVW record"""

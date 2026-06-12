@@ -12,7 +12,8 @@ import json
 from typing import Any
 
 from ..helpers.detect import open_iterable
-from ..helpers.schema import get_schema, merge_schemes, schema_from_list_of_dicts
+from ..helpers.schema import schema_from_list_of_dicts
+from ..helpers.utils import hashable_repr
 from ..types import Row
 
 
@@ -96,10 +97,16 @@ def infer(
                             field_constraints["max_length"] = max(lengths)
 
                     # Enum-like detection (if limited distinct values)
-                    distinct_values = set(non_null_values)
+                    distinct_reprs: set[str] = set()
+                    distinct_values: list[Any] = []
+                    for v in non_null_values:
+                        r = hashable_repr(v)
+                        if r not in distinct_reprs:
+                            distinct_reprs.add(r)
+                            distinct_values.append(v)
                     if len(distinct_values) <= 10 and len(non_null_values) > 5:
                         # Might be an enum
-                        field_constraints["possible_values"] = list(distinct_values)
+                        field_constraints["possible_values"] = distinct_values
 
                 # Nullability
                 null_count = sum(1 for v in values if v is None)

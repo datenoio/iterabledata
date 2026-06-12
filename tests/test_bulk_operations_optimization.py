@@ -4,25 +4,18 @@ This test suite verifies that bulk operation optimizations work correctly
 and maintain backward compatibility while providing performance improvements.
 """
 
-import os
-import tempfile
-
 import pytest
 
-from iterable.base import DEFAULT_BULK_NUMBER
 
-
-@pytest.mark.skipif(
-    not hasattr(pytest, "importorskip") or True, reason="Requires optional dependencies"
-)
+@pytest.mark.skipif(not hasattr(pytest, "importorskip") or True, reason="Requires optional dependencies")
 class TestParquetBulkOptimization:
     """Test optimized Parquet bulk operations."""
 
     def test_parquet_batch_caching(self, tmp_path):
         """Test that Parquet read_bulk() uses batch caching correctly."""
         try:
-            import pyarrow.parquet as pq
             import pyarrow as pa
+            import pyarrow.parquet as pq
         except ImportError:
             pytest.skip("PyArrow not available")
 
@@ -59,8 +52,8 @@ class TestParquetBulkOptimization:
     def test_parquet_bulk_reads_all_rows(self, tmp_path):
         """Test that Parquet read_bulk() reads all rows correctly."""
         try:
-            import pyarrow.parquet as pq
             import pyarrow as pa
+            import pyarrow.parquet as pq
         except ImportError:
             pytest.skip("PyArrow not available")
 
@@ -86,17 +79,15 @@ class TestParquetBulkOptimization:
         iterable.close()
 
 
-@pytest.mark.skipif(
-    not hasattr(pytest, "importorskip") or True, reason="Requires optional dependencies"
-)
+@pytest.mark.skipif(not hasattr(pytest, "importorskip") or True, reason="Requires optional dependencies")
 class TestArrowBulkOptimization:
     """Test optimized Arrow bulk operations."""
 
     def test_arrow_batch_caching(self, tmp_path):
         """Test that Arrow read_bulk() uses batch caching correctly."""
         try:
-            import pyarrow.feather as feather
             import pyarrow as pa
+            import pyarrow.feather as feather
         except ImportError:
             pytest.skip("PyArrow not available")
 
@@ -124,8 +115,8 @@ class TestArrowBulkOptimization:
     def test_arrow_bulk_reads_all_rows(self, tmp_path):
         """Test that Arrow read_bulk() reads all rows correctly."""
         try:
-            import pyarrow.feather as feather
             import pyarrow as pa
+            import pyarrow.feather as feather
         except ImportError:
             pytest.skip("PyArrow not available")
 
@@ -147,16 +138,14 @@ class TestArrowBulkOptimization:
         iterable.close()
 
 
-@pytest.mark.skipif(
-    not hasattr(pytest, "importorskip") or True, reason="Requires optional dependencies"
-)
+@pytest.mark.skipif(not hasattr(pytest, "importorskip") or True, reason="Requires optional dependencies")
 class TestARFFBulkOptimization:
     """Test optimized ARFF bulk operations."""
 
     def test_arff_slicing_optimization(self, tmp_path):
         """Test that ARFF read_bulk() uses slicing correctly."""
         try:
-            import arff
+            import arff  # noqa: F401
         except ImportError:
             pytest.skip("ARFF library not available")
 
@@ -198,7 +187,7 @@ class TestARFFBulkOptimization:
     def test_arff_bulk_position_tracking(self, tmp_path):
         """Test that ARFF read_bulk() correctly tracks position."""
         try:
-            import arff
+            import arff  # noqa: F401
         except ImportError:
             pytest.skip("ARFF library not available")
 
@@ -220,28 +209,26 @@ class TestARFFBulkOptimization:
         iterable = ARFFIterable(str(test_file))
         assert iterable.pos == 0
 
-        chunk = iterable.read_bulk(3)
+        _ = iterable.read_bulk(3)
         assert iterable.pos == 3
 
-        chunk2 = iterable.read_bulk(2)
+        _ = iterable.read_bulk(2)
         assert iterable.pos == 5
 
         iterable.close()
 
 
-@pytest.mark.skipif(
-    not hasattr(pytest, "importorskip") or True, reason="Requires optional dependencies"
-)
+@pytest.mark.skipif(not hasattr(pytest, "importorskip") or True, reason="Requires optional dependencies")
 class TestTOMLBulkOptimization:
     """Test optimized TOML bulk operations."""
 
     def test_toml_slicing_optimization(self, tmp_path):
         """Test that TOML read_bulk() uses slicing correctly."""
         try:
-            import tomli
+            import tomli  # noqa: F401
         except ImportError:
             try:
-                import toml
+                import toml  # noqa: F401
             except ImportError:
                 pytest.skip("TOML library not available")
 
@@ -274,10 +261,10 @@ key3 = "value3"
     def test_toml_bulk_position_tracking(self, tmp_path):
         """Test that TOML read_bulk() correctly tracks position."""
         try:
-            import tomli
+            import tomli  # noqa: F401
         except ImportError:
             try:
-                import toml
+                import toml  # noqa: F401
             except ImportError:
                 pytest.skip("TOML library not available")
 
@@ -296,10 +283,10 @@ key2 = "value2"
         iterable = TOMLIterable(str(test_file))
         assert iterable.pos == 0
 
-        chunk = iterable.read_bulk(1)
+        iterable.read_bulk(1)
         assert iterable.pos == 1
 
-        chunk2 = iterable.read_bulk(1)
+        iterable.read_bulk(1)
         assert iterable.pos == 2
 
         iterable.close()

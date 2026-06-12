@@ -133,7 +133,7 @@ class ElasticsearchDriver(DBDriver):
                     search_params["request_timeout"] = request_timeout
                 if timeout is not None:
                     search_params["timeout"] = timeout
-                
+
                 response = self.conn.search(**search_params)
                 self._scroll_id = response.get("_scroll_id")
 
@@ -151,7 +151,7 @@ class ElasticsearchDriver(DBDriver):
                     }
                     if request_timeout is not None:
                         scroll_params["request_timeout"] = request_timeout
-                    
+
                     response = self.conn.scroll(**scroll_params)
                     hits = response.get("hits", {}).get("hits", [])
                     if not hits:
@@ -177,7 +177,7 @@ class ElasticsearchDriver(DBDriver):
                     search_params["request_timeout"] = request_timeout
                 if timeout is not None:
                     search_params["timeout"] = timeout
-                
+
                 response = self.conn.search(**search_params)
 
                 # Yield results

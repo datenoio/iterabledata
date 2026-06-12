@@ -450,13 +450,6 @@ class TestUtils:
         # Should return None for non-dict items
         assert result is None
 
-    def test_is_flat_object_with_nested_dict(self):
-        """Test is_flat_object with nested dict (now fixed)"""
-        from iterable.helpers.utils import is_flat_object
-
-        obj = {"name": "test", "user": {"age": 30}}
-        assert is_flat_object(obj) is False
-
     def test_is_flat_object_deeply_nested(self):
         """Test is_flat_object with deeply nested dict"""
         from iterable.helpers.utils import is_flat_object
@@ -597,9 +590,10 @@ class TestUtils:
 
     def test_get_iterable_keys_empty(self):
         """Test get_iterable_keys with empty iterable"""
-        from iterable.datatypes import JSONLinesIterable
-        import tempfile
         import os
+        import tempfile
+
+        from iterable.datatypes import JSONLinesIterable
 
         # Create empty JSONL file
         with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:

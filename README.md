@@ -85,6 +85,7 @@ This library simplifies data processing and conversion between formats while pre
 ### Scientific Formats
 
 - **NetCDF** - Network Common Data Form for scientific data
+- **CDF** - NASA Common Data Format (space science)
 - **HDF5** - Hierarchical Data Format
 
 ### Geospatial Formats
@@ -93,6 +94,8 @@ This library simplifies data processing and conversion between formats while pre
 - **GeoPackage** - OGC GeoPackage format
 - **GML** - Geography Markup Language
 - **KML** - Keyhole Markup Language
+- **KMZ** - KML Zipped (ZIP archive containing KML)
+- **GPX** - GPS Exchange Format (waypoints, routes, tracks)
 - **Shapefile** - ESRI Shapefile format
 - **MVT/PBF** - Mapbox Vector Tiles
 - **TopoJSON** - Topology-preserving GeoJSON extension
@@ -104,6 +107,9 @@ This library simplifies data processing and conversion between formats while pre
 - **Turtle** - Terse RDF Triple Language
 - **N-Triples** - Line-based RDF format
 - **N-Quads** - N-Triples with context
+- **TriG** - RDF Triple Graph format
+- **N3** - Notation3 RDF format
+- **TriX** - XML Triple RDF format
 
 ### Feed Formats
 
@@ -142,11 +148,25 @@ This library simplifies data processing and conversion between formats while pre
 ### Office Formats
 
 - **XLS/XLSX** - Microsoft Excel files
+- **XLSB** - Excel Binary format
 - **ODS** - OpenDocument Spreadsheet
 
 ### CAD Formats
 
 - **DXF** - AutoCAD Drawing Exchange Format
+
+### Graph Formats
+
+- **GraphML** - Graph Markup Language
+- **GEXF** - Graph Exchange XML Format
+- **DOT** - GraphViz DOT format
+
+### Sequence & Alignment Formats
+
+- **FASTA** - Sequence format (protein/nucleotide)
+- **FASTQ** - Sequence with quality format
+- **SAM** - Sequence Alignment/Map (text)
+- **BAM** - Binary SAM format
 
 ### Streaming & Big Data Formats
 
@@ -203,7 +223,7 @@ Or install from source:
 
 ```bash
 git clone https://github.com/datenoio/iterabledata.git
-cd pyiterable
+cd iterabledata
 pip install .
 ```
 
@@ -218,13 +238,25 @@ pip install iterabledata[ai]
 # Database ingestion (PostgreSQL, ClickHouse, MongoDB, MySQL, Elasticsearch, etc.)
 pip install iterabledata[db]
 
+# RDF formats (TriG, N3, TriX)
+pip install iterabledata[rdf]
+
+# Excel Binary (XLSB)
+pip install iterabledata[xlsb]
+
+# Graph formats (GraphML, GEXF, DOT)
+pip install iterabledata[graph]
+
+# Alignment formats (BAM, SAM)
+pip install iterabledata[alignment]
+
 # All optional dependencies
 pip install iterabledata[all]
 ```
 
 **AI Features** (`[ai]`): Enables AI-powered documentation generation using OpenAI, OpenRouter, Ollama, LMStudio, or Perplexity.
 
-**Database Engines** (`[db]`): Enables read-only database access as iterable data sources. Supports PostgreSQL, ClickHouse (available), MySQL/MariaDB, Microsoft SQL Server, SQLite, MongoDB, and Elasticsearch/OpenSearch (planned). Includes convenience groups:
+**Database Engines** (`[db]`): Enables read-only database access as iterable data sources. Supports PostgreSQL, ClickHouse, MySQL/MariaDB, Microsoft SQL Server, SQLite, MongoDB, and Elasticsearch/OpenSearch. Includes convenience groups:
 
 - `[db-sql]`: SQL databases only (PostgreSQL, ClickHouse, MySQL, MSSQL)
 - `[db-nosql]`: NoSQL databases only (MongoDB, Elasticsearch)

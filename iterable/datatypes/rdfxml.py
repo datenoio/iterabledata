@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import typing
 from collections import defaultdict
+from typing import Any
 
 import lxml.etree as etree
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from typing import Any
+from ..base import BaseCodec, BaseFileIterable
+from ..types import Row
 
 
 def etree_to_dict(t, prefix_strip=True):
@@ -201,16 +202,6 @@ class RDFXMLIterable(BaseFileIterable):
 
         self.pos += 1
         return row
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk RDF/XML records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single RDF/XML record"""

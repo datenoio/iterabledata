@@ -2,10 +2,8 @@
 Tests for validate module.
 """
 
-import pytest
-
 from iterable import validate
-from iterable.validate import register, ValidationError
+from iterable.validate import register
 
 
 class TestValidate:
@@ -122,6 +120,7 @@ class TestValidate:
 
     def test_register_custom_validator(self):
         """Test registering custom validator."""
+
         def validate_positive(value):
             return isinstance(value, (int, float)) and value > 0
 

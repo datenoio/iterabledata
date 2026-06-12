@@ -16,8 +16,10 @@ except ImportError:
         HAS_CBOR = False
         HAS_CBOR2 = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..types import Row
 
 
 class CBORIterable(BaseFileIterable):
@@ -34,7 +36,7 @@ class CBORIterable(BaseFileIterable):
         if options is None:
             options = {}
         if not HAS_CBOR2 and not HAS_CBOR:
-            raise ImportError("CBOR support requires 'cbor2' or 'cbor' package")
+            raise ImportError("CBOR support requires the 'cbor2' package. Install with: pip install iterabledata[cbor]")
         super().__init__(filename, stream, codec=codec, binary=True, mode=mode, options=options)
         self.reset()
         pass
@@ -99,16 +101,6 @@ class CBORIterable(BaseFileIterable):
             return row
         except (StopIteration, EOFError, ValueError):
             raise StopIteration from None
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk CBOR records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single CBOR record"""

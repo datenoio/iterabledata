@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import typing
-
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..helpers.utils import rowincount
-from ..exceptions import FormatParseError, WriteError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import FormatParseError, WriteError
+from ..helpers.utils import rowincount
+from ..types import Row
 
 
 class LIBSVMIterable(BaseFileIterable):
@@ -189,16 +190,6 @@ class LIBSVMIterable(BaseFileIterable):
             raise StopIteration
         self.pos += 1
         return parsed
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk LIBSVM records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single LIBSVM record"""

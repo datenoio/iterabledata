@@ -65,39 +65,36 @@ def get_schema(obj: dict, novalue=True):
     """Generates schema from object"""
     result = {}
     for k in obj.keys():
-        tt = type(obj[k])
         if obj[k] is None:
-            result[k] = {"type": "string", "value": 1}
-        elif tt == str or tt == str or isinstance(obj[k], str):
             result[k] = {"type": "string", "value": 1}
         elif isinstance(obj[k], str):
             result[k] = {"type": "string", "value": 1}
-        elif tt == datetime.datetime:
+        elif isinstance(obj[k], datetime.datetime):
             result[k] = {"type": "datetime", "value": 1}
-        elif tt == bool:
+        elif isinstance(obj[k], bool):
             result[k] = {"type": "boolean", "value": 1}
-        elif tt == float:
+        elif isinstance(obj[k], float):
             result[k] = {"type": "float", "value": 1}
-        elif tt == int:
+        elif isinstance(obj[k], int):
             result[k] = {"type": "integer", "value": 1}
-        elif tt == bson.int64.Int64:
+        elif isinstance(obj[k], bson.int64.Int64):
             result[k] = {"type": "integer", "value": 1}
-        elif tt == bson.objectid.ObjectId:
+        elif isinstance(obj[k], bson.objectid.ObjectId):
             result[k] = {"type": "string", "value": 1}
-        elif tt == type({}):
+        elif isinstance(obj[k], dict):
             result[k] = {"type": "dict", "value": 1, "schema": get_schema(obj[k])}
-        elif tt == type([]):
+        elif isinstance(obj[k], list):
             result[k] = {"type": "array", "value": 1}
             if len(obj[k]) == 0:
                 result[k]["subtype"] = "string"
             else:
                 found = False
                 for otype, oname in OTYPES_MAP:
-                    if type(obj[k][0]) == otype:
+                    if isinstance(obj[k][0], otype):
                         result[k]["subtype"] = oname
                         found = True
                 if not found:
-                    if type(obj[k][0]) == type({}):
+                    if isinstance(obj[k][0], dict):
                         result[k]["subtype"] = "dict"
                         result[k]["schema"] = merge_schemes(get_schemes(obj[k]))
                     else:
@@ -117,15 +114,15 @@ def extract_keys_from_dict(obj: dict, parent: str = None, text: str = None, leve
     if not parent:
         text = "'schema': {\n"
     for k in obj.keys():
-        if type(obj[k]) == type({}):
+        if isinstance(obj[k], dict):
             text += "\t" * level + f"'{k}' : {{'type' : 'dict', 'schema' : {{\n"
             text += extract_keys_from_dict(obj[k], k, text, level + 1)
             text += "\t" * level + "}},\n"
-        elif type(obj[k]) == type([]):
+        elif isinstance(obj[k], list):
             text += "\t" * level + f"'{k}' : {{'type' : 'list', 'schema' : {{ 'type' : 'dict', 'schema' : {{\n"
             if len(obj[k]) > 0:
                 item = obj[k][0]
-                if type(item) == type({}):
+                if isinstance(item, dict):
                     text += extract_keys_from_dict(item, k, text, level + 1)
                 else:
                     text += "\t" * level + f"'{k}' : {{'type' : 'string'}},\n"

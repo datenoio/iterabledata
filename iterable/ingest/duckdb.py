@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import collections.abc
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 try:
     import duckdb
@@ -15,6 +16,7 @@ except ImportError:
 
 from ..types import Row
 from .core import IngestionResult
+from .identifiers import quote_columns, quote_table_name
 
 
 def ingest(
@@ -56,13 +58,15 @@ def ingest(
         conn = duckdb.connect(db_url)
 
         # Get first row to determine schema
-        first_row = next(iter(iterable), None)
+        iterator = iter(iterable)
+        first_row = next(iterator, None)
         if first_row is None:
             return IngestionResult(elapsed_seconds=time.time() - start_time)
 
         # Create table if needed
         if create_table:
             columns = list(first_row.keys())
+
             # Infer types from first row
             def _duckdb_type_from_value(v):
                 if isinstance(v, bool):
@@ -73,8 +77,14 @@ def ingest(
                     return "DOUBLE"
                 return "VARCHAR"
 
-            columns_def = ", ".join([f"{col} {_duckdb_type_from_value(first_row.get(col))}" for col in columns])
-            create_query = f"CREATE TABLE IF NOT EXISTS {table} ({columns_def})"
+            quoted_cols = quote_columns(columns)
+            columns_def = ", ".join(
+                [
+                    f"{qcol} {_duckdb_type_from_value(first_row.get(col))}"
+                    for col, qcol in zip(columns, quoted_cols, strict=True)
+                ]
+            )
+            create_query = f"CREATE TABLE IF NOT EXISTS {quote_table_name(table)} ({columns_def})"
             conn.execute(create_query)
 
         # Prepare batch
@@ -82,7 +92,7 @@ def ingest(
         rows_processed = 1
 
         # Process remaining rows
-        for row in iterable:
+        for row in iterator:
             batch_rows.append(row)
             rows_processed += 1
 
@@ -125,16 +135,17 @@ def _insert_batch(
         return
 
     columns = list(rows[0].keys())
-    columns_str = ", ".join(columns)
+    quoted_table = quote_table_name(table)
+    columns_str = ", ".join(quote_columns(columns))
     placeholders = ", ".join(["?" for _ in columns])
 
     if mode == "upsert" and upsert_key:
         # DuckDB UPSERT (INSERT OR REPLACE)
         if isinstance(upsert_key, str):
             upsert_key = [upsert_key]
-        query = f"INSERT OR REPLACE INTO {table} ({columns_str}) VALUES ({placeholders})"
+        query = f"INSERT OR REPLACE INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"
     else:
-        query = f"INSERT INTO {table} ({columns_str}) VALUES ({placeholders})"
+        query = f"INSERT INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"
 
     values = [[row.get(col) for col in columns] for row in rows]
     conn.executemany(query, values)

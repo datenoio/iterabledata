@@ -13,8 +13,12 @@ The `iterable.ai` module provides functions for generating AI-powered documentat
 AI documentation generation helps you:
 - **Automatically document datasets** using AI analysis
 - **Support multiple LLM providers** (OpenAI, OpenRouter, Ollama, LMStudio, Perplexity)
-- **Generate multiple formats** (Markdown, JSON, HTML)
+- **Generate multiple formats** (Markdown, JSON, HTML, YAML, Text)
+- **Extract structured metadata** (keywords, geographic/temporal coverage, languages, data themes)
+- **Generate field-level descriptions** using AI
+- **Detect semantic types and PII** using Metacrafter integration
 - **Integrate with schema inference** for accurate field descriptions
+- **Include statistics** from DuckDB-based analysis
 - **Include sample data** for better context
 
 ## Functions
@@ -40,7 +44,7 @@ print(documentation)
 - `iterable`: An iterable of row dictionaries, or a file path/stream
 - `provider`: LLM provider - "openai", "openrouter", "ollama", "lmstudio", "perplexity" (default: "openai")
 - `model`: Model name (provider-specific, uses default if None)
-- `format`: Output format - "markdown", "json", "html" (default: "markdown")
+- `format`: Output format - "markdown", "json", "html", "yaml", "text" (default: "markdown")
 - `api_key`: API key for the provider (uses environment variable if None)
 - `base_url`: Base URL for local providers (Ollama, LMStudio)
 - `include_schema`: Whether to include schema information (default: True)
@@ -48,11 +52,18 @@ print(documentation)
 - `sample_size`: Number of sample rows to include (default: 5)
 - `temperature`: Sampling temperature (default: 0.7)
 - `max_tokens`: Maximum tokens to generate
+- `include_field_descriptions`: Whether to generate field-level descriptions (default: False)
+- `include_statistics`: Whether to include statistics (default: True)
+- `include_metadata`: Whether to extract structured metadata (default: True)
+- `semantic_types`: Whether to detect semantic types using Metacrafter (default: False)
+- `pii_detect`: Whether to detect PII fields using Metacrafter (default: False)
+- `pii_mask_samples`: Whether to mask PII in sample data (default: False)
+- `language`: Language for AI-generated content (default: "English")
 - `**kwargs`: Additional provider-specific options
 
 **Returns:**
-- String for markdown/html formats
-- Dictionary for JSON format (includes documentation, schema, samples, usage)
+- String for markdown/html/yaml/text formats
+- Dictionary for JSON format (includes documentation, schema, samples, metadata, statistics, semantic_types, pii_fields, field_descriptions, usage)
 
 ## Examples
 
@@ -156,6 +167,37 @@ docs = doc.generate(
     provider="openai",
     temperature=0.3  # More deterministic
 )
+
+# Generate with field-level descriptions
+docs = doc.generate(
+    "data.csv",
+    provider="openai",
+    include_field_descriptions=True
+)
+
+# Generate with metadata extraction
+docs = doc.generate(
+    "data.csv",
+    provider="openai",
+    include_metadata=True,
+    format="json"
+)
+
+# Generate with semantic types and PII detection
+docs = doc.generate(
+    "data.csv",
+    provider="openai",
+    semantic_types=True,
+    pii_detect=True,
+    pii_mask_samples=True
+)
+
+# Generate in different language
+docs = doc.generate(
+    "data.csv",
+    provider="openai",
+    language="Spanish"
+)
 ```
 
 ### Combining with Schema Inference
@@ -225,10 +267,10 @@ docs = doc.generate("data.csv", provider="openai")
 ### Perplexity
 
 - **Provider name**: `"perplexity"`
-- **Default model**: `"llama-3.1-sonar-small-128k-online"`
+- **Default model**: `"sonar-pro"` (best for web-grounded conversations)
 - **Requirements**: `pip install openai`
 - **API Key**: Set `PERPLEXITY_API_KEY` environment variable or pass `api_key` parameter
-- **Models**: Perplexity-specific models
+- **Models**: `sonar-pro`, `sonar`, `sonar-reasoning`, `sonar-reasoning-pro`, `sonar-deep-research`
 
 ## Output Formats
 
@@ -294,6 +336,43 @@ Returns a complete HTML document with embedded styles:
     <!-- Generated documentation -->
 </body>
 </html>
+```
+
+### YAML
+
+Returns documentation in YAML format:
+
+```python
+from iterable.ai import doc
+
+# Generate YAML documentation
+yaml_docs = doc.generate(
+    "data.csv",
+    provider="openai",
+    format="yaml"
+)
+
+# Save to file
+with open("docs.yaml", "w") as f:
+    f.write(yaml_docs)
+```
+
+### Text
+
+Returns plain text documentation (markdown formatting removed):
+
+```python
+from iterable.ai import doc
+
+# Generate text documentation
+text_docs = doc.generate(
+    "data.csv",
+    provider="openai",
+    format="text"
+)
+
+# Print to console
+print(text_docs)
 ```
 
 ## Error Handling
@@ -371,6 +450,117 @@ docs = doc.generate(
 )
 ```
 
+## Structured Metadata Extraction
+
+The documentation generator can extract structured metadata from datasets:
+
+```python
+from iterable.ai import doc
+
+# Generate with metadata extraction (enabled by default)
+result = doc.generate(
+    "data.csv",
+    provider="openai",
+    include_metadata=True,
+    format="json"
+)
+
+# Access extracted metadata
+metadata = result.get("metadata", {})
+keywords = metadata.get("keywords", [])
+geographic_coverage = metadata.get("geographic_coverage", {})
+temporal_coverage = metadata.get("temporal_coverage")
+languages = metadata.get("languages", [])
+data_theme = metadata.get("data_theme")
+```
+
+### Metadata Fields
+
+- **keywords**: List of keywords extracted from field names and data
+- **geographic_coverage**: Dictionary with countries, regions, and coordinates_present flag
+- **temporal_coverage**: Dictionary with start, end, and granularity (date/datetime)
+- **languages**: List of detected languages with confidence scores
+- **data_theme**: Dictionary with label and URI (EU data themes)
+
+## Field-Level Documentation
+
+Generate individual field descriptions using AI:
+
+```python
+from iterable.ai import doc
+
+# Generate with field descriptions
+result = doc.generate(
+    "data.csv",
+    provider="openai",
+    include_field_descriptions=True,
+    format="json"
+)
+
+# Access field descriptions
+field_descriptions = result.get("field_descriptions", {})
+for field, description in field_descriptions.items():
+    print(f"{field}: {description}")
+```
+
+## Semantic Types and PII Detection
+
+Detect semantic types and personally identifiable information (PII) using Metacrafter:
+
+```python
+from iterable.ai import doc
+
+# Generate with semantic type detection
+result = doc.generate(
+    "data.csv",
+    provider="openai",
+    semantic_types=True,  # Requires Metacrafter CLI tool
+    format="json"
+)
+
+# Access semantic types
+semantic_types = result.get("semantic_types", {})
+for field, types in semantic_types.items():
+    print(f"{field}: {[t.get('type') for t in types]}")
+
+# Detect and mask PII
+result = doc.generate(
+    "data.csv",
+    provider="openai",
+    pii_detect=True,  # Requires Metacrafter CLI tool
+    pii_mask_samples=True,  # Mask PII in sample data
+    format="json"
+)
+
+# Access PII fields
+pii_fields = result.get("pii_fields", [])
+for pii_field in pii_fields:
+    print(f"PII Field: {pii_field['field']}, Type: {pii_field['type']}")
+```
+
+**Note**: Semantic types and PII detection require the Metacrafter CLI tool to be installed and available in PATH. If Metacrafter is not available, these features will be skipped gracefully.
+
+## Statistics Integration
+
+Include comprehensive statistics in documentation:
+
+```python
+from iterable.ai import doc
+
+# Generate with statistics (enabled by default)
+result = doc.generate(
+    "data.csv",
+    provider="openai",
+    include_statistics=True,
+    format="json"
+)
+
+# Access statistics
+statistics = result.get("statistics", {})
+for field, stats in statistics.items():
+    print(f"{field}: unique={stats.get('unique_count')}, total={stats.get('count')}")
+```
+
 ## Installation
 
 AI documentation requires optional dependencies:
@@ -382,6 +572,15 @@ pip install openai
 # Ollama (local)
 pip install requests
 
+# Optional: Language detection
+pip install langdetect
+
+# Optional: YAML support
+pip install pyyaml
+
+# Optional: Metacrafter for semantic types/PII (external CLI tool)
+# Download from: https://github.com/metacrafter/metacrafter
+
 # All AI dependencies
 pip install iterabledata[ai]
 ```
@@ -390,7 +589,24 @@ pip install iterabledata[ai]
 
 1. **Use schema inference** for accurate field descriptions
 2. **Include samples** for better context (but limit size for cost)
-3. **Choose appropriate models** based on quality vs. cost needs
-4. **Use local providers** for sensitive data or cost-free generation
-5. **Cache results** for repeated documentation generation
-6. **Review generated docs** - AI may make mistakes, always verify
+3. **Enable metadata extraction** for comprehensive documentation (enabled by default)
+4. **Use field descriptions** for detailed field-level documentation (when needed)
+5. **Enable statistics** for data quality insights (enabled by default)
+6. **Use semantic types** when Metacrafter is available for richer annotations
+7. **Detect and mask PII** for privacy-aware documentation
+8. **Choose appropriate models** based on quality vs. cost needs
+9. **Use local providers** for sensitive data or cost-free generation
+10. **Cache results** for repeated documentation generation
+11. **Review generated docs** - AI may make mistakes, always verify
+
+## Error Handling and Graceful Degradation
+
+The documentation generator handles errors gracefully:
+
+- **Missing dependencies**: Features requiring optional dependencies are skipped with warnings
+- **Metacrafter unavailable**: Semantic types and PII detection are skipped if Metacrafter is not installed
+- **Statistics failures**: Statistics computation failures don't prevent documentation generation
+- **Metadata extraction failures**: Metadata extraction failures are logged but don't stop generation
+- **API failures**: Retry logic with exponential backoff handles transient API failures
+
+All features degrade gracefully - core documentation generation continues even if optional features fail.

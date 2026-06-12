@@ -6,16 +6,16 @@ codecs, database drivers, validation rules, and engines without modifying
 the core library.
 """
 
+from .loader import discover_plugins, reset_discovery
 from .registry import (
     PluginRegistry,
     get_plugin_registry,
-    register_format,
     register_codec,
     register_database_driver,
-    register_validation_rule,
     register_engine,
+    register_format,
+    register_validation_rule,
 )
-from .loader import discover_plugins, reset_discovery
 
 __all__ = [
     "PluginRegistry",

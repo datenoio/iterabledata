@@ -9,9 +9,11 @@ try:
 except ImportError:
     HAS_H5PY = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import WriteNotSupportedError, ReadError, WriteError, FormatNotSupportedError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import FormatNotSupportedError, ReadError, WriteError, WriteNotSupportedError
+from ..types import Row
 
 
 class HDF5Iterable(BaseFileIterable):
@@ -171,16 +173,6 @@ class HDF5Iterable(BaseFileIterable):
         row = next(self.iterator)
         self.pos += 1
         return row
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk HDF5 records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single HDF5 record"""

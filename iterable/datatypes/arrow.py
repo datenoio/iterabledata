@@ -10,8 +10,10 @@ try:
 except ImportError:
     HAS_PYARROW = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
 from typing import Any
+
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..types import Row
 
 DEFAULT_BATCH_SIZE = 1024
 
@@ -47,8 +49,9 @@ class ArrowIterable(BaseFileIterable):
         if self.mode == "r":
             self.table = pyarrow.feather.read_table(self.fobj)
             self.iterator = self.__iterator()
-            # Initialize batch iterator for optimized bulk reads
-            self._batch_iterator = self.table.to_batches(max_chunksize=self.batch_size)
+            # Initialize batch iterator for optimized bulk reads (ensure iterator, not list)
+            batches = self.table.to_batches(max_chunksize=self.batch_size)
+            self._batch_iterator = iter(batches) if not hasattr(batches, "__next__") else batches
             self._cached_batch = []  # Cache for remaining rows from a batch
         self.writer = None
         if self.mode == "w":
@@ -143,6 +146,11 @@ class ArrowIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single record"""
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:
+                return
+            record = validated
         self.write_bulk(
             [
                 record,
@@ -151,4 +159,13 @@ class ArrowIterable(BaseFileIterable):
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk records"""
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:
+                    validated_records.append(validated)
+            records = validated_records
+        if not records:
+            return
         self.__buffer.extend(records)

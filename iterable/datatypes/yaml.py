@@ -9,8 +9,10 @@ try:
 except ImportError:
     HAS_YAML = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..types import Row
 
 
 class YAMLIterable(BaseFileIterable):
@@ -70,23 +72,25 @@ class YAMLIterable(BaseFileIterable):
         self.pos += 1
         return row
 
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk YAML records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
-
     def write(self, record: Row) -> None:
         """Write single YAML record"""
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:
+                return
+            record = validated
         yaml.dump(record, self.fobj, default_flow_style=False, allow_unicode=True)
         self.fobj.write("---\n")
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk YAML records"""
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:
+                    validated_records.append(validated)
+            records = validated_records
         for record in records:
             yaml.dump(record, self.fobj, default_flow_style=False, allow_unicode=True)
             self.fobj.write("---\n")

@@ -13,13 +13,17 @@ except ImportError:
 
 class SnappyCodec(BaseCodec):
     def __init__(
-        self, filename: str, compression_level: int = None, mode: str = "r", open_it: bool = False, options: dict = None
+        self,
+        filename: str,
+        compression_level: int | None = None,
+        mode: str = "r",
+        open_it: bool = False,
+        options: dict | None = None,
     ):
         """
         Snappy compression codec.
         Note: Snappy doesn't support compression levels (fixed algorithm).
         """
-        # Snappy doesn't support compression levels, ignore the parameter
         if options is None:
             options = {}
         super().__init__(filename, mode=mode, open_it=open_it, options=options)

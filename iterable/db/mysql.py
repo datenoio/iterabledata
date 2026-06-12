@@ -48,9 +48,7 @@ class MySQLDriver(DBDriver):
         try:
             import pymysql
         except ImportError:
-            raise ImportError(
-                "pymysql is required for MySQL support. Install it with: pip install pymysql"
-            ) from None
+            raise ImportError("pymysql is required for MySQL support. Install it with: pip install pymysql") from None
 
         # If source is already a connection object, use it
         if hasattr(self.source, "cursor") and hasattr(self.source, "close"):
@@ -60,9 +58,7 @@ class MySQLDriver(DBDriver):
 
         # Parse connection string
         if not isinstance(self.source, str):
-            raise ValueError(
-                f"MySQL source must be a connection string or connection object, got {type(self.source)}"
-            )
+            raise ValueError(f"MySQL source must be a connection string or connection object, got {type(self.source)}")
 
         # Extract connection arguments
         connect_args = self.kwargs.get("connect_args", {})
@@ -290,9 +286,7 @@ class MySQLDriver(DBDriver):
         try:
             import pymysql
         except ImportError:
-            raise ImportError(
-                "pymysql is required for MySQL support. Install it with: pip install pymysql"
-            ) from None
+            raise ImportError("pymysql is required for MySQL support. Install it with: pip install pymysql") from None
 
         try:
             # Parse connection string similar to connect()

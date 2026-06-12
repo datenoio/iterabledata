@@ -74,8 +74,7 @@ def _discover_format_plugins(registry: Any) -> None:
                 # Parse entry point value: "module.path:ClassName"
                 if ":" not in value:
                     logger.warning(
-                        f"Invalid format plugin entry point '{format_id}': "
-                        "expected 'module.path:ClassName' format"
+                        f"Invalid format plugin entry point '{format_id}': expected 'module.path:ClassName' format"
                     )
                     continue
 
@@ -93,7 +92,8 @@ def _discover_format_plugins(registry: Any) -> None:
 
                 registry.register_format(format_id, module_path, class_name, metadata_dict)
 
-                logger.debug(f"Discovered format plugin: {format_id} from {entry_point.dist.name if hasattr(entry_point, 'dist') and entry_point.dist else 'unknown'}")
+                dist_name = entry_point.dist.name if hasattr(entry_point, "dist") and entry_point.dist else "unknown"
+                logger.debug(f"Discovered format plugin: {format_id} from {dist_name}")
 
             except Exception as e:
                 logger.warning(f"Error loading format plugin '{entry_point.name}': {e}", exc_info=False)
@@ -112,8 +112,7 @@ def _discover_codec_plugins(registry: Any) -> None:
 
                 if ":" not in value:
                     logger.warning(
-                        f"Invalid codec plugin entry point '{codec_id}': "
-                        "expected 'module.path:ClassName' format"
+                        f"Invalid codec plugin entry point '{codec_id}': expected 'module.path:ClassName' format"
                     )
                     continue
 
@@ -170,9 +169,7 @@ def _discover_database_driver_plugins(registry: Any) -> None:
                 logger.debug(f"Discovered database driver plugin: {engine_name}")
 
             except Exception as e:
-                logger.warning(
-                    f"Error loading database driver plugin '{entry_point.name}': {e}", exc_info=False
-                )
+                logger.warning(f"Error loading database driver plugin '{entry_point.name}': {e}", exc_info=False)
 
     except Exception as e:
         logger.debug(f"No database driver plugins found or error discovering: {e}")
@@ -217,9 +214,7 @@ def _discover_validation_rule_plugins(registry: Any) -> None:
                 logger.debug(f"Discovered validation rule plugin: {rule_name}")
 
             except Exception as e:
-                logger.warning(
-                    f"Error loading validation rule plugin '{entry_point.name}': {e}", exc_info=False
-                )
+                logger.warning(f"Error loading validation rule plugin '{entry_point.name}': {e}", exc_info=False)
 
     except Exception as e:
         logger.debug(f"No validation rule plugins found or error discovering: {e}")
@@ -235,8 +230,7 @@ def _discover_engine_plugins(registry: Any) -> None:
 
                 if ":" not in value:
                     logger.warning(
-                        f"Invalid engine plugin entry point '{engine_name}': "
-                        "expected 'module.path:ClassName' format"
+                        f"Invalid engine plugin entry point '{engine_name}': expected 'module.path:ClassName' format"
                     )
                     continue
 

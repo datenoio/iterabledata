@@ -15,8 +15,6 @@ Requirements:
     - Sufficient time (tests may take 30+ minutes)
 """
 
-import os
-import shutil
 import time
 from pathlib import Path
 
@@ -27,7 +25,7 @@ from iterable.helpers.detect import open_iterable
 
 def create_large_csv_file(filepath: Path, target_size_gb: float = 1.0, chunk_size_mb: int = 100) -> None:
     """Create a large CSV file by writing in chunks.
-    
+
     Args:
         filepath: Path to create file at
         target_size_gb: Target file size in GB
@@ -35,20 +33,20 @@ def create_large_csv_file(filepath: Path, target_size_gb: float = 1.0, chunk_siz
     """
     target_size_bytes = int(target_size_gb * 1024 * 1024 * 1024)
     chunk_size_bytes = chunk_size_mb * 1024 * 1024
-    
+
     header = "id,name,age,city,value1,value2,value3,value4,value5\n"
     row_template = "{id},Person{id},{age},City{city_id},{val1},{val2},{val3},{val4},{val5}\n"
-    
+
     with filepath.open("w") as f:
         f.write(header)
-        written = len(header.encode('utf-8'))
+        written = len(header.encode("utf-8"))
         row_id = 0
-        
+
         while written < target_size_bytes:
             # Generate chunk of rows
             chunk_rows = []
             chunk_size = 0
-            
+
             while chunk_size < chunk_size_bytes and written + chunk_size < target_size_bytes:
                 row = row_template.format(
                     id=row_id,
@@ -61,13 +59,13 @@ def create_large_csv_file(filepath: Path, target_size_gb: float = 1.0, chunk_siz
                     val5=row_id * 5.5,
                 )
                 chunk_rows.append(row)
-                chunk_size += len(row.encode('utf-8'))
+                chunk_size += len(row.encode("utf-8"))
                 row_id += 1
-            
+
             # Write chunk
             f.write("".join(chunk_rows))
             written += chunk_size
-            
+
             # Progress indicator
             if row_id % 100000 == 0:
                 size_mb = written / (1024 * 1024)
@@ -76,26 +74,26 @@ def create_large_csv_file(filepath: Path, target_size_gb: float = 1.0, chunk_siz
 
 def create_large_jsonl_file(filepath: Path, target_size_gb: float = 1.0, chunk_size_mb: int = 100) -> None:
     """Create a large JSONL file by writing in chunks.
-    
+
     Args:
         filepath: Path to create file at
         target_size_gb: Target file size in GB
         chunk_size_mb: Size of each write chunk in MB
     """
     import json
-    
+
     target_size_bytes = int(target_size_gb * 1024 * 1024 * 1024)
     chunk_size_bytes = chunk_size_mb * 1024 * 1024
-    
+
     with filepath.open("w") as f:
         written = 0
         row_id = 0
-        
+
         while written < target_size_bytes:
             # Generate chunk of rows
             chunk_rows = []
             chunk_size = 0
-            
+
             while chunk_size < chunk_size_bytes and written + chunk_size < target_size_bytes:
                 record = {
                     "id": row_id,
@@ -110,13 +108,13 @@ def create_large_jsonl_file(filepath: Path, target_size_gb: float = 1.0, chunk_s
                 }
                 row = json.dumps(record) + "\n"
                 chunk_rows.append(row)
-                chunk_size += len(row.encode('utf-8'))
+                chunk_size += len(row.encode("utf-8"))
                 row_id += 1
-            
+
             # Write chunk
             f.write("".join(chunk_rows))
             written += chunk_size
-            
+
             # Progress indicator
             if row_id % 100000 == 0:
                 size_mb = written / (1024 * 1024)
@@ -128,16 +126,16 @@ def large_csv_1gb(tmp_path_factory):
     """Create a 1GB CSV file (session-scoped to reuse across tests)"""
     tmp_path = tmp_path_factory.mktemp("stress_large")
     filepath = tmp_path / "large_1gb.csv"
-    
+
     if not filepath.exists():
         print(f"Creating 1GB CSV file at {filepath}...")
         start_time = time.time()
         create_large_csv_file(filepath, target_size_gb=1.0)
         elapsed = time.time() - start_time
         print(f"Created 1GB CSV file in {elapsed:.1f} seconds")
-    
+
     yield filepath
-    
+
     # Cleanup (optional - comment out to keep files for debugging)
     # if filepath.exists():
     #     filepath.unlink()
@@ -148,17 +146,17 @@ def large_csv_10gb(tmp_path_factory):
     """Create a 10GB CSV file (session-scoped to reuse across tests)"""
     tmp_path = tmp_path_factory.mktemp("stress_large")
     filepath = tmp_path / "large_10gb.csv"
-    
+
     if not filepath.exists():
         print(f"Creating 10GB CSV file at {filepath}...")
         print("WARNING: This may take 10-30 minutes depending on disk speed...")
         start_time = time.time()
         create_large_csv_file(filepath, target_size_gb=10.0)
         elapsed = time.time() - start_time
-        print(f"Created 10GB CSV file in {elapsed:.1f} seconds ({elapsed/60:.1f} minutes)")
-    
+        print(f"Created 10GB CSV file in {elapsed:.1f} seconds ({elapsed / 60:.1f} minutes)")
+
     yield filepath
-    
+
     # Cleanup (optional - comment out to keep files for debugging)
     # if filepath.exists():
     #     filepath.unlink()
@@ -169,14 +167,14 @@ def large_jsonl_1gb(tmp_path_factory):
     """Create a 1GB JSONL file (session-scoped to reuse across tests)"""
     tmp_path = tmp_path_factory.mktemp("stress_large")
     filepath = tmp_path / "large_1gb.jsonl"
-    
+
     if not filepath.exists():
         print(f"Creating 1GB JSONL file at {filepath}...")
         start_time = time.time()
         create_large_jsonl_file(filepath, target_size_gb=1.0)
         elapsed = time.time() - start_time
         print(f"Created 1GB JSONL file in {elapsed:.1f} seconds")
-    
+
     yield filepath
 
 
@@ -185,15 +183,15 @@ def large_jsonl_10gb(tmp_path_factory):
     """Create a 10GB JSONL file (session-scoped to reuse across tests)"""
     tmp_path = tmp_path_factory.mktemp("stress_large")
     filepath = tmp_path / "large_10gb.jsonl"
-    
+
     if not filepath.exists():
         print(f"Creating 10GB JSONL file at {filepath}...")
         print("WARNING: This may take 10-30 minutes depending on disk speed...")
         start_time = time.time()
         create_large_jsonl_file(filepath, target_size_gb=10.0)
         elapsed = time.time() - start_time
-        print(f"Created 10GB JSONL file in {elapsed:.1f} seconds ({elapsed/60:.1f} minutes)")
-    
+        print(f"Created 10GB JSONL file in {elapsed:.1f} seconds ({elapsed / 60:.1f} minutes)")
+
     yield filepath
 
 
@@ -205,7 +203,7 @@ class TestLargeFileStreaming:
         """Test streaming read of 1GB CSV file"""
         count = 0
         start_time = time.time()
-        
+
         with open_iterable(large_csv_1gb) as source:
             for row in source:
                 count += 1
@@ -215,7 +213,7 @@ class TestLargeFileStreaming:
                 if count % 1000000 == 0:
                     elapsed = time.time() - start_time
                     print(f"  Read {count} rows in {elapsed:.1f} seconds...")
-        
+
         elapsed = time.time() - start_time
         print(f"Read {count} rows from 1GB CSV in {elapsed:.1f} seconds")
         assert count > 0
@@ -225,7 +223,7 @@ class TestLargeFileStreaming:
         """Test streaming read of 10GB CSV file"""
         count = 0
         start_time = time.time()
-        
+
         with open_iterable(large_csv_10gb) as source:
             for row in source:
                 count += 1
@@ -236,16 +234,16 @@ class TestLargeFileStreaming:
                     elapsed = time.time() - start_time
                     rate = count / elapsed if elapsed > 0 else 0
                     print(f"  Read {count} rows in {elapsed:.1f} seconds ({rate:.0f} rows/sec)...")
-        
+
         elapsed = time.time() - start_time
-        print(f"Read {count} rows from 10GB CSV in {elapsed:.1f} seconds ({elapsed/60:.1f} minutes)")
+        print(f"Read {count} rows from 10GB CSV in {elapsed:.1f} seconds ({elapsed / 60:.1f} minutes)")
         assert count > 0
 
     def test_jsonl_1gb_streaming_read(self, large_jsonl_1gb):
         """Test streaming read of 1GB JSONL file"""
         count = 0
         start_time = time.time()
-        
+
         with open_iterable(large_jsonl_1gb) as source:
             for row in source:
                 count += 1
@@ -254,7 +252,7 @@ class TestLargeFileStreaming:
                 if count % 1000000 == 0:
                     elapsed = time.time() - start_time
                     print(f"  Read {count} rows in {elapsed:.1f} seconds...")
-        
+
         elapsed = time.time() - start_time
         print(f"Read {count} rows from 1GB JSONL in {elapsed:.1f} seconds")
         assert count > 0
@@ -264,7 +262,7 @@ class TestLargeFileStreaming:
         """Test streaming read of 10GB JSONL file"""
         count = 0
         start_time = time.time()
-        
+
         with open_iterable(large_jsonl_10gb) as source:
             for row in source:
                 count += 1
@@ -274,9 +272,9 @@ class TestLargeFileStreaming:
                     elapsed = time.time() - start_time
                     rate = count / elapsed if elapsed > 0 else 0
                     print(f"  Read {count} rows in {elapsed:.1f} seconds ({rate:.0f} rows/sec)...")
-        
+
         elapsed = time.time() - start_time
-        print(f"Read {count} rows from 10GB JSONL in {elapsed:.1f} seconds ({elapsed/60:.1f} minutes)")
+        print(f"Read {count} rows from 10GB JSONL in {elapsed:.1f} seconds ({elapsed / 60:.1f} minutes)")
         assert count > 0
 
 
@@ -289,7 +287,7 @@ class TestLargeFileBulkOperations:
         total_count = 0
         chunk_count = 0
         start_time = time.time()
-        
+
         with open_iterable(large_csv_1gb) as source:
             for chunk in source.read_bulk(num=100000):
                 chunk_count += 1
@@ -300,7 +298,7 @@ class TestLargeFileBulkOperations:
                 if chunk_count % 10 == 0:
                     elapsed = time.time() - start_time
                     print(f"  Read {chunk_count} chunks, {total_count} rows in {elapsed:.1f} seconds...")
-        
+
         elapsed = time.time() - start_time
         print(f"Read {total_count} rows in {chunk_count} chunks from 1GB CSV in {elapsed:.1f} seconds")
         assert total_count > 0
@@ -311,7 +309,7 @@ class TestLargeFileBulkOperations:
         total_count = 0
         chunk_count = 0
         start_time = time.time()
-        
+
         with open_iterable(large_csv_10gb) as source:
             for chunk in source.read_bulk(num=100000):
                 chunk_count += 1
@@ -319,10 +317,16 @@ class TestLargeFileBulkOperations:
                 if chunk_count % 10 == 0:
                     elapsed = time.time() - start_time
                     rate = total_count / elapsed if elapsed > 0 else 0
-                    print(f"  Read {chunk_count} chunks, {total_count} rows in {elapsed:.1f} seconds ({rate:.0f} rows/sec)...")
-        
+                    print(
+                        f"  Read {chunk_count} chunks, {total_count} rows in "
+                        f"{elapsed:.1f} seconds ({rate:.0f} rows/sec)..."
+                    )
+
         elapsed = time.time() - start_time
-        print(f"Read {total_count} rows in {chunk_count} chunks from 10GB CSV in {elapsed:.1f} seconds ({elapsed/60:.1f} minutes)")
+        print(
+            f"Read {total_count} rows in {chunk_count} chunks from 10GB CSV in "
+            f"{elapsed:.1f} seconds ({elapsed / 60:.1f} minutes)"
+        )
         assert total_count > 0
 
 
@@ -339,10 +343,10 @@ class TestLargeFileOperations:
                 first_rows.append(row)
                 if i >= 99:
                     break
-            
+
             # Reset and read again
             source.reset()
-            
+
             # Verify we can read the same rows again
             for i, row in enumerate(source):
                 if i >= 99:
@@ -354,11 +358,11 @@ class TestLargeFileOperations:
         count = 0
         with open_iterable(large_csv_1gb) as source:
             # Read only first 1000 rows
-            for row in source:
+            for _row in source:
                 count += 1
                 if count >= 1000:
                     break
-        
+
         assert count == 1000
 
     def test_csv_1gb_seek_operations(self, large_csv_1gb):
@@ -370,7 +374,7 @@ class TestLargeFileOperations:
                 rows1.append(row)
                 if i >= 9:
                     break
-            
+
             # Reset and read again
             source.reset()
             rows2 = []
@@ -378,7 +382,7 @@ class TestLargeFileOperations:
                 rows2.append(row)
                 if i >= 9:
                     break
-            
+
             # Should get same rows
             assert rows1 == rows2
 
@@ -390,15 +394,16 @@ class TestLargeFileMemory:
     def test_csv_1gb_memory_constant(self, large_csv_1gb):
         """Test that reading 1GB CSV uses constant memory"""
         try:
-            import psutil
             import os
-            
+
+            import psutil
+
             process = psutil.Process(os.getpid())
             memory_before = process.memory_info().rss / 1024 / 1024  # MB
-            
+
             count = 0
             with open_iterable(large_csv_1gb) as source:
-                for row in source:
+                for _row in source:
                     count += 1
                     # Check memory every 100k rows
                     if count % 100000 == 0:
@@ -408,12 +413,12 @@ class TestLargeFileMemory:
                         assert memory_delta < 200, (
                             f"Memory usage grew too much: {memory_delta:.1f}MB after {count} rows"
                         )
-            
+
             memory_after = process.memory_info().rss / 1024 / 1024
             memory_total = memory_after - memory_before
             print(f"Total memory used: {memory_total:.1f}MB for {count} rows")
             assert memory_total < 200, f"Total memory usage too high: {memory_total:.1f}MB"
-            
+
         except ImportError:
             pytest.skip("psutil not available for memory testing")
 
@@ -426,7 +431,7 @@ class TestLargeFileErrorHandling:
         """Test that errors don't cause memory leaks or hangs"""
         error_count = 0
         success_count = 0
-        
+
         with open_iterable(large_csv_1gb, options={"on_error": "skip"}) as source:
             for row in source:
                 try:
@@ -435,13 +440,13 @@ class TestLargeFileErrorHandling:
                         error_count += 1
                     else:
                         success_count += 1
-                    
+
                     # Stop after reasonable number of rows for test
                     if success_count >= 10000:
                         break
                 except Exception:
                     error_count += 1
-        
+
         assert success_count > 0
         print(f"Processed {success_count} rows successfully, {error_count} errors")
 
@@ -454,9 +459,9 @@ class TestLargeFileConversion:
     def test_csv_1gb_to_jsonl(self, large_csv_1gb, tmp_path):
         """Test converting 1GB CSV to JSONL"""
         from iterable.convert import convert
-        
+
         output_file = tmp_path / "output.jsonl"
-        
+
         start_time = time.time()
         convert(
             fromfile=str(large_csv_1gb),
@@ -464,18 +469,18 @@ class TestLargeFileConversion:
             batch_size=100000,
         )
         elapsed = time.time() - start_time
-        
+
         # Verify output file exists and has reasonable size
         assert output_file.exists()
         output_size_mb = output_file.stat().st_size / (1024 * 1024)
         print(f"Converted 1GB CSV to JSONL in {elapsed:.1f} seconds, output: {output_size_mb:.1f} MB")
-        
+
         # Verify we can read the output
         count = 0
         with open_iterable(output_file) as source:
-            for row in source:
+            for _row in source:
                 count += 1
                 if count >= 1000:
                     break
-        
+
         assert count > 0

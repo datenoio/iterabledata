@@ -10,8 +10,10 @@ try:
 except ImportError:
     HAS_PYASN1 = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..types import Row
 
 
 class ASN1Iterable(BaseFileIterable):
@@ -101,16 +103,6 @@ class ASN1Iterable(BaseFileIterable):
             return row
         else:
             return {"value": row}
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk ASN.1 records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single ASN.1 record"""

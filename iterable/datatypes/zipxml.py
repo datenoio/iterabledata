@@ -9,15 +9,32 @@ from .zipped import ZIPSourceWrapper
 
 
 class ZIPXMLSource(ZIPSourceWrapper):
-    def __init__(self, filename: str | None = None, tagname: str = None, prefix_strip: bool = True):
+    def __init__(
+        self,
+        filename: str | None = None,
+        tagname: str | None = None,
+        prefix_strip: bool = True,
+        mode: str = "r",
+        options: dict | None = None,
+        **kwargs,
+    ):
+        # Standard factory path (open_iterable) passes tagname/prefix_strip via options
+        options = options or {}
+        tagname = tagname if tagname is not None else options.get("tagname")
+        prefix_strip = options.get("prefix_strip", prefix_strip)
         super().__init__(filename)
         self.tagname = tagname
         self.prefix_strip = prefix_strip
         self.reader = etree.iterparse(self.current_file, recover=True)
-        pass
 
-    def id(self) -> str:
+    @staticmethod
+    def id() -> str:
         return "zip-xml"
+
+    def reset(self) -> None:
+        """Reset to the first file and recreate the XML reader."""
+        super().reset()
+        self.reader = etree.iterparse(self.current_file, recover=True)
 
     def is_flat(self) -> bool:
         return False

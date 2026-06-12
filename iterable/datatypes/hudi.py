@@ -16,9 +16,11 @@ except ImportError:
         HAS_HUDI = False
         HAS_PYHUDI = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import WriteNotSupportedError, ReadError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import ReadError, WriteNotSupportedError
+from ..types import Row
 
 
 class HudiIterable(BaseFileIterable):
@@ -160,16 +162,6 @@ class HudiIterable(BaseFileIterable):
             return row
         except (StopIteration, EOFError, ValueError):
             raise StopIteration from None
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk Hudi records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single Hudi record"""

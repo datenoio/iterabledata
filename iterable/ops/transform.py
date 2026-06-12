@@ -11,10 +11,12 @@ import collections.abc
 import random
 import re
 import uuid
-from collections import OrderedDict, deque
-from typing import Any, Iterator
+from collections import deque
+from collections.abc import Iterator
+from typing import Any
 
 from ..helpers.detect import open_iterable
+from ..helpers.utils import hashable_repr
 from ..types import Row
 
 
@@ -60,7 +62,6 @@ def tail(iterable: collections.abc.Iterable[Row], n: int = 10) -> list[Row]:
         >>> from iterable.ops import transform
         >>> last_rows = transform.tail("data.csv", n=5)
     """
-    from collections import deque
 
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
@@ -145,16 +146,12 @@ def deduplicate(
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
 
-    seen: set[tuple[Any, ...]] = set()
+    seen: set[str] = set()
     seen_list: list[Row] = []  # For "last" strategy
 
     for row in iterable:
-        # Create key from specified fields
-        if keys:
-            key = tuple(row.get(k) for k in keys)
-        else:
-            # Use all fields
-            key = tuple(sorted(row.items()))
+        # Hashable key (handles list/dict values in row)
+        key = hashable_repr(_get_key(row, keys))
 
         if keep == "first":
             if key not in seen:
@@ -163,7 +160,7 @@ def deduplicate(
         else:  # keep == "last"
             if key in seen:
                 # Remove previous occurrence
-                seen_list = [r for r in seen_list if _get_key(r, keys) != key]
+                seen_list = [r for r in seen_list if hashable_repr(_get_key(r, keys)) != key]
             seen.add(key)
             seen_list.append(row)
 
@@ -316,8 +313,7 @@ def reverse(iterable: collections.abc.Iterable[Row]) -> Iterator[Row]:
     # Materialize all rows
     rows = list(iterable)
     # Yield in reverse
-    for row in reversed(rows):
-        yield row
+    yield from reversed(rows)
 
 
 def fill_missing(
@@ -332,7 +328,7 @@ def fill_missing(
     Args:
         iterable: An iterable of row dictionaries, or a file path/stream
         field: Name of the field to fill
-        strategy: Filling strategy - "forward" (forward fill), "backward" (backward fill), or "constant" (default: "forward")
+        strategy: Filling strategy - "forward", "backward", or "constant" (default: "forward")
         value: Constant value to use when strategy="constant"
 
     Yields:
@@ -354,7 +350,9 @@ def fill_missing(
         # Simple constant fill
         for row in iterable:
             new_row = row.copy()
-            if new_row.get(field) is None or (isinstance(new_row.get(field), str) and len(new_row.get(field, "").strip()) == 0):
+            if new_row.get(field) is None or (
+                isinstance(new_row.get(field), str) and len(new_row.get(field, "").strip()) == 0
+            ):
                 new_row[field] = value
             yield new_row
     elif strategy == "forward":
@@ -496,7 +494,9 @@ def replace_values(
         >>> for row in transform.replace_values("data.csv", field="status", pattern="old", replacement="new"):
         ...     print(row)
         >>> # Regex replacement
-        >>> for row in transform.replace_values("data.csv", field="text", pattern=r"\\d+", replacement="NUMBER", regex=True):
+        >>> for row in transform.replace_values(
+        ...     "data.csv", field="text", pattern=r"\\d+", replacement="NUMBER", regex=True
+        ... ):
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -562,7 +562,7 @@ def sort_rows(
             value = row.get(field)
             # Handle None values
             if value is None:
-                value = (float("inf") if desc[i] else float("-inf"))
+                value = float("inf") if desc[i] else float("-inf")
             key_parts.append(value)
         return tuple(key_parts)
 
@@ -570,8 +570,7 @@ def sort_rows(
     sorted_rows = sorted(rows, key=sort_key, reverse=any(desc))
 
     # Yield sorted rows
-    for row in sorted_rows:
-        yield row
+    yield from sorted_rows
 
 
 def transpose(iterable: collections.abc.Iterable[Row]) -> Iterator[Row]:
@@ -646,7 +645,7 @@ def split(
         if value is not None and isinstance(value, str):
             parts = value.split(separator)
             # Pad or truncate to match 'into' length
-            parts = (parts + [None] * len(into))[:len(into)]
+            parts = (parts + [None] * len(into))[: len(into)]
             for i, new_field in enumerate(into):
                 new_row[new_field] = parts[i].strip() if parts[i] else None
         else:
@@ -718,8 +717,7 @@ def cat(*iterables: collections.abc.Iterable[Row]) -> Iterator[Row]:
         if isinstance(iterable, str):
             iterable = open_iterable(iterable)
 
-        for row in iterable:
-            yield row
+        yield from iterable
 
 
 def join(
@@ -754,19 +752,19 @@ def join(
     if isinstance(on, str):
         on = [on]
 
-    # Materialize right side for lookup
-    right_dict: dict[tuple[Any, ...], list[Row]] = {}
+    # Materialize right side for lookup (hashable key so list/dict join keys work)
+    right_dict: dict[str, list[Row]] = {}
     for row in right:
-        key = tuple(row.get(f) for f in on)
+        key = hashable_repr(tuple(row.get(f) for f in on))
         if key not in right_dict:
             right_dict[key] = []
         right_dict[key].append(row)
 
     # Process left side
-    left_keys_seen = set()
+    left_keys_seen: set[str] = set()
 
     for left_row in left:
-        left_key = tuple(left_row.get(f) for f in on)
+        left_key = hashable_repr(tuple(left_row.get(f) for f in on))
         left_keys_seen.add(left_key)
 
         if left_key in right_dict:
@@ -782,7 +780,8 @@ def join(
         elif join_type in ("left", "outer"):
             # No match, but include left row
             merged = left_row.copy()
-            for k in right_dict.get((), [{}])[0].keys():
+            first_right = next(iter(right_dict.values()), [{}])[0] if right_dict else {}
+            for k in first_right.keys():
                 if k not in on:
                     merged[f"right_{k}"] = None
             yield merged
@@ -827,21 +826,15 @@ def diff(
     if isinstance(right, str):
         right = open_iterable(right)
 
-    # Build set of keys from right
-    right_keys: set[tuple[Any, ...]] = set()
+    # Build set of keys from right (hashable so list/dict values work)
+    right_keys: set[str] = set()
     for row in right:
-        if keys:
-            key = tuple(row.get(k) for k in keys)
-        else:
-            key = tuple(sorted(row.items()))
+        key = hashable_repr(_get_key(row, keys))
         right_keys.add(key)
 
     # Yield rows from left not in right
     for row in left:
-        if keys:
-            key = tuple(row.get(k) for k in keys)
-        else:
-            key = tuple(sorted(row.items()))
+        key = hashable_repr(_get_key(row, keys))
         if key not in right_keys:
             yield row
 
@@ -872,21 +865,15 @@ def exclude(
     if isinstance(exclude_iterable, str):
         exclude_iterable = open_iterable(exclude_iterable)
 
-    # Build set of exclude keys
-    exclude_keys: set[tuple[Any, ...]] = set()
+    # Build set of exclude keys (hashable so list/dict values work)
+    exclude_keys: set[str] = set()
     for row in exclude_iterable:
-        if keys:
-            key = tuple(row.get(k) for k in keys)
-        else:
-            key = tuple(sorted(row.items()))
+        key = hashable_repr(_get_key(row, keys))
         exclude_keys.add(key)
 
     # Yield rows not in exclude set
     for row in iterable:
-        if keys:
-            key = tuple(row.get(k) for k in keys)
-        else:
-            key = tuple(sorted(row.items()))
+        key = hashable_repr(_get_key(row, keys))
         if key not in exclude_keys:
             yield row
 

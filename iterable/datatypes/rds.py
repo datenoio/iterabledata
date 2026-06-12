@@ -9,9 +9,11 @@ try:
 except ImportError:
     HAS_PYREADR = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import WriteNotSupportedError, ReadError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import ReadError, WriteNotSupportedError
+from ..types import Row
 
 
 class RDSIterable(BaseFileIterable):
@@ -51,10 +53,10 @@ class RDSIterable(BaseFileIterable):
                     self.iterator = iter(self.data)
             else:
                 raise ReadError(
-                "RDS file reading requires filename, not stream",
-                filename=None,
-                error_code="RESOURCE_REQUIREMENT_NOT_MET",
-            )
+                    "RDS file reading requires filename, not stream",
+                    filename=None,
+                    error_code="RESOURCE_REQUIREMENT_NOT_MET",
+                )
         else:
             raise WriteNotSupportedError("rds", "RDS file writing is not yet implemented")
 
@@ -89,16 +91,6 @@ class RDSIterable(BaseFileIterable):
         self.pos += 1
         # Convert numpy types to Python types
         return {k: (v.item() if hasattr(v, "item") else v) for k, v in row.items()}
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk RDS records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single RDS record - not supported"""

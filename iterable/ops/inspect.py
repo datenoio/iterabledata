@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import collections.abc
 from collections import deque
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 from ..helpers.detect import detect_file_type, open_iterable
 from ..types import Row
@@ -192,8 +193,7 @@ def sniff(filename: str) -> dict[str, Any]:
                 if first_row:
                     # Simple heuristic: if first row values are all strings and look like headers
                     result["has_header"] = all(
-                        isinstance(v, str) and v.replace("_", "").replace("-", "").isalnum()
-                        for v in first_row.values()
+                        isinstance(v, str) and v.replace("_", "").replace("-", "").isalnum() for v in first_row.values()
                     )
                     # Try to detect delimiter from first line if available
                     # This is a simplified approach
@@ -282,7 +282,7 @@ def analyze(
     # Add AI documentation if requested
     if autodoc:
         try:
-            from ..ai import doc
+            from ..ai import doc  # noqa: F401
 
             # Generate documentation for fields
             # This would call ai.doc.generate() with schema information

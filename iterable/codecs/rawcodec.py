@@ -40,4 +40,4 @@ class RAWCodec(BaseCodec):
 
     @staticmethod
     def fileexts() -> list[str]:
-        return None
+        return []

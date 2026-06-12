@@ -399,7 +399,7 @@ class TestPipeline:
         if os.path.exists(output_file):
             os.unlink(output_file)
 
-    def test_pipeline_no_destination(self):
+    def test_pipeline_no_destination_read_only(self):
         """Test pipeline with no destination (read-only processing)"""
         source = CSVIterable("fixtures/2cols6rows.csv")
         processed_count = [0]
@@ -444,9 +444,7 @@ class TestPipeline:
         def process_func(record, state):
             return record
 
-        p = Pipeline(
-            source=source, destination=destination, process_func=process_func, reset_iterables=False
-        )
+        p = Pipeline(source=source, destination=destination, process_func=process_func, reset_iterables=False)
         stats = p.run()
 
         assert stats["rec_count"] >= 0  # May be 0 if already consumed

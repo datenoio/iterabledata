@@ -3,10 +3,11 @@ from __future__ import annotations
 import datetime
 import typing
 from json import dumps, loads
-
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..helpers.utils import rowincount
 from typing import Any
+
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..helpers.utils import rowincount
+from ..types import Row
 
 
 def date_handler(obj):

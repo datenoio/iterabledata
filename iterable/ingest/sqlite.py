@@ -7,10 +7,12 @@ from __future__ import annotations
 import collections.abc
 import sqlite3
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from ..types import Row
 from .core import IngestionResult
+from .identifiers import quote_columns, quote_table_name
 
 
 def ingest(
@@ -50,15 +52,16 @@ def ingest(
         cursor = conn.cursor()
 
         # Get first row to determine schema
-        first_row = next(iter(iterable), None)
+        iterator = iter(iterable)
+        first_row = next(iterator, None)
         if first_row is None:
             return IngestionResult(elapsed_seconds=time.time() - start_time)
 
         # Create table if needed
         if create_table:
-            columns = list(first_row.keys())
+            columns = quote_columns(list(first_row.keys()))
             columns_def = ", ".join([f"{col} TEXT" for col in columns])
-            create_query = f"CREATE TABLE IF NOT EXISTS {table} ({columns_def})"
+            create_query = f"CREATE TABLE IF NOT EXISTS {quote_table_name(table)} ({columns_def})"
             cursor.execute(create_query)
             conn.commit()
 
@@ -67,7 +70,7 @@ def ingest(
         rows_processed = 1
 
         # Process remaining rows
-        for row in iterable:
+        for row in iterator:
             batch_rows.append(row)
             rows_processed += 1
 
@@ -112,18 +115,19 @@ def _insert_batch(
         return
 
     columns = list(rows[0].keys())
+    quoted_table = quote_table_name(table)
     placeholders = ", ".join(["?" for _ in columns])
-    columns_str = ", ".join(columns)
+    columns_str = ", ".join(quote_columns(columns))
 
     if mode == "upsert" and upsert_key:
         # SQLite UPSERT (INSERT OR REPLACE)
         if isinstance(upsert_key, str):
             upsert_key = [upsert_key]
         # Build INSERT OR REPLACE query
-        query = f"INSERT OR REPLACE INTO {table} ({columns_str}) VALUES ({placeholders})"
+        query = f"INSERT OR REPLACE INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"
     else:
         # Simple INSERT
-        query = f"INSERT INTO {table} ({columns_str}) VALUES ({placeholders})"
+        query = f"INSERT INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"
 
     values = [[row.get(col) for col in columns] for row in rows]
     cursor.executemany(query, values)

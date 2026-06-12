@@ -117,8 +117,9 @@ class TestXLSX:
 
     def test_list_tables_empty_file(self):
         """Test list_tables on empty Excel file (edge case)"""
-        import tempfile
         import os
+        import tempfile
+
         from openpyxl import Workbook
 
         # Create empty workbook

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import re
+import json
 import typing
 from collections import OrderedDict
 from itertools import repeat, takewhile
@@ -11,6 +11,33 @@ import chardet
 from ..base import BaseIterable
 
 DEFAULT_DELIMITERS = [",", ";", "\t", "|"]
+
+
+def hashable_repr(value: typing.Any) -> str:
+    """
+    Return a hashable string representation of a value for use in sets/dict keys.
+
+    Handles unhashable types (list, dict, etc.) via JSON serialization so that
+    unique counting and deduplication work on rows containing nested structures.
+    """
+    try:
+        hash(value)
+        return repr(value)
+    except TypeError:
+        return json.dumps(value, sort_keys=True, default=str)
+
+
+def hashable_key(value: typing.Any) -> str | typing.Any:
+    """
+    Return a value suitable for use as a dict key: the value itself if hashable,
+    otherwise a hashable string representation. Use when the caller needs the
+    original value as the key when possible (e.g. for frequency result dicts).
+    """
+    try:
+        hash(value)
+        return value
+    except TypeError:
+        return json.dumps(value, sort_keys=True, default=str)
 
 
 def rowincount(filename: str = None, fileobj=None):
@@ -93,16 +120,15 @@ def get_dict_value(d: dict, keys: list[str]):
         return out
     #    keys = key.split('.')
     if len(keys) == 1:
-        if type(d) == type({}) or isinstance(d, OrderedDict):
+        if isinstance(d, (dict, OrderedDict)):
             if keys[0] in d.keys():
                 out.append(d[keys[0]])
         else:
             for r in d:
                 if r and keys[0] in r.keys():
                     out.append(r[keys[0]])
-    #        return out
     else:
-        if type(d) == type({}) or isinstance(d, OrderedDict):
+        if isinstance(d, (dict, OrderedDict)):
             if keys[0] in d.keys():
                 out.extend(get_dict_value(d[keys[0]], keys[1:]))
         else:
@@ -125,7 +151,7 @@ def strip_dict_fields(record, fields, startkey=0):
 
     if len(k) > 0:
         for k in record.keys():
-            if type(record[k]) == type({}):
+            if isinstance(record[k], dict):
                 record[k] = strip_dict_fields(record[k], fields, startkey + 1)
     return record
 
@@ -176,11 +202,11 @@ def guess_datatype(s: str, qd: typing.Any) -> dict:
     #    s = unicode(s)
     if s is None:
         return {"base": "empty"}
-    if type(s) == int:
+    if isinstance(s, int):
         return {"base": "int"}
-    if type(s) == float:
+    if isinstance(s, float):
         return {"base": "float"}
-    elif type(s) != str:
+    elif type(s) is not str:
         #        print((type(s)))
         return {"base": "typed"}
     #    s = s.decode('utf8', 'ignore')
@@ -288,7 +314,7 @@ def get_dict_value_deep(adict: dict, key: str, prefix: list = None, as_array: bo
     if prefix is None:
         prefix = key.split(splitter)
     if len(prefix) == 1:
-        if type(adict) == type({}):
+        if isinstance(adict, dict):
             if prefix[0] not in adict.keys():
                 return None
             if as_array:
@@ -296,7 +322,7 @@ def get_dict_value_deep(adict: dict, key: str, prefix: list = None, as_array: bo
                     adict[prefix[0]],
                 ]
             return adict[prefix[0]]
-        elif type(adict) == type([]):
+        elif isinstance(adict, list):
             if as_array:
                 result = []
                 for v in adict:
@@ -308,10 +334,10 @@ def get_dict_value_deep(adict: dict, key: str, prefix: list = None, as_array: bo
                     return adict[0][prefix[0]]
         return None
     else:
-        if type(adict) == type({}):
+        if isinstance(adict, dict):
             if prefix[0] in adict.keys():
                 return get_dict_value_deep(adict[prefix[0]], key, prefix=prefix[1:], as_array=as_array)
-        elif type(adict) == type([]):
+        elif isinstance(adict, list):
             if as_array:
                 result = []
                 for v in adict:

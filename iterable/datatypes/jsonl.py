@@ -3,11 +3,12 @@ from __future__ import annotations
 import datetime
 import typing
 from json import dumps, loads
+from typing import Any
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
 from ..helpers.utils import rowincount
-from typing import Any
+from ..types import Row
 
 
 def date_handler(obj):
@@ -157,10 +158,22 @@ class JSONLinesIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single JSON lines record"""
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:
+                return
+            record = validated
         self.fobj.write(dumps(record, ensure_ascii=False, default=date_handler) + "\n")
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk JSON lines records"""
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:
+                    validated_records.append(validated)
+            records = validated_records
         if not records:
             return
         # Minimize per-record I/O by writing a single concatenated batch.

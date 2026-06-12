@@ -1,27 +1,27 @@
 # GitHub Pages Deployment Setup
 
-This document describes how to deploy the Iterable Data documentation to GitHub Pages at `iterabledata.github.io`.
+This document describes how the Iterable Data documentation is deployed to GitHub Pages at `https://datenoio.github.io/iterabledata/`.
 
 ## Prerequisites
 
-1. A GitHub repository named `iterabledata.github.io` under the `iterabledata` organization
-   - **Note**: If your repository has a different name or organization, you'll need to adjust the `organizationName` and `projectName` in `docusaurus.config.js`
-
+1. The repository `datenoio/iterabledata` (this repository)
 2. GitHub Pages enabled in repository settings with "GitHub Actions" as the source
 
 ## Configuration
 
-The documentation is configured for deployment to `iterabledata.github.io`:
+The documentation is configured in `docs/docusaurus.config.js` for project-site deployment from this repository:
 
-- **URL**: `https://iterabledata.github.io`
-- **Base URL**: `/` (root path)
-- **Organization**: `iterabledata`
-- **Project**: `iterabledata.github.io`
+- **URL**: `https://datenoio.github.io`
+- **Base URL**: `/iterabledata/`
+- **Organization**: `datenoio`
+- **Project**: `iterabledata`
+
+The published site is available at `https://datenoio.github.io/iterabledata/`.
 
 ## Setup Steps
 
 1. **Enable GitHub Pages**:
-   - Go to your repository settings on GitHub
+   - Go to the repository settings on GitHub
    - Navigate to **Pages** in the left sidebar
    - Under **Source**, select **GitHub Actions** as the source
    - This will automatically create the `github-pages` environment
@@ -35,27 +35,21 @@ The documentation is configured for deployment to `iterabledata.github.io`:
      - Manual workflow dispatch
 
 3. **Verify deployment**:
-   - After the workflow completes, your site will be available at `https://iterabledata.github.io`
+   - After the workflow completes, the site will be available at `https://datenoio.github.io/iterabledata/`
    - The deployment typically takes 1-2 minutes
 
-## Repository Structure Considerations
+## Moving to a Custom Domain or User Site
 
-If your repository is **not** named `iterabledata.github.io` under the `iterabledata` organization, you have two options:
+If the documentation should later live at a root domain (e.g. `iterabledata.github.io` or a custom domain), update `docusaurus.config.js`:
 
-### Option 1: Deploy from current repository
-If deploying from `datenoio/iterabledata`:
-- Update `docusaurus.config.js`:
-  ```javascript
-  organizationName: 'datenoio',
-  projectName: 'iterabledata',
-  baseUrl: '/iterabledata/',  // Note the trailing slash
-  ```
-- Your site will be available at `https://datenoio.github.io/iterabledata/`
+```javascript
+url: 'https://your-domain.example',
+baseUrl: '/',
+organizationName: '<org>',
+projectName: '<repo>',
+```
 
-### Option 2: Deploy to separate repository
-1. Create a new repository `iterabledata/iterabledata.github.io`
-2. Set up a workflow to copy built files from this repository to that repository
-3. Or use the current configuration if you plan to move/rename the repository
+and configure the domain in the repository's Pages settings.
 
 ## Manual Deployment
 
@@ -75,4 +69,3 @@ This requires the `GITHUB_TOKEN` environment variable to be set with appropriate
 - **Environment error**: If you see an error about the `github-pages` environment, make sure GitHub Pages is enabled in your repository settings with "GitHub Actions" as the source
 - **Build failures**: Check the GitHub Actions logs for specific error messages
 - **404 errors**: Verify the `baseUrl` in `docusaurus.config.js` matches your repository structure
-

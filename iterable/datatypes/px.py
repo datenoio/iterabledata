@@ -3,10 +3,11 @@ from __future__ import annotations
 import re
 import typing
 from itertools import product
-
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import WriteNotSupportedError
 from typing import Any
+
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..exceptions import WriteNotSupportedError
+from ..types import Row
 
 DEFAULT_ENCODING = "utf8"
 

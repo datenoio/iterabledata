@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import typing
+from typing import Any
 
 from ..base import BaseCodec
+from ..types import Row
 from .ntriples import NTriplesIterable
-from typing import Any
 
 
 class NQuadsIterable(NTriplesIterable):

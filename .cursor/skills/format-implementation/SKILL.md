@@ -194,3 +194,5 @@ Look at existing implementations:
 - **Compression**: Support common codecs (gzip, bz2, zstd, etc.)
 - **Error messages**: Provide helpful errors for missing dependencies
 - **Context managers**: Always support `with` statements
+- **Filename-only formats**: If your format requires a file path and does not support stream or codec, validate in `reset()` (or `__init__`) and raise a clear error (e.g. `ReadError`) when `filename` is None.
+- **read_bulk() exhaustion**: When no more records are available, `read_bulk()` MUST return an empty list `[]`; do not raise `StopIteration`.

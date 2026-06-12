@@ -1,11 +1,7 @@
 """Tests for debug mode and verbose logging functionality."""
 
 import logging
-import os
-import tempfile
 from io import StringIO
-
-import pytest
 
 from iterable.helpers.debug import (
     enable_debug_mode,
@@ -50,6 +46,7 @@ class TestDebugModeConfiguration:
 
         # Reload module to pick up env var
         import importlib
+
         import iterable.helpers.debug
 
         importlib.reload(iterable.helpers.debug)

@@ -13,6 +13,7 @@ except ImportError:
     HAS_NUMPY = False
 
 from iterable.datatypes.numpy import NumPyIterable
+from iterable.exceptions import FormatNotSupportedError
 from iterable.helpers.detect import open_iterable
 
 
@@ -224,7 +225,7 @@ class TestNumPy:
 
         try:
             source = open_iterable(temp_file)
-            with pytest.raises(ValueError):
+            with pytest.raises(FormatNotSupportedError):
                 list(source)
             source.close()
         finally:

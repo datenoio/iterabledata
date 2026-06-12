@@ -5,8 +5,8 @@ from collections.abc import Callable
 from typing import Any
 
 from ..base import BaseFileIterable, BaseIterable
+from ..helpers.debug import is_debug_enabled, performance_logger
 from ..types import PipelineResult, Row
-from ..helpers.debug import performance_logger, is_debug_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -114,11 +114,12 @@ class Pipeline:
         time_start = time.time()
         stats: dict[str, Any] = {"rec_count": 0, "nulls": 0, "exceptions": 0, "time_start": time_start}
         state = self.start_state
-        
+
         perf_debug = debug or is_debug_enabled()
         if perf_debug:
             performance_logger.debug("Starting pipeline execution")
-            performance_logger.debug(f"Source: {type(self.source).__name__}, Destination: {type(self.destination).__name__ if self.destination else None}")
+            dest_name = type(self.destination).__name__ if self.destination else None
+            performance_logger.debug(f"Source: {type(self.source).__name__}, Destination: {dest_name}")
             performance_logger.debug(f"Batch size: {self.batch_size}, Reset iterables: {self.reset_iterables}")
 
         # Setup atomic writes if enabled and destination is a file
@@ -262,12 +263,13 @@ class Pipeline:
         time_end = time.time()
         stats["time_end"] = time_end
         stats["duration"] = time_end - time_start
-        
+
         if perf_debug:
             throughput = stats["rec_count"] / stats["duration"] if stats["duration"] > 0 else 0
             performance_logger.debug(
-                f"Pipeline completed: {stats['rec_count']} records processed in {stats['duration']:.2f}s "
-                f"(throughput: {throughput:.2f} records/sec, exceptions: {stats['exceptions']}, nulls: {stats['nulls']})"
+                f"Pipeline completed: {stats['rec_count']} records in "
+                f"{stats['duration']:.2f}s (throughput: {throughput:.2f} rec/s, "
+                f"exceptions: {stats['exceptions']}, nulls: {stats['nulls']})"
             )
 
         # Perform atomic rename if atomic writes are enabled (only on success)

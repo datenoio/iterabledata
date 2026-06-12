@@ -2,6 +2,7 @@
 
 import pytest
 
+from iterable.exceptions import FormatDetectionError
 from iterable.helpers.capabilities import (
     get_capability,
     get_format_capabilities,
@@ -73,7 +74,7 @@ class TestGetFormatCapabilities:
 
     def test_unknown_format(self):
         """Test error handling for unknown format."""
-        with pytest.raises(ValueError, match="Unknown format"):
+        with pytest.raises(FormatDetectionError, match="Unknown format"):
             get_format_capabilities("unknown_format_xyz")
 
     def test_format_id_case_insensitive(self):
@@ -142,7 +143,7 @@ class TestGetCapability:
 
     def test_get_capability_unknown_format(self):
         """Test error handling for unknown format."""
-        with pytest.raises(ValueError, match="Unknown format"):
+        with pytest.raises(FormatDetectionError, match="Unknown format"):
             get_capability("unknown_format", "readable")
 
     def test_get_capability_invalid_key(self):
@@ -307,7 +308,7 @@ class TestOptionalDependencies:
         # Should return dict even if some formats fail
         assert isinstance(all_caps, dict)
         # All entries should be dicts
-        for format_id, caps in all_caps.items():
+        for _format_id, caps in all_caps.items():
             assert isinstance(caps, dict)
 
     def test_get_capability_all_keys(self):
@@ -353,7 +354,7 @@ class TestOptionalDependencies:
         """Test _get_format_class with unknown format."""
         from iterable.helpers.capabilities import _get_format_class
 
-        with pytest.raises(ValueError, match="Unknown format"):
+        with pytest.raises(FormatDetectionError, match="Unknown format"):
             _get_format_class("unknown_format_xyz123")
 
     def test_capability_cache_isolation(self):

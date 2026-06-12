@@ -2,16 +2,16 @@
 Tests for connection pooling functionality.
 """
 
-import pytest
 import time
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
+
+import pytest
 
 from iterable.db.pooling import (
-    ConnectionPool,
     SimpleConnectionPool,
-    get_pool,
-    close_pool,
     close_all_pools,
+    close_pool,
+    get_pool,
     get_pool_stats,
 )
 
@@ -263,10 +263,11 @@ class TestPoolRegistry:
 
     def test_get_pool_stats(self):
         """Test getting pool statistics."""
+
         def factory():
             return Mock()
 
-        pool = get_pool("test:connection6", factory, {"min_size": 2, "max_size": 5})
+        _ = get_pool("test:connection6", factory, {"min_size": 2, "max_size": 5})
 
         stats = get_pool_stats()
         assert "test:connection6" in stats
@@ -282,9 +283,7 @@ class TestPostgresDriverPooling:
         """Clean up pools before each test."""
         close_all_pools()
 
-    @pytest.mark.skipif(
-        True, reason="Requires psycopg2 and PostgreSQL database - integration test"
-    )
+    @pytest.mark.skipif(True, reason="Requires psycopg2 and PostgreSQL database - integration test")
     def test_postgres_pooling_enabled(self):
         """Test PostgreSQL driver with pooling enabled (integration test)."""
         # This would require actual PostgreSQL database
@@ -294,7 +293,7 @@ class TestPostgresDriverPooling:
     def test_postgres_pooling_disabled(self):
         """Test PostgreSQL driver with pooling disabled."""
         try:
-            import psycopg2
+            import psycopg2  # noqa: F401
         except ImportError:
             pytest.skip("psycopg2 not available")
 
@@ -326,7 +325,7 @@ class TestPostgresDriverPooling:
     def test_postgres_pooling_config(self):
         """Test PostgreSQL driver with custom pool configuration."""
         try:
-            import psycopg2
+            import psycopg2  # noqa: F401
         except ImportError:
             pytest.skip("psycopg2 not available")
 
@@ -374,7 +373,7 @@ class TestPostgresDriverPooling:
     def test_postgres_connection_reuse(self):
         """Test that PostgreSQL connections are reused from pool."""
         try:
-            import psycopg2
+            import psycopg2  # noqa: F401
         except ImportError:
             pytest.skip("psycopg2 not available")
 
@@ -391,7 +390,6 @@ class TestPostgresDriverPooling:
             # Create first driver
             driver1 = PostgresDriver("postgresql://test", query="SELECT 1")
             driver1.connect()
-            conn1 = driver1.conn
 
             # Close first driver
             driver1.close()
@@ -399,7 +397,6 @@ class TestPostgresDriverPooling:
             # Create second driver with same connection string
             driver2 = PostgresDriver("postgresql://test", query="SELECT 2")
             driver2.connect()
-            conn2 = driver2.conn
 
             # Should reuse connection from pool
             # Note: In real scenario, connections are reused, but in this test

@@ -1,5 +1,4 @@
 import os
-import tempfile
 
 import pytest
 
@@ -361,9 +360,7 @@ class TestBulkConvert:
         test_file.write_text("id,name\n1,test\n")
 
         # Convert to compressed parquet
-        result = bulk_convert(
-            str(input_dir / "*.csv"), str(output_dir), pattern="{stem}.parquet.zst"
-        )
+        result = bulk_convert(str(input_dir / "*.csv"), str(output_dir), pattern="{stem}.parquet.zst")
 
         assert result.total_files == 1
         assert result.successful_files == 1
@@ -433,9 +430,7 @@ class TestBulkConvert:
             for i in range(100):
                 f.write(f"{i},test{i}\n")
 
-        result = bulk_convert(
-            str(input_dir / "*.csv"), str(output_dir), to_ext="jsonl", batch_size=10
-        )
+        result = bulk_convert(str(input_dir / "*.csv"), str(output_dir), to_ext="jsonl", batch_size=10)
 
         assert result.total_files == 1
         assert result.successful_files == 1
@@ -473,9 +468,7 @@ class TestBulkConvert:
         test_file = input_dir / "test.jsonl"
         test_file.write_text('{"user": {"name": "test", "age": 30}}\n')
 
-        result = bulk_convert(
-            str(input_dir / "*.jsonl"), str(output_dir), to_ext="csv", is_flatten=True
-        )
+        result = bulk_convert(str(input_dir / "*.jsonl"), str(output_dir), to_ext="csv", is_flatten=True)
 
         assert result.total_files == 1
         assert result.successful_files == 1
@@ -498,27 +491,26 @@ class TestBulkConvert:
 
     def test_bulk_convert_pattern_placeholders(self, tmp_path):
         """Test bulk_convert filename pattern with different placeholders"""
+        import gzip
+
         input_dir = tmp_path / "input"
         input_dir.mkdir()
         output_dir = tmp_path / "output"
         output_dir.mkdir()
 
         test_file = input_dir / "data.csv.gz"
-        test_file.write_text("id,name\n1,test\n")
+        with gzip.open(test_file, "wt", encoding="utf-8") as f:
+            f.write("id,name\n1,test\n")
 
         # Test {name} placeholder
-        result = bulk_convert(
-            str(input_dir / "*.csv.gz"), str(output_dir), pattern="{name}.parquet"
-        )
+        result = bulk_convert(str(input_dir / "*.csv.gz"), str(output_dir), pattern="{name}.parquet")
         assert result.successful_files == 1
         assert (output_dir / "data.csv.gz.parquet").exists()
 
         # Test {stem} placeholder
         output_dir2 = tmp_path / "output2"
         output_dir2.mkdir()
-        result2 = bulk_convert(
-            str(input_dir / "*.csv.gz"), str(output_dir2), pattern="{stem}.parquet"
-        )
+        result2 = bulk_convert(str(input_dir / "*.csv.gz"), str(output_dir2), pattern="{stem}.parquet")
         assert result2.successful_files == 1
         # stem should be "data.csv" (without .gz)
         assert (output_dir2 / "data.csv.parquet").exists()

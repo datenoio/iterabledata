@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import typing
-
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..helpers.utils import rowincount
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..helpers.utils import rowincount
+from ..types import Row
 
 
 class TxtIterable(BaseFileIterable):
@@ -71,16 +72,6 @@ class TxtIterable(BaseFileIterable):
         else:
             # Return line content as string
             return line
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[Row]:
-        """Read bulk lines from text file"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record):
         """Write single line to text file

@@ -26,6 +26,11 @@ except ImportError:
     pass
 
 try:
+    from .dxf import DXFIterable  # noqa: F401
+except ImportError:
+    pass
+
+try:
     from .arrow import ArrowIterable
 except ImportError:
     pass
@@ -62,6 +67,11 @@ except ImportError:
 
 try:
     from .cbor import CBORIterable
+except ImportError:
+    pass
+
+try:
+    from .cdf import CDFIterable  # noqa: F401
 except ImportError:
     pass
 
@@ -107,6 +117,11 @@ except ImportError:
 
 try:
     from .flink import FlinkIterable
+except ImportError:
+    pass
+
+try:
+    from .feed import FeedIterable  # noqa: F401
 except ImportError:
     pass
 
@@ -191,6 +206,16 @@ except ImportError:
     pass
 
 try:
+    from .kmz import KMZIterable
+except ImportError:
+    pass
+
+try:
+    from .gpx import GPXIterable
+except ImportError:
+    pass
+
+try:
     from .lance import LanceIterable
 except ImportError:
     pass
@@ -211,6 +236,11 @@ except ImportError:
     pass
 
 try:
+    from .mvt import MVTIterable  # noqa: F401
+except ImportError:
+    pass
+
+try:
     from .msgpack import MessagePackIterable
 except ImportError:
     pass
@@ -222,6 +252,11 @@ except ImportError:
 
 try:
     from .ntriples import NTriplesIterable
+except ImportError:
+    pass
+
+try:
+    from .netcdf import NetCDFIterable  # noqa: F401
 except ImportError:
     pass
 
@@ -336,6 +371,11 @@ except ImportError:
     pass
 
 try:
+    from .topojson import TopoJSONIterable  # noqa: F401
+except ImportError:
+    pass
+
+try:
     from .turtle import TurtleIterable
 except ImportError:
     pass
@@ -425,6 +465,7 @@ __all__ = [
     "GeoJSONIterable",
     "GeoPackageIterable",
     "GMLIterable",
+    "GPXIterable",
     "HDF5Iterable",
     "HOCONIterable",
     "HTMLIterable",
@@ -436,6 +477,7 @@ __all__ = [
     "IonIterable",
     "KafkaIterable",
     "KMLIterable",
+    "KMZIterable",
     "LanceIterable",
     "LDIFIterable",
     "MBOXIterable",

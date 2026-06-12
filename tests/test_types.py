@@ -134,11 +134,11 @@ def test_as_dataclasses_extra_fields():
         fname = f.name
 
     with open_iterable(fname) as source:
-            # Extra fields should be ignored (only defined fields are used)
-            people = list(as_dataclasses(source, Person))
-            assert len(people) == 1
-            assert people[0].name == "Alice"
-            assert people[0].age == "30"  # CSV reads as string
+        # Extra fields should be ignored (only defined fields are used)
+        people = list(as_dataclasses(source, Person))
+        assert len(people) == 1
+        assert people[0].name == "Alice"
+        assert people[0].age == "30"  # CSV reads as string
 
 
 def test_as_pydantic_basic():

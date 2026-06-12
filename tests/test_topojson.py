@@ -119,9 +119,7 @@ class TestTopoJSON:
             "objects": {
                 "collection": {
                     "type": "GeometryCollection",
-                    "geometries": [
-                        {"type": "Point", "coordinates": [i, i]} for i in range(5)
-                    ],
+                    "geometries": [{"type": "Point", "coordinates": [i, i]} for i in range(5)],
                 }
             },
             "arcs": [],
@@ -147,9 +145,7 @@ class TestTopoJSON:
             "objects": {
                 "collection": {
                     "type": "GeometryCollection",
-                    "geometries": [
-                        {"type": "Point", "coordinates": [i, i]} for i in range(3)
-                    ],
+                    "geometries": [{"type": "Point", "coordinates": [i, i]} for i in range(3)],
                 }
             },
             "arcs": [],

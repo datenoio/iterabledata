@@ -14,8 +14,8 @@ class TestRAW:
     def test_fileexts(self):
         """Test fileexts method"""
         exts = RAWCodec.fileexts()
-        # RAW codec returns None for fileexts
-        assert exts is None
+        # RAW codec returns empty list (no specific extensions)
+        assert exts == []
 
     def test_openclose(self):
         """Test basic open/close"""

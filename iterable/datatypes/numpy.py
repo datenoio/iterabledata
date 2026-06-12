@@ -9,9 +9,11 @@ try:
 except ImportError:
     HAS_NUMPY = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import ReadError, WriteError, FormatNotSupportedError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import FormatNotSupportedError, WriteError
+from ..types import Row
 
 
 class NumPyIterable(BaseFileIterable):
@@ -90,8 +92,7 @@ class NumPyIterable(BaseFileIterable):
                         self.current_array = self.npz_data[self.array_name]
                     else:
                         raise FormatNotSupportedError(
-                            "No arrays found in .npz file",
-                            format_id="numpy",
+                            "numpy",
                             reason="NPZ file contains no arrays",
                         )
                 else:
@@ -119,12 +120,12 @@ class NumPyIterable(BaseFileIterable):
 
         if len(self.current_array.shape) == 1:
             # 1D array - treat each element as a record
-            for i, value in enumerate(self.current_array):
+            for _, value in enumerate(self.current_array):
                 yield {"value": value.item() if hasattr(value, "item") else value}
         elif len(self.current_array.shape) == 2:
             # 2D array - treat each row as a record
-            for i in range(self.current_array.shape[0]):
-                row = self.current_array[i]
+            for idx in range(self.current_array.shape[0]):
+                row = self.current_array[idx]
                 # Convert row to dict with column indices as keys
                 yield {
                     f"col_{j}": row[j].item() if hasattr(row[j], "item") else row[j]
@@ -132,9 +133,8 @@ class NumPyIterable(BaseFileIterable):
                 }
         else:
             raise FormatNotSupportedError(
-                f"NumPy array must be 1D or 2D for iteration, got shape {self.current_array.shape}",
-                format_id="numpy",
-                reason="Only 1D and 2D arrays are supported for iteration",
+                "numpy",
+                reason=f"Only 1D and 2D arrays are supported for iteration, got shape {self.current_array.shape}",
             )
 
     @staticmethod
@@ -190,16 +190,6 @@ class NumPyIterable(BaseFileIterable):
         row = next(self.iterator)
         self.pos += 1
         return row
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk NumPy array records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single NumPy array record"""

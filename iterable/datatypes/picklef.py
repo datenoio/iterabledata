@@ -3,9 +3,10 @@ from __future__ import annotations
 import datetime
 import pickle
 import typing
-
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
 from typing import Any
+
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..types import Row
 
 
 def date_handler(obj):

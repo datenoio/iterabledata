@@ -57,11 +57,11 @@ class ZSTDCodec(BaseCodec):
         self.close()
         self._fileobj = self.open()
 
-    def close(self):
+    def close(self) -> None:
         if self._fileobj is not None:
             self._fileobj.close()
-        # Also close base file if it was opened separately
-        if self._base_file is not None:
+            self._fileobj = None
+        if getattr(self, "_base_file", None) is not None:
             self._base_file.close()
             self._base_file = None
 

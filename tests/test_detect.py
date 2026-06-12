@@ -5,13 +5,13 @@ from iterable.codecs import BZIP2Codec, GZIPCodec, LZMACodec
 # Optional codecs - may not be available
 try:
     from iterable.codecs import BrotliCodec
-  # noqa: F401
+# noqa: F401
 except (ImportError, NameError):
     BrotliCodec = None
 
 try:
     from iterable.codecs import ZSTDCodec
-  # noqa: F401
+# noqa: F401
 except (ImportError, NameError):
     ZSTDCodec = None
 from iterable.datatypes import (
@@ -24,55 +24,55 @@ from iterable.datatypes import (
 # Optional datatypes - may not be available
 try:
     from iterable.datatypes import AVROIterable
-  # noqa: F401
+# noqa: F401
 except (ImportError, NameError):
     AVROIterable = None
 
 try:
     from iterable.datatypes import BSONIterable
-  # noqa: F401
+# noqa: F401
 except (ImportError, NameError):
     BSONIterable = None
 
 try:
     from iterable.datatypes import DBFIterable
-  # noqa: F401
+# noqa: F401
 except (ImportError, NameError):
     DBFIterable = None
 
 try:
     from iterable.datatypes import DuckDBIterable
-  # noqa: F401
+# noqa: F401
 except (ImportError, NameError):
     DuckDBIterable = None
 
 try:
     from iterable.datatypes import ORCIterable
-  # noqa: F401
+# noqa: F401
 except (ImportError, NameError):
     ORCIterable = None
 
 try:
     from iterable.datatypes import ParquetIterable
-  # noqa: F401
+# noqa: F401
 except (ImportError, NameError):
     ParquetIterable = None
 
 try:
     from iterable.datatypes import XLSIterable
-  # noqa: F401
+# noqa: F401
 except (ImportError, NameError):
     XLSIterable = None
 
 try:
     from iterable.datatypes import XLSXIterable
-  # noqa: F401
+# noqa: F401
 except (ImportError, NameError):
     XLSXIterable = None
 
 try:
     from iterable.datatypes import XMLIterable
-  # noqa: F401
+# noqa: F401
 except (ImportError, NameError):
     XMLIterable = None
 from iterable.helpers.detect import detect_encoding_any, detect_file_type
@@ -363,7 +363,7 @@ class TestDetectors:
         """Test open_iterable with invalid engine raises ValueError"""
         from iterable.helpers.detect import open_iterable
 
-        with pytest.raises(ValueError, match="Engine must be 'internal' or 'duckdb'"):
+        with pytest.raises(ValueError, match="Engine must be 'internal', 'duckdb'"):
             open_iterable("test.csv", engine="invalid")
 
     def test_open_iterable_file_not_found(self):
@@ -448,8 +448,8 @@ class TestDetectors:
         assert row is not None
         iterable.close()
 
-    def test_open_iterable_unknown_format(self):
-        """Test open_iterable with unknown format"""
+    def test_open_iterable_unknown_format_string(self):
+        """Test open_iterable with unknown format string path"""
         from iterable.helpers.detect import open_iterable
 
         with pytest.raises((ValueError, ImportError)):
@@ -481,8 +481,8 @@ class TestDetectors:
         assert 0.7 <= confidence <= 1.0
         assert method == "heuristic"
 
-    def test_detect_file_type_empty_filename(self):
-        """Test detect_file_type with empty filename"""
+    def test_detect_file_type_empty_filename_string(self):
+        """Test detect_file_type with empty filename raises ValueError"""
         from iterable.helpers.detect import detect_file_type
 
         with pytest.raises(ValueError, match="Filename cannot be empty"):

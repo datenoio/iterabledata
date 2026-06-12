@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import re
 import typing
+from typing import Any
 from urllib.parse import unquote
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
+from ..base import BaseCodec, BaseFileIterable
 from ..helpers.utils import rowincount
-from typing import Any
+from ..types import Row
 
 
 class CEFIterable(BaseFileIterable):
@@ -164,16 +165,6 @@ class CEFIterable(BaseFileIterable):
             result = self._parse_cef(line)
             self.pos += 1
             return result
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk CEF records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def _escape_cef_value(self, value: str) -> str:
         """Escape CEF value"""

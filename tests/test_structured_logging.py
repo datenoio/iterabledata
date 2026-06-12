@@ -3,10 +3,7 @@
 import json
 import logging
 import os
-import tempfile
 from io import StringIO
-
-import pytest
 
 from iterable.helpers.structured_logging import (
     HumanReadableFormatter,

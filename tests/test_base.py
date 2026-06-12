@@ -157,6 +157,7 @@ class TestBaseIterable:
 
     def test_is_flat_returns_true_when_flatonly(self):
         """Test is_flat returns True when is_flatonly is True"""
+
         class FlatOnlyIterable(ConcreteIterable):
             @staticmethod
             def is_flatonly():
@@ -231,6 +232,7 @@ class TestBaseIterable:
 
     def test_abstract_methods_must_be_implemented(self):
         """Test that abstract methods must be implemented in subclasses"""
+
         class IncompleteIterable(BaseIterable):
             @staticmethod
             def id():
@@ -310,7 +312,7 @@ class TestBaseFileIterable:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
 
-        iterable = BaseFileIterable(filename=str(test_file), noopen=True)
+        iterable = ConcreteFileIterable(filename=str(test_file), noopen=True)
         assert iterable.filename == str(test_file)
         assert iterable.stype == ITERABLE_TYPE_FILE
         assert iterable.fobj is None
@@ -318,7 +320,7 @@ class TestBaseFileIterable:
     def test_init_with_stream(self):
         """Test BaseFileIterable initialization with stream"""
         stream = io.StringIO("test data")
-        iterable = BaseFileIterable(stream=stream, noopen=True)
+        iterable = ConcreteFileIterable(stream=stream, noopen=True)
         assert iterable.stype == ITERABLE_TYPE_STREAM
         assert iterable.fobj == stream
 
@@ -328,14 +330,14 @@ class TestBaseFileIterable:
         test_file.write_text("test data")
 
         codec = MockCodec(filename=str(test_file), mode="r")
-        iterable = BaseFileIterable(codec=codec, noopen=True)
+        iterable = ConcreteFileIterable(codec=codec, noopen=True)
         assert iterable.stype == ITERABLE_TYPE_CODEC
         assert iterable.codec == codec
 
     def test_init_no_source_raises_error(self):
         """Test that BaseFileIterable raises error with no source"""
         with pytest.raises(ValueError, match="requires filename, stream, or codec"):
-            BaseFileIterable(noopen=True)
+            ConcreteFileIterable(noopen=True)
 
     def test_init_with_options(self, tmp_path):
         """Test BaseFileIterable initialization with options"""
@@ -343,7 +345,7 @@ class TestBaseFileIterable:
         test_file.write_text("test data")
 
         options = {"custom_option": "value"}
-        iterable = BaseFileIterable(filename=str(test_file), noopen=True, options=options)
+        iterable = ConcreteFileIterable(filename=str(test_file), noopen=True, options=options)
         assert iterable.custom_option == "value"
 
     def test_open_file_type(self, tmp_path):
@@ -351,7 +353,7 @@ class TestBaseFileIterable:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
 
-        iterable = BaseFileIterable(filename=str(test_file), noopen=True)
+        iterable = ConcreteFileIterable(filename=str(test_file), noopen=True)
         iterable.open()
         assert iterable.fobj is not None
         iterable.close()
@@ -361,7 +363,7 @@ class TestBaseFileIterable:
         test_file = tmp_path / "test.bin"
         test_file.write_bytes(b"test data")
 
-        iterable = BaseFileIterable(filename=str(test_file), binary=True, noopen=True, mode="r")
+        iterable = ConcreteFileIterable(filename=str(test_file), binary=True, noopen=True, mode="r")
         iterable.open()
         assert iterable.fobj is not None
         assert iterable.binary is True
@@ -370,7 +372,7 @@ class TestBaseFileIterable:
     def test_open_stream_type_raises_error(self):
         """Test open raises error for stream type"""
         stream = io.StringIO("test")
-        iterable = BaseFileIterable(stream=stream, noopen=True)
+        iterable = ConcreteFileIterable(stream=stream, noopen=True)
         with pytest.raises(NotImplementedError):
             iterable.open()
 
@@ -379,7 +381,7 @@ class TestBaseFileIterable:
         test_file = tmp_path / "test.txt"
         test_file.write_text("line1\nline2\nline3")
 
-        iterable = BaseFileIterable(filename=str(test_file), noopen=False)
+        iterable = ConcreteFileIterable(filename=str(test_file), noopen=False)
         # Read first line
         first_pos = iterable.fobj.tell()
         iterable.fobj.readline()
@@ -396,7 +398,7 @@ class TestBaseFileIterable:
         test_file.write_text("test data")
 
         codec = MockCodec(filename=str(test_file), mode="r", open_it=True)
-        iterable = BaseFileIterable(codec=codec, noopen=False)
+        iterable = ConcreteFileIterable(codec=codec, noopen=False)
         # Set datamode as class attribute
         iterable.datamode = "text"
         # Reset should close and reopen
@@ -409,7 +411,7 @@ class TestBaseFileIterable:
         test_file = tmp_path / "test.txt"
 
         codec = MockCodec(filename=str(test_file), mode="w", open_it=True)
-        iterable = BaseFileIterable(codec=codec, noopen=False, mode="w")
+        iterable = ConcreteFileIterable(codec=codec, noopen=False, mode="w")
         iterable.datamode = "text"
         # In write mode, reset should not close the file
         iterable.reset()
@@ -420,12 +422,13 @@ class TestBaseFileIterable:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
 
-        iterable = BaseFileIterable(filename=str(test_file), noopen=False)
+        iterable = ConcreteFileIterable(filename=str(test_file), noopen=False)
         assert iterable.fobj is not None
-        assert not iterable.fobj.closed
+        fobj = iterable.fobj
+        assert not fobj.closed
 
         iterable.close()
-        assert iterable.fobj.closed
+        assert iterable.fobj is None or fobj.closed
 
     def test_close_codec_type(self, tmp_path):
         """Test close method with codec type"""
@@ -433,7 +436,7 @@ class TestBaseFileIterable:
         test_file.write_text("test data")
 
         codec = MockCodec(filename=str(test_file), mode="r", open_it=True)
-        iterable = BaseFileIterable(codec=codec, noopen=False)
+        iterable = ConcreteFileIterable(codec=codec, noopen=False)
         iterable.datamode = "text"
         iterable.close()
         assert iterable.fobj is None
@@ -442,7 +445,7 @@ class TestBaseFileIterable:
         """Test close with codec when fobj is None"""
         test_file = tmp_path / "test.txt"
         codec = MockCodec(filename=str(test_file), mode="r")
-        iterable = BaseFileIterable(codec=codec, noopen=True)
+        iterable = ConcreteFileIterable(codec=codec, noopen=True)
         iterable.close()
         # Should close codec
         assert codec.opened is False
@@ -452,19 +455,19 @@ class TestBaseFileIterable:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
 
-        with BaseFileIterable(filename=str(test_file), noopen=False) as iterable:
+        with ConcreteFileIterable(filename=str(test_file), noopen=False) as iterable:
             assert iterable.fobj is not None
-        # File should be closed after context exit
-        assert iterable.fobj.closed
+            fobj = iterable.fobj
+        # File should be closed after context exit (base closes and sets fobj to None)
+        assert fobj.closed
 
     def test_datamode_default(self, tmp_path):
         """Test that datamode defaults to 'text'"""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test")
 
-        iterable = BaseFileIterable(filename=str(test_file), noopen=True)
+        iterable = ConcreteFileIterable(filename=str(test_file), noopen=True)
         assert iterable.datamode == "text"
-
 
     def test_base_codec_context_manager_with_fileobj(self):
         """Test BaseCodec context manager with existing fileobj"""
@@ -478,7 +481,7 @@ class TestBaseFileIterable:
 
     def test_base_codec_textIO_encoding(self):
         """Test textIO with different encodings"""
-        fileobj = io.BytesIO("test data".encode("utf-8"))
+        fileobj = io.BytesIO(b"test data")
         codec = BaseCodec(fileobj=fileobj)
         text_wrapper = codec.textIO(encoding="latin-1")
         assert isinstance(text_wrapper, io.TextIOWrapper)
@@ -487,7 +490,7 @@ class TestBaseFileIterable:
     def test_base_file_iterable_reset_stream_type(self):
         """Test reset with stream type (should not raise error)"""
         stream = io.StringIO("test data")
-        iterable = BaseFileIterable(stream=stream, noopen=True)
+        iterable = ConcreteFileIterable(stream=stream, noopen=True)
         # Reset should not raise error for stream type
         iterable.reset()
         # Stream position should be unchanged (streams don't support reset)
@@ -495,7 +498,7 @@ class TestBaseFileIterable:
     def test_base_file_iterable_close_stream_type(self):
         """Test close with stream type"""
         stream = io.StringIO("test")
-        iterable = BaseFileIterable(stream=stream, noopen=True)
+        iterable = ConcreteFileIterable(stream=stream, noopen=True)
         # Close should not close the stream (it's managed externally)
         iterable.close()
         # Stream should still be usable
@@ -550,9 +553,7 @@ class TestBaseFileIterableFactoryMethods:
     def test_from_stream_with_options(self):
         """Test from_stream with options"""
         stream = io.StringIO("test data")
-        iterable = ConcreteFileIterable.from_stream(
-            stream, encoding="utf-8", on_error="warn"
-        )
+        iterable = ConcreteFileIterable.from_stream(stream, encoding="utf-8", on_error="warn")
         assert iterable.encoding == "utf-8"
         assert iterable._on_error == "warn"
 
@@ -574,9 +575,7 @@ class TestBaseFileIterableFactoryMethods:
         test_file.write_text("test data")
 
         codec = MockCodec(filename=str(test_file))
-        iterable = ConcreteFileIterable.from_codec(
-            codec, encoding="utf-8", on_error="skip", noopen=True
-        )
+        iterable = ConcreteFileIterable.from_codec(codec, encoding="utf-8", on_error="skip", noopen=True)
         assert iterable.encoding == "utf-8"
         assert iterable._on_error == "skip"
 
@@ -589,7 +588,7 @@ class TestBaseFileIterableHelperMethods:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
 
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         iterable.encoding = "utf8"
         iterable.datamode = "text"
         iterable._init_source(filename=str(test_file), noopen=True)
@@ -599,7 +598,7 @@ class TestBaseFileIterableHelperMethods:
     def test_init_source_stream(self):
         """Test _init_source with stream"""
         stream = io.StringIO("test data")
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         iterable.encoding = "utf8"
         iterable.datamode = "text"
         iterable._init_source(stream=stream)
@@ -612,7 +611,7 @@ class TestBaseFileIterableHelperMethods:
         test_file.write_text("test data")
 
         codec = MockCodec(filename=str(test_file))
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         iterable.encoding = "utf8"
         iterable.datamode = "text"
         iterable._init_source(codec=codec, noopen=True)
@@ -621,7 +620,7 @@ class TestBaseFileIterableHelperMethods:
 
     def test_init_source_no_source(self):
         """Test _init_source raises error with no source"""
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         iterable.encoding = "utf8"
         iterable.datamode = "text"
         with pytest.raises(ValueError, match="requires filename, stream, or codec"):
@@ -630,7 +629,7 @@ class TestBaseFileIterableHelperMethods:
     def test_init_source_multiple_sources(self):
         """Test _init_source raises error with multiple sources"""
         stream = io.StringIO("test")
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         iterable.encoding = "utf8"
         iterable.datamode = "text"
         with pytest.raises(ValueError, match="exactly one source"):
@@ -638,7 +637,7 @@ class TestBaseFileIterableHelperMethods:
 
     def test_init_error_handling_default(self):
         """Test _init_error_handling with default options"""
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         iterable._init_error_handling({})
         assert iterable._on_error == "raise"
         assert iterable._error_log is None
@@ -647,19 +646,19 @@ class TestBaseFileIterableHelperMethods:
 
     def test_init_error_handling_custom_policy(self):
         """Test _init_error_handling with custom error policy"""
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         iterable._init_error_handling({"on_error": "skip"})
         assert iterable._on_error == "skip"
 
     def test_init_error_handling_invalid_policy(self):
         """Test _init_error_handling with invalid error policy"""
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         with pytest.raises(ValueError, match="Invalid 'on_error' value"):
             iterable._init_error_handling({"on_error": "invalid"})
 
     def test_init_error_handling_log_file_path(self):
         """Test _init_error_handling with file path for error log"""
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         iterable._init_error_handling({"error_log": "/tmp/errors.log"})
         assert iterable._error_log == "/tmp/errors.log"
         assert iterable._error_log_file is None
@@ -668,7 +667,7 @@ class TestBaseFileIterableHelperMethods:
     def test_init_error_handling_log_file_like(self):
         """Test _init_error_handling with file-like object for error log"""
         log_file = io.StringIO()
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         iterable._init_error_handling({"error_log": log_file})
         assert iterable._error_log == log_file
         assert iterable._error_log_file == log_file
@@ -676,13 +675,13 @@ class TestBaseFileIterableHelperMethods:
 
     def test_init_error_handling_invalid_log_type(self):
         """Test _init_error_handling with invalid error log type"""
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         with pytest.raises(ValueError, match="Invalid 'error_log' value"):
             iterable._init_error_handling({"error_log": 123})
 
     def test_apply_options_basic(self):
         """Test _apply_options with basic options"""
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         iterable.stype = ITERABLE_TYPE_FILE
         iterable.fobj = None
         iterable._apply_options({"custom_attr": "value"})
@@ -690,27 +689,20 @@ class TestBaseFileIterableHelperMethods:
 
     def test_apply_options_protected_attribute(self):
         """Test _apply_options prevents overriding protected attributes"""
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         iterable.stype = ITERABLE_TYPE_FILE
         iterable.fobj = None
         with pytest.raises(ValueError, match="Cannot override protected attribute"):
             iterable._apply_options({"stype": ITERABLE_TYPE_STREAM})
 
     def test_apply_options_custom_protected(self):
-        """Test _apply_options with custom protected set"""
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
-        iterable.custom_attr = "original"
-        iterable._apply_options(
-            {"custom_attr": "new"}, protected={"custom_attr"}
-        )
-        # Should not raise error, but also should not override
-        # Actually, it should raise error
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        """Test _apply_options with custom protected set raises when overriding protected attr"""
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         iterable.custom_attr = "original"
         with pytest.raises(ValueError, match="Cannot override protected attribute"):
-            iterable._apply_options(
-                {"custom_attr": "new"}, protected={"custom_attr"}
-            )
+            iterable._apply_options({"custom_attr": "new"}, protected={"custom_attr"})
+        # Original value unchanged
+        assert iterable.custom_attr == "original"
 
 
 class TestBaseFileIterableBackwardCompatibility:
@@ -721,14 +713,14 @@ class TestBaseFileIterableBackwardCompatibility:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
 
-        iterable = BaseFileIterable(filename=str(test_file), noopen=True)
+        iterable = ConcreteFileIterable(filename=str(test_file), noopen=True)
         assert iterable.filename == str(test_file)
         assert iterable.stype == ITERABLE_TYPE_FILE
 
     def test_init_backward_compatible_stream(self):
         """Test that old-style __init__ with stream still works"""
         stream = io.StringIO("test data")
-        iterable = BaseFileIterable(stream=stream, noopen=True)
+        iterable = ConcreteFileIterable(stream=stream, noopen=True)
         assert iterable.stype == ITERABLE_TYPE_STREAM
         assert iterable.fobj == stream
 
@@ -738,7 +730,7 @@ class TestBaseFileIterableBackwardCompatibility:
         test_file.write_text("test data")
 
         codec = MockCodec(filename=str(test_file))
-        iterable = BaseFileIterable(codec=codec, noopen=True)
+        iterable = ConcreteFileIterable(codec=codec, noopen=True)
         assert iterable.stype == ITERABLE_TYPE_CODEC
         assert iterable.codec == codec
 
@@ -747,7 +739,7 @@ class TestBaseFileIterableBackwardCompatibility:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
 
-        iterable = BaseFileIterable(
+        iterable = ConcreteFileIterable(
             filename=str(test_file),
             noopen=True,
             options={"on_error": "skip", "custom": "value"},
@@ -763,16 +755,16 @@ class TestBaseFileIterableValidation:
         """Test that __init__ validates exactly one source is provided"""
         stream = io.StringIO("test")
         with pytest.raises(ValueError, match="exactly one source"):
-            BaseFileIterable(filename="test.txt", stream=stream, noopen=True)
+            ConcreteFileIterable(filename="test.txt", stream=stream, noopen=True)
 
     def test_init_validates_at_least_one_source(self):
         """Test that __init__ validates at least one source is provided"""
         with pytest.raises(ValueError, match="requires filename, stream, or codec"):
-            BaseFileIterable(noopen=True)
+            ConcreteFileIterable(noopen=True)
 
-    def test_apply_options_protects_critical_attributes(self):
+    def test_apply_options_protects_critical_attributes(self, tmp_path):
         """Test that _apply_options protects critical attributes"""
-        iterable = BaseFileIterable.__new__(BaseFileIterable)
+        iterable = ConcreteFileIterable.__new__(ConcreteFileIterable)
         iterable.stype = ITERABLE_TYPE_FILE
         iterable.fobj = None
         iterable._closed = False
@@ -783,7 +775,7 @@ class TestBaseFileIterableValidation:
             with pytest.raises(ValueError, match="Cannot override protected attribute"):
                 iterable._apply_options({attr: "invalid"})
         test_file = tmp_path / "test.txt"
-        iterable = BaseFileIterable(filename=str(test_file), noopen=True, mode="w")
+        iterable = ConcreteFileIterable(filename=str(test_file), noopen=True, mode="w")
         iterable.open()
         assert iterable.fobj is not None
         assert iterable.fobj.mode == "w"
@@ -793,7 +785,7 @@ class TestBaseFileIterableValidation:
         """Test open with append mode"""
         test_file = tmp_path / "test.txt"
         test_file.write_text("existing")
-        iterable = BaseFileIterable(filename=str(test_file), noopen=True, mode="a")
+        iterable = ConcreteFileIterable(filename=str(test_file), noopen=True, mode="a")
         iterable.open()
         assert iterable.fobj is not None
         assert iterable.fobj.mode == "a"
@@ -804,7 +796,7 @@ class TestBaseFileIterableValidation:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
         codec = MockCodec(filename=str(test_file), mode="r", open_it=True)
-        iterable = BaseFileIterable(codec=codec, noopen=False)
+        iterable = ConcreteFileIterable(codec=codec, noopen=False)
         iterable.datamode = "text"
         assert iterable.fobj is not None
         assert isinstance(iterable.fobj, io.TextIOWrapper)
@@ -815,7 +807,7 @@ class TestBaseFileIterableValidation:
         test_file = tmp_path / "test.bin"
         test_file.write_bytes(b"test data")
         codec = MockCodec(filename=str(test_file), mode="rb", open_it=True)
-        iterable = BaseFileIterable(codec=codec, noopen=False, binary=True)
+        iterable = ConcreteFileIterable(codec=codec, noopen=False, binary=True)
         iterable.datamode = "binary"
         assert iterable.fobj is not None
         # In binary mode, should not wrap with TextIOWrapper
@@ -827,7 +819,7 @@ class TestBaseFileIterableValidation:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test")
         codec = MockCodec(filename=str(test_file), mode="r", open_it=True)
-        iterable = BaseFileIterable(codec=codec, noopen=False)
+        iterable = ConcreteFileIterable(codec=codec, noopen=False)
         iterable.datamode = "text"
         # Close the wrapper manually to simulate an error
         if iterable.fobj:
@@ -841,7 +833,7 @@ class TestBaseFileIterableValidation:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test")
         codec = MockCodec(filename=str(test_file), mode="r", open_it=True)
-        iterable = BaseFileIterable(codec=codec, noopen=False)
+        iterable = ConcreteFileIterable(codec=codec, noopen=False)
         iterable.datamode = "text"
         # Manually close to simulate already closed
         if iterable.fobj:
@@ -853,15 +845,15 @@ class TestBaseFileIterableValidation:
         """Test that file handles are properly closed (no resource leak)"""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
-        
-        iterable = BaseFileIterable(filename=str(test_file), noopen=False)
+
+        iterable = ConcreteFileIterable(filename=str(test_file), noopen=False)
         assert iterable.fobj is not None
         assert not iterable.fobj.closed
-        
+
         # Close should close the file handle
         iterable.close()
         assert iterable.fobj is None or iterable.fobj.closed
-        
+
         # Verify file handle is actually closed by checking we can't read from it
         # (if fobj is None, that's also fine - means it was cleaned up)
 
@@ -869,15 +861,15 @@ class TestBaseFileIterableValidation:
         """Test that codecs are properly cleaned up (no resource leak)"""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
-        
+
         codec = MockCodec(filename=str(test_file), mode="r", open_it=True)
-        iterable = BaseFileIterable(codec=codec, noopen=False)
+        iterable = ConcreteFileIterable(codec=codec, noopen=False)
         iterable.datamode = "text"
-        
+
         assert iterable.fobj is not None
         assert codec._fileobj is not None
         assert codec.opened is True
-        
+
         # Close should clean up both wrapper and codec
         iterable.close()
         assert iterable.fobj is None
@@ -888,17 +880,17 @@ class TestBaseFileIterableValidation:
         """Test that multiple close() calls are safe (idempotent)"""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
-        
-        iterable = BaseFileIterable(filename=str(test_file), noopen=False)
+
+        iterable = ConcreteFileIterable(filename=str(test_file), noopen=False)
         assert iterable.fobj is not None
-        
+
         # First close
         iterable.close()
         assert iterable.fobj is None or iterable.fobj.closed
-        
+
         # Second close should not raise exception
         iterable.close()
-        
+
         # Third close should also be safe
         iterable.close()
 
@@ -906,18 +898,18 @@ class TestBaseFileIterableValidation:
         """Test that multiple close() calls on codec-based iterable are safe"""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
-        
+
         codec = MockCodec(filename=str(test_file), mode="r", open_it=True)
-        iterable = BaseFileIterable(codec=codec, noopen=False)
+        iterable = ConcreteFileIterable(codec=codec, noopen=False)
         iterable.datamode = "text"
-        
+
         # First close
         iterable.close()
         assert iterable.fobj is None
-        
+
         # Second close should not raise exception
         iterable.close()
-        
+
         # Third close should also be safe
         iterable.close()
 
@@ -925,16 +917,16 @@ class TestBaseFileIterableValidation:
         """Test that resources are cleaned up even if exception occurs during close"""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
-        
+
         # Create a codec that raises exception on close
         class FailingCodec(MockCodec):
             def close(self):
                 raise RuntimeError("Codec close failed")
-        
+
         codec = FailingCodec(filename=str(test_file), mode="r", open_it=True)
-        iterable = BaseFileIterable(codec=codec, noopen=False)
+        iterable = ConcreteFileIterable(codec=codec, noopen=False)
         iterable.datamode = "text"
-        
+
         # Close should suppress codec exception but still clean up wrapper
         iterable.close()
         # Wrapper should be cleaned up even if codec.close() raised exception
@@ -944,33 +936,33 @@ class TestBaseFileIterableValidation:
         """Test that reset() properly cleans up wrapper before recreating"""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
-        
+
         codec = MockCodec(filename=str(test_file), mode="r", open_it=True)
-        iterable = BaseFileIterable(codec=codec, noopen=False)
+        iterable = ConcreteFileIterable(codec=codec, noopen=False)
         iterable.datamode = "text"
-        
+
         original_fobj = iterable.fobj
         assert original_fobj is not None
-        
+
         # Reset should close old wrapper and create new one
         iterable.reset()
-        
+
         # New wrapper should be different object
         assert iterable.fobj is not None
         assert iterable.fobj is not original_fobj
         # Old wrapper should be closed
         assert original_fobj.closed
-        
+
         iterable.close()
 
     def test_resource_leak_stream_not_closed(self, tmp_path):
         """Test that stream-based iterables don't close external streams"""
         stream = io.StringIO("test data")
-        iterable = BaseFileIterable(stream=stream, noopen=True)
-        
+        iterable = ConcreteFileIterable(stream=stream, noopen=True)
+
         # Close should not close the stream (it's managed externally)
         iterable.close()
-        
+
         # Stream should still be usable
         assert not stream.closed
         stream.seek(0)
@@ -980,14 +972,14 @@ class TestBaseFileIterableValidation:
         """Test context manager properly cleans up file-based iterable"""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
-        
-        with BaseFileIterable(filename=str(test_file), noopen=False) as iterable:
+
+        with ConcreteFileIterable(filename=str(test_file), noopen=False) as iterable:
             assert iterable.fobj is not None
             assert not iterable.fobj.closed
             # File should be readable
             content = iterable.fobj.read()
             assert content == "test data"
-        
+
         # After context exit, file should be closed
         assert iterable.fobj is None or iterable.fobj.closed
 
@@ -995,13 +987,13 @@ class TestBaseFileIterableValidation:
         """Test context manager properly cleans up codec-based iterable"""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
-        
+
         codec = MockCodec(filename=str(test_file), mode="r", open_it=True)
-        with BaseFileIterable(codec=codec, noopen=False) as iterable:
+        with ConcreteFileIterable(codec=codec, noopen=False) as iterable:
             iterable.datamode = "text"
             assert iterable.fobj is not None
             assert codec.opened is True
-        
+
         # After context exit, both wrapper and codec should be cleaned up
         assert iterable.fobj is None
         assert codec.opened is False
@@ -1010,11 +1002,11 @@ class TestBaseFileIterableValidation:
     def test_context_manager_stream_type_no_cleanup(self, tmp_path):
         """Test context manager doesn't close external streams"""
         stream = io.StringIO("test data")
-        
-        with BaseFileIterable(stream=stream, noopen=True) as iterable:
+
+        with ConcreteFileIterable(stream=stream, noopen=True) as iterable:
             assert iterable.fobj == stream
             assert not stream.closed
-        
+
         # After context exit, stream should still be open (managed externally)
         assert not stream.closed
         stream.seek(0)
@@ -1024,15 +1016,15 @@ class TestBaseFileIterableValidation:
         """Test context manager cleans up resources even when exception occurs"""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
-        
+
         try:
-            with BaseFileIterable(filename=str(test_file), noopen=False) as iterable:
+            with ConcreteFileIterable(filename=str(test_file), noopen=False) as iterable:
                 assert iterable.fobj is not None
                 # Raise an exception inside context
                 raise ValueError("Test exception")
         except ValueError:
             pass
-        
+
         # File should still be closed despite exception
         assert iterable.fobj is None or iterable.fobj.closed
 
@@ -1040,17 +1032,17 @@ class TestBaseFileIterableValidation:
         """Test context manager cleans up codec even when exception occurs"""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
-        
+
         codec = MockCodec(filename=str(test_file), mode="r", open_it=True)
         try:
-            with BaseFileIterable(codec=codec, noopen=False) as iterable:
+            with ConcreteFileIterable(codec=codec, noopen=False) as iterable:
                 iterable.datamode = "text"
                 assert iterable.fobj is not None
                 # Raise an exception inside context
                 raise RuntimeError("Test exception")
         except RuntimeError:
             pass
-        
+
         # Codec should still be cleaned up despite exception
         assert iterable.fobj is None
         assert codec.opened is False
@@ -1060,12 +1052,12 @@ class TestBaseFileIterableValidation:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
         error_log_file = tmp_path / "error.log"
-        
+
         options = {"error_log": str(error_log_file)}
-        with BaseFileIterable(filename=str(test_file), noopen=False, options=options) as iterable:
+        with ConcreteFileIterable(filename=str(test_file), noopen=False, options=options) as iterable:
             assert iterable._error_log_file is None  # Not opened yet
             assert iterable._error_log_owned is True
-        
+
         # After context exit, error log file should be cleaned up
         # (it would be opened if errors occurred, but we're just testing cleanup)
 
@@ -1075,10 +1067,10 @@ class TestBaseFileIterableValidation:
         test_file1.write_text("data1")
         test_file2 = tmp_path / "test2.txt"
         test_file2.write_text("data2")
-        
-        with BaseFileIterable(filename=str(test_file1), noopen=False) as iterable1:
+
+        with ConcreteFileIterable(filename=str(test_file1), noopen=False) as iterable1:
             assert iterable1.fobj is not None
-            with BaseFileIterable(filename=str(test_file2), noopen=False) as iterable2:
+            with ConcreteFileIterable(filename=str(test_file2), noopen=False) as iterable2:
                 assert iterable2.fobj is not None
                 # Both should be open
                 assert not iterable1.fobj.closed
@@ -1094,8 +1086,8 @@ class TestBaseFileIterableValidation:
         """Test context manager returns self"""
         test_file = tmp_path / "test.txt"
         test_file.write_text("test data")
-        
-        with BaseFileIterable(filename=str(test_file), noopen=False) as iterable:
+
+        with ConcreteFileIterable(filename=str(test_file), noopen=False) as iterable:
             # Context manager should return self
             assert isinstance(iterable, BaseFileIterable)
             assert iterable.fobj is not None

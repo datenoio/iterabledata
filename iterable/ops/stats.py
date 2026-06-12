@@ -12,6 +12,7 @@ from collections import Counter
 from typing import Any
 
 from ..helpers.detect import open_iterable
+from ..helpers.utils import hashable_key, hashable_repr
 from ..types import Row
 
 
@@ -47,7 +48,7 @@ def compute(
     if isinstance(iterable, str) and engine == "duckdb":
         # Try DuckDB optimization for supported formats
         try:
-            with open_iterable(iterable, engine="duckdb") as source:
+            with open_iterable(iterable, engine="duckdb") as _:
                 # For now, fall back to Python implementation
                 # DuckDB-specific stats computation can be added later
                 pass
@@ -93,7 +94,7 @@ def compute(
         field_result: dict[str, Any] = {
             "count": stats["count"],
             "null_count": stats["null_count"],
-            "unique_count": len(set(values)),
+            "unique_count": len({hashable_repr(v) for v in values}),
         }
 
         # Numeric statistics
@@ -114,7 +115,7 @@ def compute(
             if len(numeric_values) > 1:
                 mean = field_result["mean"]
                 variance = sum((x - mean) ** 2 for x in numeric_values) / len(numeric_values)
-                field_result["stddev"] = variance ** 0.5
+                field_result["stddev"] = variance**0.5
             else:
                 field_result["stddev"] = 0.0
 
@@ -165,7 +166,9 @@ def frequency(
             if field_name not in field_counters:
                 field_counters[field_name] = Counter()
 
-            field_counters[field_name][value] += 1
+            # Use value as key when hashable, else string repr (so list/dict work)
+            key = hashable_key(value)
+            field_counters[field_name][key] += 1
 
     # Convert to dictionaries and apply limit
     result: dict[str, dict[Any, int]] = {}
@@ -204,41 +207,69 @@ def uniq(
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
 
-    seen: set[tuple[Any, ...]] = set()
-    counts: dict[tuple[Any, ...], int] = {}
-    seen_items: dict[tuple[Any, ...], Any] = {}
+    # When include_count=True, return a dict directly (no generator)
+    if include_count:
+        return _uniq_counts(iterable, fields, values_only)
+
+    return _uniq_iter(iterable, fields, values_only)
+
+
+def _uniq_counts(
+    iterable: collections.abc.Iterable[Row],
+    fields: list[str] | None,
+    values_only: bool,
+) -> dict[Any, int]:
+    """Build unique counts dict (no yield, so caller gets a real dict)."""
+    seen: set[str] = set()
+    counts: dict[str, int] = {}
+    seen_items: dict[str, Any] = {}
 
     for row in iterable:
-        # Create key from specified fields
-        if fields:
-            key = tuple(row.get(f) for f in fields)
-        else:
-            # Use all fields
-            key = tuple(sorted(row.items()))
-
+        key = hashable_repr(tuple(row.get(f) for f in fields)) if fields else hashable_repr(tuple(sorted(row.items())))
         if key not in seen:
             seen.add(key)
-            # Store the item to return
             if values_only:
                 if fields and len(fields) == 1:
                     seen_items[key] = row[fields[0]]
+                elif fields:
+                    seen_items[key] = tuple(row.get(f) for f in fields)
                 else:
-                    seen_items[key] = key
+                    seen_items[key] = tuple(sorted(row.items()))
             else:
                 seen_items[key] = row
-
-            if include_count:
-                counts[key] = 1
-            else:
-                # Yield immediately if not counting
-                yield seen_items[key]
+            counts[key] = 1
         else:
-            if include_count:
-                counts[key] += 1
+            counts[key] += 1
 
-    if include_count:
-        # Return counts as dictionary mapping items to counts
-        result: dict[Any, int] = {}
-        for key, count in counts.items():
-            result[seen_items[key]] = count
-        return result
+    result: dict[Any, int] = {}
+    for k, c in counts.items():
+        item = seen_items[k]
+        try:
+            hash(item)
+            key = item
+        except TypeError:
+            key = hashable_repr(item)
+        result[key] = c
+    return result
+
+
+def _uniq_iter(
+    iterable: collections.abc.Iterable[Row],
+    fields: list[str] | None,
+    values_only: bool,
+) -> collections.abc.Iterator[Row | Any]:
+    """Yield unique rows/values (generator)."""
+    seen: set[str] = set()
+    for row in iterable:
+        key = hashable_repr(tuple(row.get(f) for f in fields)) if fields else hashable_repr(tuple(sorted(row.items())))
+        if key not in seen:
+            seen.add(key)
+            if values_only:
+                if fields and len(fields) == 1:
+                    yield row[fields[0]]
+                elif fields:
+                    yield tuple(row.get(f) for f in fields)
+                else:
+                    yield tuple(sorted(row.items()))
+            else:
+                yield row

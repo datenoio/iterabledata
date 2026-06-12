@@ -6,12 +6,13 @@ from __future__ import annotations
 
 import collections.abc
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 try:
+    import psycopg
     from psycopg import sql
     from psycopg.pool import ConnectionPool
-    import psycopg
 except ImportError:
     psycopg = None
     sql = None
@@ -19,6 +20,7 @@ except ImportError:
 
 from ..types import Row
 from .core import IngestionResult
+from .identifiers import quote_columns, quote_table_name
 
 
 def ingest(
@@ -60,16 +62,17 @@ def ingest(
         conn = psycopg.connect(db_url)
 
         # Get first row to determine schema
-        first_row = next(iter(iterable), None)
+        iterator = iter(iterable)
+        first_row = next(iterator, None)
         if first_row is None:
             return IngestionResult(elapsed_seconds=time.time() - start_time)
 
         # Create table if needed
         if create_table:
-            columns = list(first_row.keys())
+            columns = quote_columns(list(first_row.keys()))
             # Use TEXT for all columns (flexible)
             columns_def = ", ".join([f"{col} TEXT" for col in columns])
-            create_query = f"CREATE TABLE IF NOT EXISTS {table} ({columns_def})"
+            create_query = f"CREATE TABLE IF NOT EXISTS {quote_table_name(table)} ({columns_def})"
             conn.execute(create_query)
             conn.commit()
 
@@ -78,7 +81,7 @@ def ingest(
         rows_processed = 1
 
         # Process remaining rows
-        for row in iterable:
+        for row in iterator:
             batch_rows.append(row)
             rows_processed += 1
 
@@ -122,21 +125,29 @@ def _insert_batch(
         return
 
     columns = list(rows[0].keys())
-    columns_str = ", ".join(columns)
+    quoted_table = quote_table_name(table)
+    quoted_columns = quote_columns(columns)
+    columns_str = ", ".join(quoted_columns)
     placeholders = ", ".join(["%s" for _ in columns])
 
     if mode == "upsert" and upsert_key:
         # PostgreSQL UPSERT (ON CONFLICT)
         if isinstance(upsert_key, str):
             upsert_key = [upsert_key]
-        update_cols = [col for col in columns if col not in upsert_key]
-        update_clause = ", ".join([f"{col} = EXCLUDED.{col}" for col in update_cols])
-        query = f"""INSERT INTO {table} ({columns_str}) 
+        update_clause = ", ".join(
+            [
+                f"{qcol} = EXCLUDED.{qcol}"
+                for col, qcol in zip(columns, quoted_columns, strict=True)
+                if col not in upsert_key
+            ]
+        )
+        conflict_clause = ", ".join(quote_columns(list(upsert_key)))
+        query = f"""INSERT INTO {quoted_table} ({columns_str}) 
                     VALUES ({placeholders})
-                    ON CONFLICT ({', '.join(upsert_key)}) 
+                    ON CONFLICT ({conflict_clause}) 
                     DO UPDATE SET {update_clause}"""
     else:
-        query = f"INSERT INTO {table} ({columns_str}) VALUES ({placeholders})"
+        query = f"INSERT INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"
 
     values = [[row.get(col) for col in columns] for row in rows]
     conn.executemany(query, values)

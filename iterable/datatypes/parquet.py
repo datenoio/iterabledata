@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import typing
+from typing import Any
 
 import pyarrow
 import pyarrow.parquet
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from typing import Any
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..types import Row
 
 DEFAULT_BATCH_SIZE = 1024
 
@@ -141,47 +142,52 @@ class ParquetIterable(BaseFileIterable):
 
     def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
         """Read bulk Parquet records efficiently using batch reading.
-        
+
         This optimized implementation directly consumes batches from iter_batches()
         instead of calling read() in a loop, providing significant performance
         improvements for columnar data access.
         """
         chunk = []
-        
+
         # First, consume from cached batch if available
-        if hasattr(self, '_cached_batch') and self._cached_batch:
+        if hasattr(self, "_cached_batch") and self._cached_batch:
             while len(chunk) < num and self._cached_batch:
                 chunk.append(self._cached_batch.pop(0))
                 self.pos += 1
-        
+
         # If we need more rows, read from batches directly
         while len(chunk) < num:
             try:
                 # Get next batch from batch iterator
                 batch = next(self._batch_iterator)
                 batch_rows = batch.to_pylist()
-                
+
                 # Add rows from batch to chunk
                 remaining = num - len(chunk)
                 chunk.extend(batch_rows[:remaining])
                 self.pos += len(batch_rows[:remaining])
-                
+
                 # Cache remaining rows from batch for next read_bulk() call
                 if len(batch_rows) > remaining:
-                    if not hasattr(self, '_cached_batch'):
+                    if not hasattr(self, "_cached_batch"):
                         self._cached_batch = []
                     self._cached_batch = batch_rows[remaining:]
                 else:
                     self._cached_batch = []
-                    
+
             except StopIteration:
                 # No more batches available
                 break
-        
+
         return chunk
 
     def write(self, record: Row) -> None:
         """Write single record"""
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:
+                return
+            record = validated
         self.write_bulk(
             [
                 record,
@@ -190,6 +196,13 @@ class ParquetIterable(BaseFileIterable):
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk records"""
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:
+                    validated_records.append(validated)
+            records = validated_records
         if not records:
             return
 
@@ -197,7 +210,7 @@ class ParquetIterable(BaseFileIterable):
         if self.writer is not None:
             # Get expected fields from existing schema
             expected_fields = {field.name for field in self.writer.schema}
-            
+
             # Normalize records to match existing schema
             # Add missing fields as None, remove extra fields
             normalized_records = []
@@ -206,12 +219,12 @@ class ParquetIterable(BaseFileIterable):
                 for field_name in expected_fields:
                     normalized[field_name] = record.get(field_name)
                 normalized_records.append(normalized)
-            
+
             try:
                 table = pyarrow.Table.from_pylist(normalized_records)
                 self.writer.write_table(table)
                 return
-            except Exception as e:
+            except Exception:
                 # If normalization didn't work, buffer and let flush handle it
                 # This can happen if there are type mismatches
                 self.__buffer.extend(normalized_records)

@@ -4,11 +4,6 @@ import lzma
 
 from ..base import BaseCodec
 
-LZMA_FILTERS = [
-    {"id": lzma.FILTER_DELTA, "dist": 5},
-    {"id": lzma.FILTER_LZMA2, "preset": 7 | lzma.PRESET_EXTREME},
-]
-
 
 class LZMACodec(BaseCodec):
     def __init__(
@@ -20,9 +15,10 @@ class LZMACodec(BaseCodec):
         super().__init__(filename, mode=mode, open_it=open_it, options=options)
 
     def open(self) -> lzma.LZMAFile:
-        filters = LZMA_FILTERS
-        filters[0]["dist"] = self.compression_level
-        self._fileobj = lzma.LZMAFile(self.filename, mode=self.mode, format=lzma.FORMAT_XZ)  # , filters=filters)
+        kwargs: dict = {"format": lzma.FORMAT_XZ}
+        if self.mode in ("w", "wb"):
+            kwargs["preset"] = self.compression_level
+        self._fileobj = lzma.LZMAFile(self.filename, mode=self.mode, **kwargs)
         return self._fileobj
 
     def reset(self):
@@ -31,8 +27,10 @@ class LZMACodec(BaseCodec):
         else:
             super().reset()
 
-    def close(self):
-        self._fileobj.close()
+    def close(self) -> None:
+        if self._fileobj is not None:
+            self._fileobj.close()
+            self._fileobj = None
 
     @staticmethod
     def id():

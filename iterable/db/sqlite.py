@@ -66,6 +66,7 @@ class SQLiteDriver(DBDriver):
                 # Try to open in read-only mode first
                 try:
                     import os
+
                     if os.path.exists(self.source):
                         # Open in read-only mode
                         self.conn = sqlite3.connect(f"file:{self.source}?mode=ro", uri=True, **connect_args)
@@ -260,6 +261,7 @@ class SQLiteDriver(DBDriver):
             else:
                 try:
                     import os
+
                     if os.path.exists(connection_string):
                         conn = sqlite3.connect(f"file:{connection_string}?mode=ro", uri=True, **connect_args)
                     else:

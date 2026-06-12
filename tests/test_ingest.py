@@ -46,6 +46,8 @@ class TestIngest:
 
             with tempfile.NamedTemporaryFile(suffix=".duckdb", delete=False) as f:
                 db_path = f.name
+            # DuckDB refuses to open an existing file that is not a valid database
+            os.unlink(db_path)
 
             try:
                 result = ingest.to_db(
@@ -96,9 +98,9 @@ class TestIngest:
             db_path = f.name
 
         try:
-            # This will test file path handling
+            # This will test file path handling (cwd is tests/ via conftest)
             result = ingest.to_db(
-                "tests/fixtures/2cols6rows.csv",
+                "fixtures/2cols6rows.csv",
                 db_url=db_path,
                 table="test",
                 dbtype="sqlite",

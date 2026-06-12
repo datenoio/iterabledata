@@ -8,7 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.12] - 2026-06-12
+
+### Security
+- **SQL identifier quoting in ingest**: PostgreSQL, MySQL, SQLite, and DuckDB ingest backends now validate and quote table and column names before interpolating them into SQL statements (new `iterable/ingest/identifiers.py`), preventing SQL injection through crafted identifiers. Control characters in identifiers are rejected.
+
 ### Added
+- **Default `read_bulk()` in `BaseIterable`**: The base class now provides a concrete `read_bulk()` implementation (read() loop with StopIteration handling). 86 identical per-format implementations were removed; formats keep optimized overrides where they exist (Parquet, CSV, SQLite, etc.).
+- **Format conformance test suite**: New `tests/test_format_conformance.py` validates every format in `DATATYPE_REGISTRY` (class loads, static `id()`, iterator contract methods) and verifies runtime behavior (StopIteration at EOF, `read_bulk` semantics, reset round-trip) for fixture-backed formats.
+- **Shared datatype helpers**: New `iterable/datatypes/_shared.py` with `graph_to_records()` (GEXF/GraphML/DOT) and `rdf_term_to_str()` (TriG/N3/TriX), replacing per-module duplicates.
+- **`zipxml` registry entry**: `ZIPXMLSource` is now registered in `DATATYPE_REGISTRY` and usable via `open_iterable(..., iterableargs={"format": "zipxml", "tagname": ...})`; it also gained proper `reset()` and static `id()` implementations (same for `ZIPSourceWrapper`).
+- **`feed` registry alias**: canonical "feed" format id now resolves alongside "atom"/"rss".
+- **Project URLs**: `Documentation` and `Changelog` URLs added to packaging metadata.
+- **Validation hooks on write**: JSON, Parquet, SQLite, TopoJSON, JSONL, Arrow, and YAML now apply `validation_hook` in `write()` and `write_bulk()` (previously only CSV did). Invalid rows are skipped when `on_validation_error="skip"`.
+- **Specs**: New capabilities `validation-consistency` and `sqlite-optimization`; `topojson-format` extended with write-structure requirement.
 - **Confidence Scores for Format Detection**: Detection results now include confidence scores (0.0-1.0) and detection method
   - `detect_file_type()` returns `confidence` and `detection_method` fields
   - Filename detection: confidence 1.0, method "filename"
@@ -21,6 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Reports memory per record and streaming status
 
 ### Changed
+- **CI consolidation**: `ci.yml`, `test.yml`, and `lint.yml` merged into a single `ci.yml` with three jobs (lint, test matrix across 3 OS x Python 3.10-3.12, security). Ruff lint/format, mypy on core modules (`types.py`, `exceptions.py`, `async_base.py`), and Bandit high-severity scans are now blocking; full mypy, pydocstyle, vulture, radon, and pip-audit remain advisory.
+- **Single PyPI publish path**: `release.yml` no longer uploads to PyPI directly; publishing happens exclusively in `python-publish.yml` (triggered by GitHub Release publication) using PyPI Trusted Publishing instead of token secrets. Release tests now install via `pip install -e ".[dev]"` instead of legacy `requirements.txt`.
+- **Docs deployment target**: Docusaurus config now points at the real repository (`datenoio/iterabledata`) and publishes to `https://datenoio.github.io/iterabledata/` (previously configured for a non-existent `iterabledata.github.io` site).
+- **`iterable.ingest` is the submodule again**: `from iterable import ingest; ingest.to_db(...)` works as documented (previously `iterable.ingest` was accidentally bound to the `to_db` function itself).
+- **`iterable.validate` is the submodule again**: `from iterable import validate; validate.iterable(...)` works as documented (previously bound to the `iterable()` function itself). `validate.iterable(..., mode="stats")` now actually returns the statistics dictionary instead of an exhausted generator.
+- **READ_ONLY_FORMATS updated**: added missing read-only formats fasta/fastq (and aliases), bam, sam, trig, n3, trix, graphml, gexf, dot/gv, xlsb, and the `nc` netcdf alias.
+- **Data types consistency**: SQLite `read_bulk()` now uses `cursor.fetchmany(size)` for efficient bulk reads. TopoJSON `write_bulk()`/`write()` buffer records and emit a single valid TopoJSON document (`{"type": "Topology", ...}`) on `close()`.
 - **Exception Hierarchy**: Comprehensive exception hierarchy replaces generic exceptions
   - **New Base Exception**: `IterableDataError` - Base exception for all library errors
   - **Format Exceptions**: `FormatError`, `FormatNotSupportedError`, `FormatDetectionError`, `FormatParseError`
@@ -54,6 +74,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added resource management documentation with context manager patterns, cleanup on exceptions, reset operations
 
 ### Fixed
+- **PCAP iterator contract**: `PCAPIterable.read()` now raises `StopIteration` at end of file instead of returning `None`; added missing static `id()` and a `reset()` that clears reader state.
+- **Async error propagation**: `AsyncBaseIterable.__anext__` no longer converts arbitrary exceptions (parse errors, I/O errors) into `StopAsyncIteration`; only source exhaustion ends iteration. `AsyncBaseFileIterable.aread()` now correctly handles `StopIteration` raised inside executor threads (previously surfaced as `RuntimeError`).
+- **`read_bulk` at EOF**: AVRO, XLS, and XLSX `read_bulk()` no longer raise `StopIteration` when the source is exhausted mid-chunk; they return the partial chunk (and `[]` thereafter) per the documented contract.
+- **Double-counting in SQL ingest**: PostgreSQL, MySQL, SQLite, and DuckDB ingest no longer duplicate the first row when given a list (the schema-probe row was re-read because a fresh iterator was created for the main loop).
+- **NumPy invalid-shape error**: `NumPyIterable` no longer crashes with `TypeError` when raising `FormatNotSupportedError` for unsupported array shapes (constructor arguments were passed incorrectly).
+- **Typed core modules**: `iterable/types.py`, `iterable/exceptions.py`, and `iterable/async_base.py` are now mypy-clean; exception `__str__` guidance guards against `None` format/codec ids.
 - **Memory Anti-Patterns**: Fixed memory loading patterns in format implementations
   - JSON format: Uses `ijson` for streaming when files >10MB (was loading entire file)
   - GeoJSON format: Uses `ijson` for streaming large files (was loading entire file)

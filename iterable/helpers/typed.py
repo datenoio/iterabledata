@@ -46,10 +46,7 @@ def as_dataclasses(
             filtered_row = {k: v for k, v in row.items() if k in field_names}
             yield dataclass_type(**filtered_row)
         except TypeError as e:
-            raise ValueError(
-                f"Failed to create {dataclass_type.__name__} from row: {row}. "
-                f"Error: {e}"
-            ) from e
+            raise ValueError(f"Failed to create {dataclass_type.__name__} from row: {row}. Error: {e}") from e
 
 
 def as_pydantic(
@@ -88,10 +85,7 @@ def as_pydantic(
     try:
         from pydantic import BaseModel, ValidationError
     except ImportError as e:
-        raise ImportError(
-            "Pydantic is required for as_pydantic(). "
-            "Install it with: pip install pydantic>=2.0.0"
-        ) from e
+        raise ImportError("Pydantic is required for as_pydantic(). Install it with: pip install pydantic>=2.0.0") from e
 
     if not issubclass(model_type, BaseModel):
         raise TypeError(f"{model_type.__name__} must be a Pydantic BaseModel subclass")
@@ -105,7 +99,4 @@ def as_pydantic(
             else:
                 yield model_type.model_construct(**row)
         except ValidationError as e:
-            raise ValueError(
-                f"Failed to validate row against {model_type.__name__}: {row}. "
-                f"Error: {e}"
-            ) from e
+            raise ValueError(f"Failed to validate row against {model_type.__name__}: {row}. Error: {e}") from e

@@ -70,7 +70,7 @@ class FormatNotSupportedError(FormatError):
     def __str__(self) -> str:
         """Return enhanced error message with actionable guidance."""
         base_message = super().__str__()
-        guidance = ErrorGuidance.format_not_supported(self.format_id, self.reason)
+        guidance = ErrorGuidance.format_not_supported(self.format_id, self.reason) if self.format_id else ""
 
         if guidance:
             return f"{base_message}\n\n{guidance}"
@@ -144,10 +144,10 @@ class FormatParseError(FormatError):
         """
         # Build error message with available context
         full_message = f"Failed to parse {format_id} format"
-        
+
         # Use byte_offset if available, otherwise fall back to position for backward compatibility
         offset = byte_offset if byte_offset is not None else position
-        
+
         if filename:
             full_message += f" at {filename}"
         if row_number is not None:
@@ -155,7 +155,7 @@ class FormatParseError(FormatError):
         if offset is not None:
             full_message += f" (byte {offset})"
         full_message += f": {message}"
-        
+
         super().__init__(full_message, format_id=format_id, error_code="FORMAT_PARSE_FAILED")
         self.position = position  # Keep for backward compatibility
         self.filename = filename
@@ -167,13 +167,17 @@ class FormatParseError(FormatError):
     def __str__(self) -> str:
         """Return enhanced error message with actionable guidance."""
         base_message = super().__str__()
-        guidance = ErrorGuidance.format_parse_error(
-            self.format_id,
-            self.parse_message,
-            self.filename,
-            self.row_number,
-            self.byte_offset,
-            self.original_line,
+        guidance = (
+            ErrorGuidance.format_parse_error(
+                self.format_id,
+                self.parse_message,
+                self.filename,
+                self.row_number,
+                self.byte_offset,
+                self.original_line,
+            )
+            if self.format_id
+            else ""
         )
 
         if guidance:
@@ -224,7 +228,7 @@ class CodecNotSupportedError(CodecError):
     def __str__(self) -> str:
         """Return enhanced error message with actionable guidance."""
         base_message = super().__str__()
-        guidance = ErrorGuidance.codec_not_supported(self.codec_name, self.reason)
+        guidance = ErrorGuidance.codec_not_supported(self.codec_name, self.reason) if self.codec_name else ""
 
         if guidance:
             return f"{base_message}\n\n{guidance}"
@@ -506,7 +510,7 @@ class ErrorGuidance:
             dep_name = _extract_dependency_name(reason)
             if dep_name:
                 guidance.append("To fix this issue:")
-                guidance.append(f"1. Install the required dependency:")
+                guidance.append("1. Install the required dependency:")
                 guidance.append(f"   pip install {dep_name}")
                 guidance.append("")
                 guidance.append("2. Verify the installation:")
@@ -660,7 +664,7 @@ class ErrorGuidance:
             dep_name = _extract_dependency_name(reason)
             if dep_name:
                 guidance.append("To fix this issue:")
-                guidance.append(f"1. Install the required dependency:")
+                guidance.append("1. Install the required dependency:")
                 guidance.append(f"   pip install {dep_name}")
                 guidance.append("")
                 guidance.append("2. Verify the installation:")
@@ -709,6 +713,8 @@ class ErrorGuidance:
         guidance.append("")
         guidance.append("Alternative: Read the stream once and process it without resetting")
         guidance.append("")
-        guidance.append("For more information, see: https://iterabledata.io/docs/getting-started/troubleshooting#reset-operation-issues")
+        guidance.append(
+            "For more information, see: https://iterabledata.io/docs/getting-started/troubleshooting#reset-operation-issues"
+        )
 
         return "\n".join(guidance)

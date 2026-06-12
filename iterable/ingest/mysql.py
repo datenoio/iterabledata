@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import collections.abc
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 try:
     import mysql.connector
@@ -15,6 +16,7 @@ except ImportError:
 
 from ..types import Row
 from .core import IngestionResult
+from .identifiers import quote_columns, quote_table_name
 
 
 def ingest(
@@ -44,7 +46,9 @@ def ingest(
         IngestionResult with statistics
     """
     if mysql is None:
-        raise ImportError("mysql-connector-python is required for MySQL ingestion. Install with: pip install mysql-connector-python")
+        raise ImportError(
+            "mysql-connector-python is required for MySQL ingestion. Install with: pip install mysql-connector-python"
+        )
 
     start_time = time.time()
     rows_processed = 0
@@ -56,6 +60,7 @@ def ingest(
         # Parse connection URL (simplified)
         # mysql://user:pass@host:port/dbname
         from urllib.parse import urlparse
+
         parsed = urlparse(db_url.replace("mysql://", "http://"))
         conn = mysql.connector.connect(
             host=parsed.hostname or "localhost",
@@ -67,15 +72,16 @@ def ingest(
         cursor = conn.cursor()
 
         # Get first row to determine schema
-        first_row = next(iter(iterable), None)
+        iterator = iter(iterable)
+        first_row = next(iterator, None)
         if first_row is None:
             return IngestionResult(elapsed_seconds=time.time() - start_time)
 
         # Create table if needed
         if create_table:
-            columns = list(first_row.keys())
+            columns = quote_columns(list(first_row.keys()), quote_char="`")
             columns_def = ", ".join([f"{col} TEXT" for col in columns])
-            create_query = f"CREATE TABLE IF NOT EXISTS {table} ({columns_def})"
+            create_query = f"CREATE TABLE IF NOT EXISTS {quote_table_name(table, quote_char='`')} ({columns_def})"
             cursor.execute(create_query)
             conn.commit()
 
@@ -84,7 +90,7 @@ def ingest(
         rows_processed = 1
 
         # Process remaining rows
-        for row in iterable:
+        for row in iterator:
             batch_rows.append(row)
             rows_processed += 1
 
@@ -130,20 +136,27 @@ def _insert_batch(
         return
 
     columns = list(rows[0].keys())
-    columns_str = ", ".join(columns)
+    quoted_table = quote_table_name(table, quote_char="`")
+    quoted_columns = quote_columns(columns, quote_char="`")
+    columns_str = ", ".join(quoted_columns)
     placeholders = ", ".join(["%s" for _ in columns])
 
     if mode == "upsert" and upsert_key:
         # MySQL UPSERT (INSERT ... ON DUPLICATE KEY UPDATE)
         if isinstance(upsert_key, str):
             upsert_key = [upsert_key]
-        update_cols = [col for col in columns if col not in upsert_key]
-        update_clause = ", ".join([f"{col} = VALUES({col})" for col in update_cols])
-        query = f"""INSERT INTO {table} ({columns_str}) 
+        update_clause = ", ".join(
+            [
+                f"{qcol} = VALUES({qcol})"
+                for col, qcol in zip(columns, quoted_columns, strict=True)
+                if col not in upsert_key
+            ]
+        )
+        query = f"""INSERT INTO {quoted_table} ({columns_str}) 
                     VALUES ({placeholders})
                     ON DUPLICATE KEY UPDATE {update_clause}"""
     else:
-        query = f"INSERT INTO {table} ({columns_str}) VALUES ({placeholders})"
+        query = f"INSERT INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"
 
     values = [[row.get(col) for col in columns] for row in rows]
     cursor.executemany(query, values)

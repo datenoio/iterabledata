@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import typing
+from typing import Any
 
 import pyorc
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from typing import Any
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..types import Row
 
 
 def df_to_pyorc_schema(df):

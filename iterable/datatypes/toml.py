@@ -17,8 +17,10 @@ except ImportError:
         HAS_TOML = False
         HAS_TOMLI = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
 from typing import Any
+
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..types import Row
 
 
 class TOMLIterable(BaseFileIterable):

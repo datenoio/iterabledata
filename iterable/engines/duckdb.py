@@ -1,20 +1,18 @@
 from __future__ import annotations
 
 import ast
+
+# Try to import pandas for optimized DataFrame conversions
+import importlib.util
 import typing
 import warnings
 
 import duckdb
 
 from ..base import BaseCodec, BaseFileIterable
-from ..exceptions import ReadError, FormatParseError, FormatNotSupportedError
+from ..exceptions import FormatNotSupportedError, FormatParseError, ReadError
 
-# Try to import pandas for optimized DataFrame conversions
-try:
-    import pandas as pd
-    HAS_PANDAS = True
-except ImportError:
-    HAS_PANDAS = False
+HAS_PANDAS = importlib.util.find_spec("pandas") is not None
 
 DUCKDB_CACHE_SIZE = 1000
 
@@ -43,7 +41,7 @@ class DuckDBEngineIterable(BaseFileIterable):
         self._columns = options.get("columns")
         self._filter = options.get("filter")
         self._query = options.get("query")
-        
+
         # Track if callable filter was translated to SQL (for fallback handling)
         self._filter_translated = False
 
@@ -347,12 +345,12 @@ class DuckDBEngineIterable(BaseFileIterable):
             test_query = f"SELECT * FROM {self._duckdb_function}('{safe_filename}') LIMIT ?"
             result = self._connection.execute(test_query, [0])
             available_columns = {desc[0].lower() for desc in result.description} if result.description else set()
-        except (duckdb.Error, duckdb.ProgrammingError, duckdb.OperationalError) as e:
+        except (duckdb.Error, duckdb.ProgrammingError, duckdb.OperationalError):
             # If we can't get column info, skip validation (backward compatibility)
             # DuckDB will raise an error if column doesn't exist anyway
             # Log the specific DuckDB error but don't fail validation
             return
-        except Exception as e:
+        except Exception:
             # For other unexpected errors, still skip validation but preserve error info
             # This maintains backward compatibility while allowing DuckDB to handle errors
             return
@@ -376,7 +374,7 @@ class DuckDBEngineIterable(BaseFileIterable):
 
     def _build_sql_query(self, limit: int | None = None, offset: int | None = None) -> tuple[str, list]:
         """Build SQL query with pushdown optimizations using parameterized queries.
-        
+
         Returns:
             tuple[str, list]: (query_string, parameters) where parameters is a list of values
             for the ? placeholders in the query string.
@@ -407,7 +405,7 @@ class DuckDBEngineIterable(BaseFileIterable):
         else:
             select_clause = "SELECT *"
 
-        # Build FROM clause (filename must be escaped, not parameterized, as DuckDB read functions require string literals)
+        # FROM: filename escaped, not parameterized (DuckDB read_* need string literals)
         from_clause = f"FROM {self._duckdb_function}('{safe_filename}')"
 
         # Build WHERE clause
@@ -446,7 +444,7 @@ class DuckDBEngineIterable(BaseFileIterable):
 
     def _ensure_connection(self):
         """Ensure DuckDB connection is established.
-        
+
         Creates a connection lazily on first use and reuses it throughout
         the instance lifetime. Connection pooling is not implemented because:
         - DuckDB is an in-process database with lightweight connections
@@ -542,13 +540,13 @@ class DuckDBEngineIterable(BaseFileIterable):
 
     def _result_to_dicts(self, result) -> list[dict]:
         """Convert DuckDB result to list of dicts efficiently.
-        
+
         Uses DuckDB's native DataFrame conversion if pandas is available,
         otherwise falls back to manual conversion.
-        
+
         Args:
             result: DuckDB result object from execute()
-            
+
         Returns:
             list[dict]: List of dictionaries, one per row
         """
@@ -558,7 +556,7 @@ class DuckDBEngineIterable(BaseFileIterable):
                 df = result.df()
                 # Convert DataFrame to list of dicts (faster than manual conversion)
                 dicts = df.to_dict("records")
-                
+
                 # Handle column filtering if specified (more efficient with DataFrame)
                 if self._columns:
                     # Filter columns before conversion if possible, otherwise filter after
@@ -568,35 +566,35 @@ class DuckDBEngineIterable(BaseFileIterable):
                     else:
                         # Fallback: filter dicts after conversion
                         dicts = [{k: row.get(k) for k in self._columns if k in row} for row in dicts]
-                
+
                 return dicts
-            except (duckdb.Error, duckdb.ProgrammingError, duckdb.OperationalError) as e:
+            except (duckdb.Error, duckdb.ProgrammingError, duckdb.OperationalError):
                 # DuckDB-specific errors - fall back to manual conversion
                 # This can happen if DataFrame conversion fails for some reason
                 pass
-            except Exception as e:
+            except Exception:
                 # Other unexpected errors during DataFrame conversion - fall back to manual conversion
                 pass
-        
+
         # Fallback: manual conversion (used when pandas not available or conversion fails)
         rows = result.fetchall()
         columns = [desc[0] for desc in result.description] if result.description else []
         dicts = [dict(zip(columns, row, strict=False)) for row in rows]
-        
+
         # Handle column filtering if specified
         if self._columns:
             dicts = [{k: row.get(k) for k in self._columns if k in row} for row in dicts]
-        
+
         return dicts
 
     def _load_batch(self, batch_index: int | None = None):
         """Load batch for the given batch index (or current position if None)"""
         self._ensure_connection()
-        
+
         # Determine which batch to load
         if batch_index is None:
             batch_index = self._get_current_batch_index()
-        
+
         batch_offset = self._get_batch_offset(batch_index)
 
         # Only reload if we need a different batch (simplified check - compare offsets directly)
@@ -631,7 +629,7 @@ class DuckDBEngineIterable(BaseFileIterable):
         # Calculate which batch we need
         batch_index = self._get_current_batch_index()
         batch_offset = self._get_batch_offset(batch_index)
-        
+
         # Load batch if needed (simplified check)
         if self._offset != batch_offset or self._current_batch is None or len(self._current_batch) == 0:
             self._load_batch(batch_index)

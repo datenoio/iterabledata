@@ -11,9 +11,10 @@ try:
 except ImportError:
     HAS_NETCDF = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import WriteNotSupportedError, ReadError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import ReadError, WriteNotSupportedError
 
 
 class NetCDFIterable(BaseFileIterable):
@@ -52,10 +53,10 @@ class NetCDFIterable(BaseFileIterable):
                 # But BaseFileIterable usually gives us a stream.
                 # For now, let's require a filename or a named stream.
                 raise ReadError(
-                "NetCDF reading currently requires a filename or a file object with a name attribute",
-                filename=None,
-                error_code="RESOURCE_REQUIREMENT_NOT_MET",
-            )
+                    "NetCDF reading currently requires a filename or a file object with a name attribute",
+                    filename=None,
+                    error_code="RESOURCE_REQUIREMENT_NOT_MET",
+                )
 
             self.iterator = self.__iterator()
         else:
@@ -198,9 +199,7 @@ class NetCDFIterable(BaseFileIterable):
             nc_dataset.close()
 
     @staticmethod
-
-
-        def has_totals() -> bool:
+    def has_totals() -> bool:
         return True
 
     def totals(self):
@@ -230,12 +229,3 @@ class NetCDFIterable(BaseFileIterable):
         row = next(self.iterator)
         self.pos += 1
         return row
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk

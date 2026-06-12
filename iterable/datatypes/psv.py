@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import typing
+from typing import Any
 
 from ..base import BaseCodec
 from .csv import CSVIterable
-from typing import Any
 
 
 class PSVIterable(CSVIterable):

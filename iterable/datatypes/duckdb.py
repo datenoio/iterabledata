@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import typing
+from typing import Any
 
 import duckdb
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import ReadError, WriteError, FormatNotSupportedError
-from typing import Any
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import FormatNotSupportedError, ReadError, WriteError
+from ..types import Row
 
 
 class DuckDBDatabaseIterable(BaseFileIterable):
@@ -184,16 +185,6 @@ class DuckDBDatabaseIterable(BaseFileIterable):
         result = dict(zip(self.keys, row, strict=False))
         self.pos += 1
         return result
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk DuckDB records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single DuckDB record"""

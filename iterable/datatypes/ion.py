@@ -9,8 +9,10 @@ try:
 except ImportError:
     HAS_ION = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..types import Row
 
 
 class IonIterable(BaseFileIterable):
@@ -63,16 +65,6 @@ class IonIterable(BaseFileIterable):
             return {str(i): v for i, v in enumerate(value)}
         else:
             return {"value": value}
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk Ion records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single Ion record"""

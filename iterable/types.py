@@ -1,7 +1,7 @@
 """Type aliases and type definitions for iterabledata."""
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol, runtime_checkable, TYPE_CHECKING, TypeVar, IO
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 # Type variables for generic types
 T = TypeVar("T")
@@ -33,11 +33,11 @@ CodecArgs = dict[str, Any]
 @runtime_checkable
 class Readable(Protocol):
     """Protocol for objects that can be read from (file-like objects with read capability)."""
-    
+
     def read(self, size: int = -1) -> bytes | str:
         """Read data from the object."""
         ...
-    
+
     def close(self) -> None:
         """Close the object."""
         ...
@@ -46,11 +46,11 @@ class Readable(Protocol):
 @runtime_checkable
 class Writable(Protocol):
     """Protocol for objects that can be written to (file-like objects with write capability)."""
-    
+
     def write(self, data: bytes | str) -> int:
         """Write data to the object."""
         ...
-    
+
     def close(self) -> None:
         """Close the object."""
         ...
@@ -59,11 +59,11 @@ class Writable(Protocol):
 @runtime_checkable
 class Seekable(Protocol):
     """Protocol for objects that support seeking (file-like objects with seek capability)."""
-    
+
     def seek(self, offset: int, whence: int = 0) -> int:
         """Seek to a position in the object."""
         ...
-    
+
     def tell(self) -> int:
         """Return current position in the object."""
         ...
@@ -72,20 +72,20 @@ class Seekable(Protocol):
 @runtime_checkable
 class FileLike(Readable, Writable, Seekable, Protocol):
     """Protocol for complete file-like objects that support read, write, and seek operations.
-    
+
     This is a combination of Readable, Writable, and Seekable protocols.
     Not all file-like objects need to implement all methods, but this protocol
     represents the full interface.
     """
-    
+
     def close(self) -> None:
         """Close the file-like object."""
         ...
-    
+
     def __enter__(self) -> "FileLike":
         """Context manager entry."""
         ...
-    
+
     def __exit__(self, exc_type: type[Exception] | None, exc_val: Exception | None, exc_tb: Any) -> bool:
         """Context manager exit."""
         ...
@@ -94,15 +94,15 @@ class FileLike(Readable, Writable, Seekable, Protocol):
 @runtime_checkable
 class ErrorLogWriter(Protocol):
     """Protocol for error log file-like objects that only need write capability."""
-    
+
     def write(self, data: str) -> int:
         """Write error log entry."""
         ...
-    
+
     def flush(self) -> None:
         """Flush buffered data."""
         ...
-    
+
     def close(self) -> None:
         """Close the error log writer (optional, for file-like objects)."""
         ...

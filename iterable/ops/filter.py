@@ -9,7 +9,7 @@ from __future__ import annotations
 import collections.abc
 import operator
 import re
-from typing import Any, Iterator
+from collections.abc import Iterator
 
 from ..helpers.detect import open_iterable
 from ..types import Row
@@ -56,7 +56,6 @@ def _safe_eval_expr(expr: str, row: Row) -> bool:
     string_pattern = r"(['\"])((?:\\.|(?!\1).)*)\1"
 
     def replace_string(match):
-        quote = match.group(1)
         content = match.group(2)
         # Unescape escaped quotes
         content = content.replace("\\'", "'").replace('\\"', '"')
@@ -285,7 +284,7 @@ def query_mistql(
 
     # Has WHERE clause
     select_part = query[6:where_pos].strip()  # Between SELECT and WHERE
-    where_part = query[where_pos + 5:].strip()  # After WHERE
+    where_part = query[where_pos + 5 :].strip()  # After WHERE
 
     fields = [f.strip() for f in select_part.split(",")] if select_part != "*" else None
 

@@ -12,10 +12,9 @@ try:
 except ImportError:
     HAS_IJSON = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
 from ..exceptions import WriteError
 from ..types import Row
-from typing import Any
 
 
 class JSONIterable(BaseFileIterable):
@@ -184,6 +183,11 @@ class JSONIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single JSON record (array item)."""
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:
+                return
+            record = validated
         self.write_bulk([record])
 
     def write_bulk(self, records: list[Row]) -> None:
@@ -194,6 +198,13 @@ class JSONIterable(BaseFileIterable):
                 filename=self.filename,
                 error_code="INVALID_MODE",
             )
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:
+                    validated_records.append(validated)
+            records = validated_records
         if not records:
             return
         for record in records:

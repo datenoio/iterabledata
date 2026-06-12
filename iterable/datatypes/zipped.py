@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from zipfile import ZipFile
 
-from ..base import BaseIterable, DEFAULT_BULK_NUMBER
+from ..base import DEFAULT_BULK_NUMBER, BaseIterable
 from ..exceptions import FormatNotSupportedError
 
 
 class ZIPSourceWrapper(BaseIterable):
     def __init__(self, filename: str, binary: bool = False):
         super().__init__()
+        self.filename = filename
         self.fobj = ZipFile(filename, mode="r")
         self.filenames = self.fobj.namelist()
         self.filenum = 0
@@ -16,7 +17,19 @@ class ZIPSourceWrapper(BaseIterable):
         self.globalpos = 0
         self.mode = "rb" if binary else "r"
         self.current_file = self.fobj.open(self.filenames[self.filenum], mode=self.mode)
-        pass
+
+    @staticmethod
+    def id() -> str:
+        return "zipped"
+
+    def reset(self) -> None:
+        """Reset to the first file in the archive."""
+        if self.current_file:
+            self.current_file.close()
+        self.filenum = 0
+        self.filepos = 0
+        self.globalpos = 0
+        self.current_file = self.fobj.open(self.filenames[self.filenum], mode=self.mode)
 
     def close(self):
         if self.current_file:

@@ -4,10 +4,11 @@ import email
 import mailbox
 import typing
 from email.utils import parsedate_to_datetime
-
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import ReadError, WriteError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import WriteError
+from ..types import Row
 
 
 class MBOXIterable(BaseFileIterable):
@@ -130,16 +131,6 @@ class MBOXIterable(BaseFileIterable):
         msg = next(self.iterator)
         self.pos += 1
         return self._email_to_dict(msg)
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk MBOX records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single MBOX record"""

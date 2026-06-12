@@ -1,8 +1,9 @@
 import typing
-
-from iterable.base import BaseFileIterable
-from iterable.exceptions import WriteNotSupportedError
 from typing import Any
+
+from ..base import BaseFileIterable
+from ..exceptions import WriteNotSupportedError
+from ..types import Row
 
 try:
     import dpkt
@@ -36,14 +37,20 @@ class PCAPIterable(BaseFileIterable):
         self.reader = None
         self._iter = None
 
+    @staticmethod
+    def id() -> str:
+        return "pcap"
+
+    def reset(self):
+        super().reset()
+        self.reader = None
+        self._iter = None
+
     def read(self, skip_empty: bool = True) -> Row:
         if self._iter is None:
             self._iter = iter(self)
-        try:
-            timestamp, buf = next(self._iter)
-            return {"timestamp": timestamp, "data": buf}
-        except StopIteration:
-            return None
+        timestamp, buf = next(self._iter)
+        return {"timestamp": timestamp, "data": buf}
 
     def __iter__(self):
         if self.fobj is None:

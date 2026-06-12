@@ -31,9 +31,7 @@ jobs:
       run: python -m build
       
     - name: Publish package
+      # Uses PyPI Trusted Publishing (OIDC via id-token permission above).
+      # Configure the publisher for this repo/workflow at:
+      # https://pypi.org/manage/project/iterabledata/settings/publishing/
       uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        # Use trusted publishing if configured, otherwise fallback to secret
-        # password: ${{ secrets.PYPI_API_TOKEN }}
-        # For now, keeping the secret as it was likely used before, but commented out to encourage trusted publishing
-        password: ${{ secrets.PYPI_ITERABLE_API_TOKEN }}

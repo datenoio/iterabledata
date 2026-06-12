@@ -9,11 +9,16 @@ from __future__ import annotations
 
 import asyncio
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator, Iterator
-from typing import Any
+from collections.abc import AsyncIterator
+from typing import Any, cast
 
-from .base import BaseIterable, BaseFileIterable
+from .base import BaseFileIterable
 from .types import Row
+
+# Sentinel returned by executor workers when the wrapped sync source is
+# exhausted: StopIteration cannot be raised through a Future (asyncio
+# converts it to RuntimeError), so it is caught in the worker thread.
+_EXHAUSTED = object()
 
 
 class AsyncBaseIterable(ABC):
@@ -113,17 +118,19 @@ class AsyncBaseIterable(ABC):
         return self
 
     async def __anext__(self) -> Row:
-        """Get next row asynchronously."""
+        """Get next row asynchronously.
+
+        StopIteration from a wrapped synchronous source is converted to
+        StopAsyncIteration; all other exceptions (parse errors, I/O errors)
+        propagate to the caller instead of silently ending iteration.
+        """
         if self._closed:
             raise StopAsyncIteration
 
         try:
             return await self.aread()
-        except StopAsyncIteration:
-            raise
-        except Exception as e:
-            # Convert other exceptions to StopAsyncIteration for iterator protocol
-            raise StopAsyncIteration from e
+        except StopIteration as err:
+            raise StopAsyncIteration from err
 
 
 class AsyncBaseFileIterable(AsyncBaseIterable):
@@ -175,14 +182,18 @@ class AsyncBaseFileIterable(AsyncBaseIterable):
             raise RuntimeError("No synchronous iterable available")
 
         loop = self._get_loop()
+        sync = self._sync
 
-        def _read() -> Row:
-            return self._sync.read(skip_empty=skip_empty)
+        def _read() -> Row | object:
+            try:
+                return sync.read(skip_empty=skip_empty)
+            except StopIteration:
+                return _EXHAUSTED
 
-        try:
-            return await loop.run_in_executor(None, _read)
-        except StopIteration:
+        result = await loop.run_in_executor(None, _read)
+        if result is _EXHAUSTED:
             raise StopAsyncIteration
+        return cast(Row, result)
 
     async def aread_bulk(self, num: int = 1000) -> list[Row]:
         """Read multiple rows asynchronously.
@@ -197,9 +208,10 @@ class AsyncBaseFileIterable(AsyncBaseIterable):
             raise RuntimeError("No synchronous iterable available")
 
         loop = self._get_loop()
+        sync = self._sync
 
         def _read_bulk() -> list[Row]:
-            return self._sync.read_bulk(num)
+            return sync.read_bulk(num)
 
         return await loop.run_in_executor(None, _read_bulk)
 
@@ -216,9 +228,10 @@ class AsyncBaseFileIterable(AsyncBaseIterable):
             raise RuntimeError("No synchronous iterable available")
 
         loop = self._get_loop()
+        sync = self._sync
 
         def _write() -> None:
-            self._sync.write(record)
+            sync.write(record)
 
         await loop.run_in_executor(None, _write)
 
@@ -235,9 +248,10 @@ class AsyncBaseFileIterable(AsyncBaseIterable):
             raise RuntimeError("No synchronous iterable available")
 
         loop = self._get_loop()
+        sync = self._sync
 
         def _write_bulk() -> None:
-            self._sync.write_bulk(records)
+            sync.write_bulk(records)
 
         await loop.run_in_executor(None, _write_bulk)
 
@@ -251,9 +265,10 @@ class AsyncBaseFileIterable(AsyncBaseIterable):
             raise RuntimeError("No synchronous iterable available")
 
         loop = self._get_loop()
+        sync = self._sync
 
         def _reset() -> None:
-            self._sync.reset()
+            sync.reset()
 
         await loop.run_in_executor(None, _reset)
 
@@ -261,9 +276,10 @@ class AsyncBaseFileIterable(AsyncBaseIterable):
         """Close the file asynchronously."""
         if self._sync is not None:
             loop = self._get_loop()
+            sync = self._sync
 
             def _close() -> None:
-                self._sync.close()
+                sync.close()
 
             await loop.run_in_executor(None, _close)
 

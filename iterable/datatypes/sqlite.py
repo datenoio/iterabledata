@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import sqlite3
 import typing
-
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import ReadError, WriteError, FormatNotSupportedError
 from typing import Any
+
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..exceptions import ReadError, WriteError
+from ..types import Row
 
 
 class SQLiteIterable(BaseFileIterable):
@@ -159,13 +160,14 @@ class SQLiteIterable(BaseFileIterable):
         return result
 
     def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk SQLite records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
+        """Read bulk SQLite records using fetchmany for efficiency."""
+        if self.cursor is None:
+            return []
+        rows = self.cursor.fetchmany(num)
+        if not rows:
+            return []
+        chunk = [dict(zip(self.keys, row, strict=False)) for row in rows]
+        self.pos += len(chunk)
         return chunk
 
     def write(self, record: Row) -> None:
@@ -182,6 +184,11 @@ class SQLiteIterable(BaseFileIterable):
                 filename=self.filename,
                 error_code="INVALID_PARAMETER",
             )
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:
+                return
+            record = validated
 
         if self.connection is None:
             self.connection = sqlite3.connect(self.filename)
@@ -223,6 +230,13 @@ class SQLiteIterable(BaseFileIterable):
         if self.connection is None:
             self.connection = sqlite3.connect(self.filename)
 
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:
+                    validated_records.append(validated)
+            records = validated_records
         if not records:
             return
 

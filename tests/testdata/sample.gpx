@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test" xmlns="http://www.topografix.com/GPX/1/1">
+  <wpt lat="52.1" lon="4.2">
+    <name>Waypoint A</name>
+    <ele>10.5</ele>
+  </wpt>
+  <rte>
+    <name>Route 1</name>
+    <rtept lat="52.2" lon="4.3">
+      <ele>11</ele>
+    </rtept>
+  </rte>
+  <trk>
+    <name>Track 1</name>
+    <trkseg>
+      <trkpt lat="52.3" lon="4.4">
+        <time>2024-01-01T12:00:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>

@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import collections.abc
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 try:
     from elasticsearch import Elasticsearch
@@ -44,7 +45,9 @@ def ingest(
         IngestionResult with statistics
     """
     if Elasticsearch is None:
-        raise ImportError("elasticsearch is required for Elasticsearch ingestion. Install with: pip install elasticsearch>=8.0")
+        raise ImportError(
+            "elasticsearch is required for Elasticsearch ingestion. Install with: pip install elasticsearch>=8.0"
+        )
 
     start_time = time.time()
     rows_processed = 0
@@ -79,6 +82,7 @@ def ingest(
 
             if len(batch_actions) >= batch:
                 from elasticsearch.helpers import bulk
+
                 bulk(es, batch_actions)
                 rows_inserted += len(batch_actions)
                 batch_actions = []
@@ -89,6 +93,7 @@ def ingest(
         # Insert remaining batch
         if batch_actions:
             from elasticsearch.helpers import bulk
+
             bulk(es, batch_actions)
             rows_inserted += len(batch_actions)
 

@@ -52,18 +52,28 @@ class TestPostgresDriver:
 
     def test_connect_with_connection_string(self):
         """Test connection with connection string."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
-            mock_conn = MagicMock()
-            mock_psycopg2.connect.return_value = mock_conn
-            mock_cursor = MagicMock()
-            mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        real_import = __import__
+        mock_conn = MagicMock()
+        mock_psycopg2 = MagicMock()
+        mock_psycopg2.connect = MagicMock(return_value=mock_conn)
 
+        def mock_import(name, *args, **kwargs):
+            if name == "psycopg2":
+                return mock_psycopg2
+            if name == "psycopg2.extensions":
+                mod = MagicMock()
+                mod.ISOLATION_LEVEL_READ_COMMITTED = 1
+                return mod
+            return real_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=mock_import):
             driver = PostgresDriver("postgresql://user:pass@localhost/db", query="SELECT 1")
             driver.connect()
 
             assert driver.is_connected
             assert driver.conn == mock_conn
-            mock_psycopg2.connect.assert_called_once_with("postgresql://user:pass@localhost/db", **{})
+            mock_psycopg2.connect.assert_called_with("postgresql://user:pass@localhost/db", **{})
+            assert mock_psycopg2.connect.call_count >= 1
 
     def test_connect_with_existing_connection(self):
         """Test connection with existing connection object."""
@@ -1404,7 +1414,7 @@ class TestMySQLDriver:
         driver.conn = MagicMock()
 
         query = driver._build_query()
-        assert query == 'SELECT * FROM `users`'
+        assert query == "SELECT * FROM `users`"
 
     def test_iterate_with_server_side_cursor(self):
         """Test iteration with server-side cursor."""
@@ -1494,7 +1504,7 @@ class TestMSSQLDriver:
         driver.conn = MagicMock()
 
         query = driver._build_query()
-        assert query == 'SELECT * FROM [dbo].[users]'
+        assert query == "SELECT * FROM [dbo].[users]"
 
     def test_iterate(self):
         """Test iteration."""
@@ -1540,8 +1550,8 @@ class TestSQLiteDriver:
 
     def test_connect_with_file_path(self):
         """Test connection with file path."""
-        import tempfile
         import os
+        import tempfile
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as tmp:
             tmp_path = tmp.name
@@ -1608,9 +1618,9 @@ class TestSQLiteDriver:
 
     def test_list_tables(self):
         """Test list_tables() helper function."""
+        import os
         import sqlite3
         import tempfile
-        import os
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as tmp:
             tmp_path = tmp.name

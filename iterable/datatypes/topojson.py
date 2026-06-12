@@ -18,9 +18,11 @@ try:
 except ImportError:
     HAS_IJSON = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import FormatParseError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import FormatParseError
+from ..types import Row
 
 
 class TopoJSONIterable(BaseFileIterable):
@@ -66,7 +68,9 @@ class TopoJSONIterable(BaseFileIterable):
         self._streaming = False
         self._parser = None
         self._items_buffer = []
-        if self.mode == "r":
+        if self.mode in ["w", "wr"]:
+            self._write_buffer = []
+        elif self.mode == "r":
             # Determine if we should use streaming parser
             if self._should_use_streaming():
                 # Use streaming parser for large files
@@ -140,9 +144,7 @@ class TopoJSONIterable(BaseFileIterable):
         return False
 
     @staticmethod
-
-
-        def has_totals() -> bool:
+    def has_totals() -> bool:
         return True
 
     def totals(self):
@@ -162,8 +164,8 @@ class TopoJSONIterable(BaseFileIterable):
             else:
                 try:
                     item = next(self._parser)
-                except StopIteration:
-                    raise StopIteration
+                except StopIteration as err:
+                    raise StopIteration from err
             self.pos += 1
             # Return the object as-is (streaming doesn't support full TopoJSON->GeoJSON conversion)
             # For full conversion, the entire topology is needed, which requires loading everything
@@ -174,27 +176,41 @@ class TopoJSONIterable(BaseFileIterable):
             self.pos += 1
             return feature
 
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
-
     def write(self, record: Row) -> None:
-        """Write single TopoJSON record"""
-        json.dump(record, self.fobj, ensure_ascii=False)
-        self.fobj.write("\n")
+        """Write single TopoJSON record (buffered; emitted as part of Topology on close)."""
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:
+                return
+            record = validated
+        self.write_bulk([record])
 
     def write_bulk(self, records: list[Row]) -> None:
-        """Write bulk TopoJSON records"""
-        # Write as TopoJSON structure
-        # This is simplified - proper TopoJSON encoding requires topology computation
-        topo_data = {
-            "type": "Topology",
-            "objects": {"collection": {"type": "GeometryCollection", "geometries": records}},
-            "arcs": [],
-        }
-        json.dump(topo_data, self.fobj, ensure_ascii=False)
+        """Write bulk TopoJSON records (buffered; single Topology written on close)."""
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:
+                    validated_records.append(validated)
+            records = validated_records
+        if not records:
+            return
+        # Buffer geometries; a single valid Topology is written in close()
+        if not hasattr(self, "_write_buffer"):
+            self._write_buffer = []
+        self._write_buffer.extend(records)
+
+    def close(self):
+        """Close and write a single valid TopoJSON Topology if write buffer has data."""
+        if self.mode in ["w", "wr"] and getattr(self, "_write_buffer", None):
+            buf = self._write_buffer
+            topo_data = {
+                "type": "Topology",
+                "objects": {"collection": {"type": "GeometryCollection", "geometries": buf}},
+                "arcs": [],
+            }
+            if self.fobj is not None:
+                json.dump(topo_data, self.fobj, ensure_ascii=False)
+            self._write_buffer = []
+        super().close()

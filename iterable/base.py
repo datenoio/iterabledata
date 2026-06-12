@@ -5,16 +5,16 @@ import warnings
 from abc import ABC, abstractmethod
 from datetime import datetime
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Iterator, Union
+from typing import TYPE_CHECKING, Any
 
-from .types import Row, FileLike, ErrorLogWriter
-from .exceptions import WriteNotSupportedError, ReadError
+from .exceptions import ReadError, WriteNotSupportedError
 from .helpers.debug import file_io_logger, is_debug_enabled
 from .helpers.read_ahead import ReadAheadBuffer
 from .helpers.validation import ValidationHook, apply_validation_hooks
+from .types import ErrorLogWriter, Row
 
 if TYPE_CHECKING:
-    from typing import IO, TextIO, BinaryIO
+    pass
 
 ITERABLE_TYPE_STREAM = 10
 ITERABLE_TYPE_FILE = 20
@@ -105,10 +105,10 @@ class BaseIterable(ABC):
     def _apply_validation_hooks(self, row: Row) -> Row | None:
         """
         Apply validation hooks to a row.
-        
+
         Args:
             row: Row to validate
-            
+
         Returns:
             Validated row, or None if skipped (when on_validation_error='skip')
         """
@@ -160,10 +160,23 @@ class BaseIterable(ABC):
         """Read single record"""
         pass
 
-    @abstractmethod
     def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[Row]:
-        """Read multiple records"""
-        pass
+        """Read multiple records.
+
+        Default implementation calls read() repeatedly until num records are
+        collected or the source is exhausted. Subclasses may override this
+        with a format-specific optimized implementation (e.g. batch readers).
+
+        When no more records are available, returns an empty list [] and
+        does NOT raise StopIteration.
+        """
+        chunk: list[Row] = []
+        for _ in range(num):
+            try:
+                chunk.append(self.read())
+            except StopIteration:
+                break
+        return chunk
 
     @staticmethod
     def is_flatonly() -> bool:
@@ -190,7 +203,7 @@ class BaseIterable(ABC):
 
     def write(self, record: Row) -> None:
         """Write single record.
-        
+
         Default implementation raises WriteNotSupportedError.
         Subclasses that support writing should override this method.
         Validation hooks are applied before writing if configured.
@@ -201,7 +214,7 @@ class BaseIterable(ABC):
             if validated is None:  # Skipped
                 return  # Don't write invalid row
             record = validated
-        
+
         raise WriteNotSupportedError(
             format_id=self.id(),
             reason="Write operation not supported for this format",
@@ -209,7 +222,7 @@ class BaseIterable(ABC):
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write multiple records.
-        
+
         Default implementation raises WriteNotSupportedError.
         Subclasses that support writing should override this method.
         Validation hooks are applied before writing if configured.
@@ -222,15 +235,13 @@ class BaseIterable(ABC):
                 if validated is not None:  # Not skipped
                     validated_records.append(validated)
             records = validated_records
-        
+
         raise WriteNotSupportedError(
             format_id=self.id(),
             reason="Write operation not supported for this format",
         )
 
-    def to_pandas(
-        self, chunksize: int | None = None
-    ) -> Any:
+    def to_pandas(self, chunksize: int | None = None) -> Any:
         """Convert iterable to pandas DataFrame(s).
 
         Args:
@@ -270,9 +281,7 @@ class BaseIterable(ABC):
 
             return _chunked_iterator()
 
-    def to_polars(
-        self, chunksize: int | None = None
-    ) -> Any:
+    def to_polars(self, chunksize: int | None = None) -> Any:
         """Convert iterable to Polars DataFrame(s).
 
         Args:
@@ -363,13 +372,13 @@ class BaseFileIterable(BaseIterable):
         options: dict[str, Any] | None = None,
     ) -> None:
         """Initialize BaseFileIterable.
-        
+
         This method is maintained for backward compatibility. For new code,
         consider using factory methods:
         - BaseFileIterable.from_file() for file-based access
         - BaseFileIterable.from_stream() for stream-based access
         - BaseFileIterable.from_codec() for codec-based access
-        
+
         Args:
             filename: Path to file (mutually exclusive with stream/codec)
             stream: Open file-like object (mutually exclusive with filename/codec)
@@ -379,15 +388,15 @@ class BaseFileIterable(BaseIterable):
             noopen: If True, don't open the source immediately
             mode: File mode ('r', 'w', 'rb', 'wb')
             options: Additional options dictionary
-        
+
         Raises:
             ValueError: If multiple sources provided or no source provided
         """
         super().__init__()  # Initialize BaseIterable (_closed flag)
-        
+
         if options is None:
             options = {}
-        
+
         # Set basic attributes
         self.filename = filename
         self.noopen = noopen
@@ -396,13 +405,15 @@ class BaseFileIterable(BaseIterable):
         self.mode = mode
         self.codec = codec
         self.fobj = None
-        
+        if self.binary:
+            self.datamode = "binary"
+
         # Initialize source (validates and sets up file object)
         self._init_source(filename, stream, codec, noopen)
-        
+
         # Initialize error handling
         self._init_error_handling(options)
-        
+
         # Initialize validation hooks (extract before _apply_options)
         validation_hook = options.pop("validation_hook", None)
         if validation_hook is not None:
@@ -413,19 +424,19 @@ class BaseFileIterable(BaseIterable):
         else:
             self._validation_hooks = []
         self._on_validation_error = options.pop("on_validation_error", "raise")
-        
+
         # Apply additional options (with protection)
         self._apply_options(options)
-        
+
         # Store debug flag from options
         self._debug = options.get("_debug", False) or is_debug_enabled()
-        
+
         # Read-ahead configuration
         self._read_ahead_enabled = options.get("read_ahead", False)
         self._read_ahead_size = options.get("read_ahead_size", 10)
         self._read_ahead_refill_threshold = options.get("read_ahead_refill_threshold", 0.3)
         self._read_ahead_buffer: ReadAheadBuffer | None = None
-    
+
     def _init_source(
         self,
         filename: str | None = None,
@@ -434,22 +445,22 @@ class BaseFileIterable(BaseIterable):
         noopen: bool = False,
     ) -> None:
         """Initialize the data source (file, stream, or codec).
-        
+
         Validates that exactly one source is provided and sets up the file object.
-        
+
         Args:
             filename: Path to file
             stream: Open file-like object
             codec: Codec instance
             noopen: If True, don't open the source immediately
-        
+
         Raises:
             ValueError: If no source or multiple sources provided
         """
         # Count provided sources
         sources = [filename, stream, codec]
         provided = [s for s in sources if s is not None]
-        
+
         if len(provided) == 0:
             raise ValueError("BaseFileIterable requires filename, stream, or codec")
         if len(provided) > 1:
@@ -460,11 +471,8 @@ class BaseFileIterable(BaseIterable):
                 source_types.append("stream")
             if codec is not None:
                 source_types.append("codec")
-            raise ValueError(
-                f"BaseFileIterable requires exactly one source. "
-                f"Provided: {', '.join(source_types)}"
-            )
-        
+            raise ValueError(f"BaseFileIterable requires exactly one source. Provided: {', '.join(source_types)}")
+
         # Determine source type and initialize
         if stream is not None:
             self.stype = ITERABLE_TYPE_STREAM
@@ -482,12 +490,12 @@ class BaseFileIterable(BaseIterable):
                 self.fobj = self.codec.fileobj()
                 if self.datamode == "text":
                     self.fobj = self.codec.textIO(encoding=self.encoding)
-    
+
     def _init_error_handling(self, options: dict[str, Any]) -> None:
         """Initialize error handling configuration.
-        
+
         Separates error handling setup from source initialization.
-        
+
         Args:
             options: Options dictionary containing error handling settings
         """
@@ -495,14 +503,11 @@ class BaseFileIterable(BaseIterable):
         self._error_log = options.get("error_log", None)
         self._error_log_file = None
         self._error_log_owned = False
-        
+
         # Validate error policy
         if self._on_error not in ("raise", "skip", "warn"):
-            raise ValueError(
-                f"Invalid 'on_error' value: '{self._on_error}'. "
-                f"Valid values are: 'raise', 'skip', 'warn'"
-            )
-        
+            raise ValueError(f"Invalid 'on_error' value: '{self._on_error}'. Valid values are: 'raise', 'skip', 'warn'")
+
         # Setup error logging
         if self._error_log is not None:
             if isinstance(self._error_log, str):
@@ -519,26 +524,23 @@ class BaseFileIterable(BaseIterable):
                     f"file-like object with write() method, "
                     f"got {type(self._error_log).__name__}"
                 )
-    
+
     def _apply_options(self, options: dict[str, Any], protected: set[str] | None = None) -> None:
         """Apply options dictionary with validation.
-        
+
         Prevents options from overriding critical attributes.
-        
+
         Args:
             options: Dictionary of options to apply
             protected: Set of attribute names that cannot be overridden.
                       If None, uses default protected set.
-        
+
         Raises:
             ValueError: If attempting to override a protected attribute
         """
         if protected is None:
-            protected = {
-                "stype", "fobj", "_on_error", "_error_log", "_error_log_file",
-                "_error_log_owned", "_closed"
-            }
-        
+            protected = {"stype", "fobj", "_on_error", "_error_log", "_error_log_file", "_error_log_owned", "_closed"}
+
         for key, value in options.items():
             if key in protected:
                 raise ValueError(
@@ -546,7 +548,7 @@ class BaseFileIterable(BaseIterable):
                     f"Use the appropriate parameter or factory method instead."
                 )
             setattr(self, key, value)
-    
+
     @classmethod
     def from_file(
         cls,
@@ -558,7 +560,7 @@ class BaseFileIterable(BaseIterable):
         **options: Any,
     ) -> "BaseFileIterable":
         """Create BaseFileIterable from a file path.
-        
+
         Args:
             filename: Path to the file
             mode: File mode ('r', 'w', 'rb', 'wb')
@@ -566,10 +568,10 @@ class BaseFileIterable(BaseIterable):
             binary: Whether to open in binary mode
             noopen: If True, don't open the file immediately
             **options: Additional options (on_error, error_log, etc.)
-        
+
         Returns:
             BaseFileIterable instance configured for file-based access
-        
+
         Example:
             >>> iterable = BaseFileIterable.from_file("data.csv", encoding="utf-8")
         """
@@ -583,7 +585,7 @@ class BaseFileIterable(BaseIterable):
             mode=mode,
             options=options,
         )
-    
+
     @classmethod
     def from_stream(
         cls,
@@ -593,16 +595,16 @@ class BaseFileIterable(BaseIterable):
         **options: Any,
     ) -> "BaseFileIterable":
         """Create BaseFileIterable from an open stream.
-        
+
         Args:
             stream: Open file-like object (already opened)
             encoding: Text encoding (default: 'utf8')
             binary: Whether stream is binary
             **options: Additional options (on_error, error_log, etc.)
-        
+
         Returns:
             BaseFileIterable instance configured for stream-based access
-        
+
         Example:
             >>> with open("data.csv") as f:
             ...     iterable = BaseFileIterable.from_stream(f)
@@ -617,7 +619,7 @@ class BaseFileIterable(BaseIterable):
             mode="r",  # Not applicable for streams
             options=options,
         )
-    
+
     @classmethod
     def from_codec(
         cls,
@@ -627,16 +629,16 @@ class BaseFileIterable(BaseIterable):
         **options: Any,
     ) -> "BaseFileIterable":
         """Create BaseFileIterable from a codec.
-        
+
         Args:
             codec: Codec instance (e.g., GZIPCodec, BZIP2Codec)
             encoding: Text encoding (default: 'utf8')
             noopen: If True, don't open the codec immediately
             **options: Additional options (on_error, error_log, etc.)
-        
+
         Returns:
             BaseFileIterable instance configured for codec-based access
-        
+
         Example:
             >>> from iterable.codecs.gzipcodec import GZIPCodec
             >>> codec = GZIPCodec(filename="data.csv.gz")
@@ -659,23 +661,23 @@ class BaseFileIterable(BaseIterable):
             if self.filename is None:
                 raise ValueError("Cannot open file: filename is None")
             filename: str = self.filename  # Type narrowing for mypy
-            
-            if getattr(self, '_debug', False):
+
+            if getattr(self, "_debug", False):
                 file_io_logger.debug(
                     f"Opening file: {filename} (mode: {self.mode}, binary: {self.binary}, encoding: {self.encoding})"
                 )
-            
+
             try:
                 self.fobj = (
                     open(filename, self.mode + "b")
                     if self.binary
                     else open(filename, self.mode, encoding=self.encoding)
                 )
-                if getattr(self, '_debug', False):
+                if getattr(self, "_debug", False):
                     file_io_logger.debug(f"File opened successfully: {filename}")
                 return self.fobj
             except Exception as e:
-                if getattr(self, '_debug', False):
+                if getattr(self, "_debug", False):
                     file_io_logger.error(f"Failed to open file {filename}: {e}", exc_info=True)
                 raise
         else:
@@ -683,17 +685,17 @@ class BaseFileIterable(BaseIterable):
 
     def reset(self) -> None:
         """Reset file using seek(0).
-        
+
         For file-based sources, seeks to the beginning of the file.
         For codec-based sources, resets the codec and recreates the file object.
         For stream-based sources, raises ReadError if the stream is not seekable.
-        
+
         Raises:
             ReadError: If attempting to reset a non-seekable stream.
         """
-        if getattr(self, '_debug', False):
+        if getattr(self, "_debug", False):
             file_io_logger.debug(f"Resetting file: {getattr(self, 'filename', 'stream/codec')}")
-        
+
         if self.stype == ITERABLE_TYPE_FILE:
             if self.fobj is not None:
                 # Check if file object is seekable before attempting to seek
@@ -734,7 +736,7 @@ class BaseFileIterable(BaseIterable):
                 # Only suppress expected exceptions (already closed, etc.)
                 try:
                     self.fobj.close()
-                except (OSError, ValueError, AttributeError) as e:
+                except (OSError, ValueError, AttributeError):
                     # These are expected when file is already closed or invalid
                     # Log but don't fail - we're about to recreate the fileobj anyway
                     pass
@@ -757,7 +759,7 @@ class BaseFileIterable(BaseIterable):
                             filename=self.filename,
                             error_code="CODEC_RESET_FAILED",
                         ) from e
-        
+
         # Clear read-ahead buffer if it exists
         if self._read_ahead_buffer is not None:
             self._read_ahead_buffer.clear()
@@ -765,7 +767,7 @@ class BaseFileIterable(BaseIterable):
 
     def close(self) -> None:
         """Close file as file data source.
-        
+
         Ensures proper cleanup of file objects and codecs:
         - For file-based sources: closes the file object
         - For codec-based sources: closes the wrapper (to flush buffers) then the codec
@@ -796,7 +798,7 @@ class BaseFileIterable(BaseIterable):
 
     def __iter__(self) -> typing.Iterator[Row]:
         """Iterator with optional read-ahead caching and validation hooks.
-        
+
         If read-ahead is enabled, returns a ReadAheadBuffer that prefetches
         rows from the source iterator. Otherwise, returns self for standard
         iteration. Validation hooks are applied to each row during iteration.
@@ -817,7 +819,7 @@ class BaseFileIterable(BaseIterable):
                             yield row
                     except StopIteration:
                         break
-            
+
             # Wrap with read-ahead buffer
             self._read_ahead_buffer = ReadAheadBuffer(
                 base_iterator(),
@@ -828,6 +830,7 @@ class BaseFileIterable(BaseIterable):
         else:
             # Standard iteration with validation hooks
             if self._validation_hooks:
+
                 def validated_iterator():
                     while True:
                         try:
@@ -838,6 +841,7 @@ class BaseFileIterable(BaseIterable):
                             yield validated
                         except StopIteration:
                             break
+
                 return validated_iterator()
             else:
                 return super().__iter__()

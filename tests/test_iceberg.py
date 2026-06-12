@@ -43,9 +43,7 @@ def test_iceberg_list_tables():
     try:
         # Try to create an instance with dummy values to test the method signature
         # The actual implementation may require real catalog configuration
-        iterable = IcebergIterable(
-            filename=None, catalog_name="test_catalog", table_name="test_table", mode="r"
-        )
+        iterable = IcebergIterable(filename=None, catalog_name="test_catalog", table_name="test_table", mode="r")
         # list_tables may return None if catalog doesn't support listing or isn't configured
         result = iterable.list_tables()
         # Result can be None, empty list, or list of strings

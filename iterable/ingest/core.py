@@ -7,7 +7,8 @@ Provides unified API for ingesting data into various databases.
 from __future__ import annotations
 
 import collections.abc
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from ..helpers.detect import open_iterable
 from ..types import Row
@@ -73,43 +74,33 @@ def to_db(
         ... )
         >>> print(f"Inserted: {result.rows_inserted}")
     """
-    import time
-
-    start_time = time.time()
-
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
 
     # Route to appropriate ingestor
     if dbtype == "postgresql":
         from . import postgresql
-        return postgresql.ingest(
-            iterable, db_url, table, mode, upsert_key, batch, create_table, progress
-        )
+
+        return postgresql.ingest(iterable, db_url, table, mode, upsert_key, batch, create_table, progress)
     elif dbtype == "sqlite":
         from . import sqlite
-        return sqlite.ingest(
-            iterable, db_url, table, mode, upsert_key, batch, create_table, progress
-        )
+
+        return sqlite.ingest(iterable, db_url, table, mode, upsert_key, batch, create_table, progress)
     elif dbtype == "duckdb":
         from . import duckdb
-        return duckdb.ingest(
-            iterable, db_url, table, mode, upsert_key, batch, create_table, progress
-        )
+
+        return duckdb.ingest(iterable, db_url, table, mode, upsert_key, batch, create_table, progress)
     elif dbtype == "mongodb":
         from . import mongodb
-        return mongodb.ingest(
-            iterable, db_url, table, mode, upsert_key, batch, create_table, progress
-        )
+
+        return mongodb.ingest(iterable, db_url, table, mode, upsert_key, batch, create_table, progress)
     elif dbtype == "mysql":
         from . import mysql
-        return mysql.ingest(
-            iterable, db_url, table, mode, upsert_key, batch, create_table, progress
-        )
+
+        return mysql.ingest(iterable, db_url, table, mode, upsert_key, batch, create_table, progress)
     elif dbtype == "elasticsearch":
         from . import elasticsearch
-        return elasticsearch.ingest(
-            iterable, db_url, table, mode, upsert_key, batch, create_table, progress
-        )
+
+        return elasticsearch.ingest(iterable, db_url, table, mode, upsert_key, batch, create_table, progress)
     else:
         raise ValueError(f"Unsupported database type: {dbtype}")

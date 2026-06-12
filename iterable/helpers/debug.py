@@ -6,8 +6,6 @@ for detailed operation visibility during troubleshooting and development.
 
 import logging
 import os
-from typing import Any
-
 
 # Logger hierarchy for different components
 logger = logging.getLogger("iterable")
@@ -36,9 +34,7 @@ def enable_debug_mode(level: int = logging.DEBUG, handler: logging.Handler | Non
     """
     if handler is None:
         handler = logging.StreamHandler()
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
 
     # Configure root iterable logger
     logger.setLevel(level)

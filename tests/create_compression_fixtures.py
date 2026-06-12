@@ -15,7 +15,8 @@ with open(source_file, "rb") as f:
 
 print("Creating Snappy fixture...")
 try:
-    import snappy  # noqa: F401
+    import snappy
+    # noqa: F401
 
     compressed = snappy.compress(csv_data)
     snappy_file = os.path.join(fixtures_dir, "2cols6rows.csv.snappy")
@@ -29,7 +30,8 @@ except Exception as e:
 
 print("Creating LZO fixture...")
 try:
-    import lzo  # noqa: F401
+    import lzo
+    # noqa: F401
 
     compressed = lzo.compress(csv_data, 1)  # compression level 1
     lzo_file = os.path.join(fixtures_dir, "2cols6rows.csv.lzo")

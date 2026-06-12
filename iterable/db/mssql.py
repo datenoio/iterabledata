@@ -68,9 +68,13 @@ class MSSQLDriver(DBDriver):
 
         try:
             # Parse connection string if it's a URL
-            if self.source.startswith("mssql://") or self.source.startswith("mssql+pyodbc://") or self.source.startswith("odbc://"):
+            if (
+                self.source.startswith("mssql://")
+                or self.source.startswith("mssql+pyodbc://")
+                or self.source.startswith("odbc://")
+            ):
                 # Parse URL format: mssql://user:pass@host:port/database?driver=ODBC+Driver+17+for+SQL+Server
-                from urllib.parse import urlparse, parse_qs
+                from urllib.parse import parse_qs, urlparse
 
                 parsed = urlparse(self.source)
                 conn_str_parts = []
@@ -298,8 +302,12 @@ class MSSQLDriver(DBDriver):
 
         try:
             # Parse connection string similar to connect()
-            if connection_string.startswith("mssql://") or connection_string.startswith("mssql+pyodbc://") or connection_string.startswith("odbc://"):
-                from urllib.parse import urlparse, parse_qs
+            if (
+                connection_string.startswith("mssql://")
+                or connection_string.startswith("mssql+pyodbc://")
+                or connection_string.startswith("odbc://")
+            ):
+                from urllib.parse import parse_qs, urlparse
 
                 parsed = urlparse(connection_string)
                 conn_str_parts = []

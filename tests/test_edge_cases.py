@@ -7,14 +7,10 @@ Run with: pytest tests/test_edge_cases.py -v
 """
 
 import io
-import os
-from pathlib import Path
 
 import pytest
 
 from iterable.datatypes.csv import CSVIterable
-from iterable.datatypes.json import JSONIterable
-from iterable.datatypes.jsonl import JSONLIterable
 from iterable.exceptions import (
     FormatDetectionError,
     FormatParseError,
@@ -31,7 +27,7 @@ class TestEmptyFiles:
         """Test reading from completely empty CSV file"""
         empty_file = tmp_path / "empty.csv"
         empty_file.write_text("")
-        
+
         with open_iterable(empty_file) as source:
             # Should raise StopIteration immediately
             with pytest.raises(StopIteration):
@@ -41,7 +37,7 @@ class TestEmptyFiles:
         """Test reading from CSV file with only header"""
         header_only = tmp_path / "header_only.csv"
         header_only.write_text("id,name\n")
-        
+
         with open_iterable(header_only) as source:
             with pytest.raises(StopIteration):
                 source.read()
@@ -50,7 +46,7 @@ class TestEmptyFiles:
         """Test reading from empty JSONL file"""
         empty_file = tmp_path / "empty.jsonl"
         empty_file.write_text("")
-        
+
         with open_iterable(empty_file) as source:
             with pytest.raises(StopIteration):
                 source.read()
@@ -59,7 +55,7 @@ class TestEmptyFiles:
         """Test reading from empty JSON file"""
         empty_file = tmp_path / "empty.json"
         empty_file.write_text("")
-        
+
         with open_iterable(empty_file) as source:
             # Empty JSON should raise an error
             with pytest.raises((ValueError, FormatParseError, ReadError)):
@@ -69,10 +65,10 @@ class TestEmptyFiles:
         """Test writing to an empty file path"""
         output_file = tmp_path / "output.csv"
         data = [{"id": 1, "name": "test"}]
-        
+
         with open_iterable(output_file, "w") as dest:
             dest.write_bulk(data)
-        
+
         # Verify file was created and has content
         assert output_file.exists()
         assert output_file.stat().st_size > 0
@@ -84,7 +80,7 @@ class TestMissingFiles:
     def test_read_nonexistent_file(self, tmp_path):
         """Test reading from non-existent file"""
         nonexistent = tmp_path / "nonexistent.csv"
-        
+
         with pytest.raises((FileNotFoundError, OSError)):
             with open_iterable(nonexistent) as source:
                 source.read()
@@ -92,7 +88,7 @@ class TestMissingFiles:
     def test_write_to_nonexistent_directory(self, tmp_path):
         """Test writing to non-existent directory"""
         nonexistent_dir = tmp_path / "nonexistent" / "file.csv"
-        
+
         with pytest.raises((FileNotFoundError, OSError)):
             with open_iterable(nonexistent_dir, "w") as dest:
                 dest.write({"id": 1})
@@ -105,7 +101,7 @@ class TestInvalidData:
         """Test CSV with malformed row"""
         malformed_file = tmp_path / "malformed.csv"
         malformed_file.write_text("id,name\n1,valid\ninvalid,row,with,too,many,commas\n2,valid\n")
-        
+
         with open_iterable(malformed_file, options={"on_error": "skip"}) as source:
             rows = list(source)
             # Should skip malformed row and read valid ones
@@ -115,7 +111,7 @@ class TestInvalidData:
         """Test JSONL with invalid JSON line"""
         invalid_file = tmp_path / "invalid.jsonl"
         invalid_file.write_text('{"id": 1}\ninvalid json line\n{"id": 2}\n')
-        
+
         with open_iterable(invalid_file, options={"on_error": "skip"}) as source:
             rows = list(source)
             # Should skip invalid line and read valid ones
@@ -125,7 +121,7 @@ class TestInvalidData:
         """Test CSV with unescaped quotes"""
         unescaped_file = tmp_path / "unescaped.csv"
         unescaped_file.write_text('id,name\n1,"quoted,value"\n2,normal\n')
-        
+
         with open_iterable(unescaped_file) as source:
             rows = list(source)
             assert len(rows) == 2
@@ -134,7 +130,7 @@ class TestInvalidData:
         """Test JSONL with truncated JSON line"""
         truncated_file = tmp_path / "truncated.jsonl"
         truncated_file.write_text('{"id": 1, "name": "test"}\n{"id": 2, "name": "incomplete\n')
-        
+
         with open_iterable(truncated_file, options={"on_error": "skip"}) as source:
             rows = list(source)
             # Should handle truncated line gracefully
@@ -148,7 +144,7 @@ class TestBoundaryConditions:
         """Test file with only one row"""
         single_row = tmp_path / "single.csv"
         single_row.write_text("id,name\n1,test\n")
-        
+
         with open_iterable(single_row) as source:
             rows = list(source)
             assert len(rows) == 1
@@ -159,7 +155,7 @@ class TestBoundaryConditions:
         long_line_file = tmp_path / "long_line.csv"
         long_value = "x" * 100000  # 100KB value
         long_line_file.write_text(f"id,value\n1,{long_value}\n")
-        
+
         with open_iterable(long_line_file) as source:
             row = source.read()
             assert len(row["value"]) == 100000
@@ -170,7 +166,7 @@ class TestBoundaryConditions:
         header = ",".join([f"col{i}" for i in range(100)])
         row = ",".join([str(i) for i in range(100)])
         many_cols_file.write_text(f"{header}\n{row}\n")
-        
+
         with open_iterable(many_cols_file) as source:
             row_data = source.read()
             assert len(row_data) == 100
@@ -179,7 +175,7 @@ class TestBoundaryConditions:
         """Test file with various Unicode characters"""
         unicode_file = tmp_path / "unicode.csv"
         unicode_file.write_text("id,name\n1,测试\n2,🚀\n3,ñáéíóú\n")
-        
+
         with open_iterable(unicode_file) as source:
             rows = list(source)
             assert len(rows) == 3
@@ -191,7 +187,7 @@ class TestBoundaryConditions:
         """Test file with special characters"""
         special_file = tmp_path / "special.csv"
         special_file.write_text('id,value\n1,"line1\nline2"\n2,"tab\there"\n3,"quote""here"\n')
-        
+
         with open_iterable(special_file) as source:
             rows = list(source)
             assert len(rows) == 3
@@ -204,7 +200,7 @@ class TestNoneAndNullValues:
         """Test CSV with empty fields"""
         empty_fields = tmp_path / "empty_fields.csv"
         empty_fields.write_text("id,name,value\n1,,3\n,test,5\n7,eight,\n")
-        
+
         with open_iterable(empty_fields) as source:
             rows = list(source)
             assert len(rows) == 3
@@ -214,11 +210,12 @@ class TestNoneAndNullValues:
     def test_jsonl_with_null_values(self, tmp_path):
         """Test JSONL with null values"""
         import json
+
         null_file = tmp_path / "null.jsonl"
         with null_file.open("w") as f:
             f.write(json.dumps({"id": 1, "value": None}) + "\n")
             f.write(json.dumps({"id": 2, "value": "test"}) + "\n")
-        
+
         with open_iterable(null_file) as source:
             rows = list(source)
             assert len(rows) == 2
@@ -234,7 +231,7 @@ class TestFilePermissions:
         read_only = tmp_path / "readonly.csv"
         read_only.write_text("id,name\n1,test\n")
         read_only.chmod(0o444)  # Read-only
-        
+
         try:
             with open_iterable(read_only) as source:
                 rows = list(source)
@@ -248,7 +245,7 @@ class TestFilePermissions:
         read_only = tmp_path / "readonly.csv"
         read_only.write_text("id,name\n1,test\n")
         read_only.chmod(0o444)  # Read-only
-        
+
         try:
             with pytest.raises((PermissionError, OSError)):
                 with open_iterable(read_only, "w") as dest:
@@ -265,24 +262,25 @@ class TestStreamEdgeCases:
         """Test reading from closed stream"""
         stream = io.StringIO("id,name\n1,test\n")
         stream.close()
-        
+
         with pytest.raises((ValueError, OSError)):
             with open_iterable(stream=stream) as source:
                 source.read()
 
     def test_non_seekable_stream_reset(self):
         """Test reset on non-seekable stream"""
+
         # Create a stream that doesn't support seek
         class NonSeekableStream(io.StringIO):
             def seekable(self):
                 return False
-        
+
         stream = NonSeekableStream("id,name\n1,test\n2,test2\n")
-        
+
         with open_iterable(stream=stream) as source:
             first_row = source.read()
             assert first_row is not None
-            
+
             # Reset should raise error for non-seekable stream
             with pytest.raises(ReadError, match="not seekable"):
                 source.reset()
@@ -290,7 +288,7 @@ class TestStreamEdgeCases:
     def test_empty_stream(self):
         """Test reading from empty stream"""
         stream = io.StringIO("")
-        
+
         with open_iterable(stream=stream) as source:
             with pytest.raises(StopIteration):
                 source.read()
@@ -302,7 +300,7 @@ class TestFactoryMethodEdgeCases:
     def test_from_file_nonexistent(self, tmp_path):
         """Test from_file with non-existent file"""
         nonexistent = tmp_path / "nonexistent.csv"
-        
+
         with pytest.raises((FileNotFoundError, OSError)):
             CSVIterable.from_file(str(nonexistent))
 
@@ -333,7 +331,7 @@ class TestInitializationEdgeCases:
     def test_init_multiple_sources(self):
         """Test initialization with multiple sources (should fail)"""
         stream = io.StringIO("id,name\n1,test\n")
-        
+
         with pytest.raises(ValueError, match="exactly one source"):
             CSVIterable(filename="test.csv", stream=stream)
 
@@ -341,24 +339,21 @@ class TestInitializationEdgeCases:
         """Test initialization with invalid options"""
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name\n1,test\n")
-        
+
         # Try to override protected attribute
         with pytest.raises(ValueError, match="Cannot override protected attribute"):
             CSVIterable(
                 filename=str(test_file),
-                options={"stype": "invalid"}  # stype is protected
+                options={"stype": "invalid"},  # stype is protected
             )
 
     def test_init_invalid_error_policy(self, tmp_path):
         """Test initialization with invalid error policy"""
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name\n1,test\n")
-        
+
         with pytest.raises(ValueError, match="Invalid 'on_error' value"):
-            CSVIterable(
-                filename=str(test_file),
-                options={"on_error": "invalid_policy"}
-            )
+            CSVIterable(filename=str(test_file), options={"on_error": "invalid_policy"})
 
 
 class TestBulkOperationEdgeCases:
@@ -368,7 +363,7 @@ class TestBulkOperationEdgeCases:
         """Test read_bulk with zero size"""
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name\n1,test\n2,test2\n")
-        
+
         with open_iterable(test_file) as source:
             chunk = source.read_bulk(num=0)
             assert len(chunk) == 0
@@ -377,7 +372,7 @@ class TestBulkOperationEdgeCases:
         """Test read_bulk with negative size"""
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name\n1,test\n")
-        
+
         with open_iterable(test_file) as source:
             # Should handle negative gracefully (might return empty or raise error)
             try:
@@ -392,7 +387,7 @@ class TestBulkOperationEdgeCases:
         """Test read_bulk with size larger than file"""
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name\n1,test\n2,test2\n")
-        
+
         with open_iterable(test_file) as source:
             chunk = source.read_bulk(num=1000000)
             # Should return all available rows
@@ -401,17 +396,17 @@ class TestBulkOperationEdgeCases:
     def test_write_bulk_empty_list(self, tmp_path):
         """Test write_bulk with empty list"""
         output_file = tmp_path / "output.csv"
-        
+
         with open_iterable(output_file, "w") as dest:
             dest.write_bulk([])
-        
+
         # File should exist but may be empty or have header only
         assert output_file.exists()
 
     def test_write_bulk_none(self, tmp_path):
         """Test write_bulk with None"""
         output_file = tmp_path / "output.csv"
-        
+
         with open_iterable(output_file, "w") as dest:
             with pytest.raises((TypeError, ValueError)):
                 dest.write_bulk(None)  # type: ignore
@@ -424,7 +419,7 @@ class TestResetEdgeCases:
         """Test reset before any read"""
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name\n1,test\n")
-        
+
         with open_iterable(test_file) as source:
             # Reset should work even before reading
             source.reset()
@@ -435,10 +430,10 @@ class TestResetEdgeCases:
         """Test reset after close should fail"""
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name\n1,test\n")
-        
+
         source = open_iterable(test_file)
         source.close()
-        
+
         with pytest.raises((ValueError, OSError, AttributeError)):
             source.reset()
 
@@ -450,21 +445,21 @@ class TestContextManagerEdgeCases:
         """Test nested context managers"""
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name\n1,test\n2,test2\n")
-        
+
         with open_iterable(test_file) as source1:
             rows1 = []
             for i, row in enumerate(source1):
                 rows1.append(row)
                 if i >= 0:
                     break
-            
+
             with open_iterable(test_file) as source2:
                 rows2 = []
                 for i, row in enumerate(source2):
                     rows2.append(row)
                     if i >= 0:
                         break
-            
+
             # Both should work independently
             assert rows1[0] == rows2[0]
 
@@ -472,7 +467,7 @@ class TestContextManagerEdgeCases:
         """Test context manager cleanup on exception"""
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name\n1,test\n")
-        
+
         try:
             with open_iterable(test_file) as source:
                 row = source.read()
@@ -480,7 +475,7 @@ class TestContextManagerEdgeCases:
                 raise ValueError("Test exception")
         except ValueError:
             pass
-        
+
         # File should be properly closed even after exception
         # Try to open again to verify
         with open_iterable(test_file) as source:
@@ -495,7 +490,7 @@ class TestFormatDetectionEdgeCases:
         """Test format detection for file without extension"""
         test_file = tmp_path / "test"
         test_file.write_text("id,name\n1,test\n")
-        
+
         # Should detect from content
         with open_iterable(test_file) as source:
             row = source.read()
@@ -505,7 +500,7 @@ class TestFormatDetectionEdgeCases:
         """Test format detection for unknown extension"""
         test_file = tmp_path / "test.unknown"
         test_file.write_text("id,name\n1,test\n")
-        
+
         # Should try to detect from content
         try:
             with open_iterable(test_file) as source:
@@ -529,7 +524,7 @@ class TestWriteNotSupportedEdgeCases:
         # Use a format that doesn't support writing (e.g., ARFF)
         try:
             from iterable.datatypes.arff import ARFFIterable
-            
+
             output_file = tmp_path / "output.arff"
             with pytest.raises(WriteNotSupportedError):
                 with ARFFIterable(filename=str(output_file), mode="w") as dest:
@@ -545,7 +540,7 @@ class TestEncodingEdgeCases:
         """Test with invalid encoding name"""
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name\n1,test\n")
-        
+
         # Should either work with fallback or raise clear error
         try:
             with open_iterable(test_file, iterableargs={"encoding": "invalid_encoding_xyz"}) as source:
@@ -559,7 +554,7 @@ class TestEncodingEdgeCases:
         """Test opening text file in binary mode"""
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name\n1,test\n")
-        
+
         # Binary mode should still work for CSV (it handles encoding)
         with open_iterable(test_file, mode="rb") as source:
             row = source.read()
@@ -573,7 +568,7 @@ class TestOptionsEdgeCases:
         """Test with options=None"""
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name\n1,test\n")
-        
+
         # Should work with options=None
         with open_iterable(test_file, iterableargs=None) as source:  # type: ignore
             row = source.read()
@@ -583,7 +578,7 @@ class TestOptionsEdgeCases:
         """Test with options={}"""
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name\n1,test\n")
-        
+
         with open_iterable(test_file, iterableargs={}) as source:
             row = source.read()
             assert row is not None
@@ -592,7 +587,7 @@ class TestOptionsEdgeCases:
         """Test with invalid option keys"""
         test_file = tmp_path / "test.csv"
         test_file.write_text("id,name\n1,test\n")
-        
+
         # Invalid keys should either be ignored or raise error
         # Most implementations will just set the attribute
         with open_iterable(test_file, iterableargs={"invalid_key_xyz": "value"}) as source:

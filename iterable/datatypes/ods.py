@@ -18,9 +18,11 @@ except ImportError:
         HAS_PYEXCEL_ODS = False
         HAS_ODF = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import WriteNotSupportedError, ReadError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import ReadError, WriteNotSupportedError
+from ..types import Row
 
 
 class ODSIterable(BaseFileIterable):
@@ -91,7 +93,7 @@ class ODSIterable(BaseFileIterable):
             if self.page >= len(sheet_names):
                 raise ReadError(
                     f"Sheet index {self.page} out of range. Available sheets: {len(sheet_names)}",
-                    filename=filename,
+                    filename=self.filename,
                     error_code="INVALID_PARAMETER",
                 )
             self.sheet_name = sheet_names[self.page]
@@ -200,16 +202,6 @@ class ODSIterable(BaseFileIterable):
             self.row_index += 1
             self.pos += 1
             return result
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk ODS records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single ODS record"""

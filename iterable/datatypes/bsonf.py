@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import typing
+from typing import Any
 
 import bson
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from typing import Any
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..types import Row
 
 
 class BSONIterable(BaseFileIterable):
@@ -39,7 +40,7 @@ class BSONIterable(BaseFileIterable):
         return False
 
     def read(self, skip_empty: bool = True) -> dict:
-        """Write single bson record"""
+        """Read single BSON record"""
         return next(self.reader)
 
     def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:

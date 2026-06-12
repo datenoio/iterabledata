@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 import struct
 import typing
-
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from ..exceptions import FormatParseError
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import FormatParseError
+from ..types import Row
 
 
 class KafkaIterable(BaseFileIterable):
@@ -190,16 +191,6 @@ class KafkaIterable(BaseFileIterable):
                 message=f"Error reading Kafka message: {e}",
                 filename=self.filename,
             ) from e
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk Kafka messages"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single Kafka message"""

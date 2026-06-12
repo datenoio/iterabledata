@@ -1,8 +1,10 @@
 __author__ = "Ivan Begtin"
-__version__ = "1.0.11"
+__version__ = "1.0.12"
 __licence__ = "MIT"
 __doc__ = "Iterable data processing Python library"
 
+from . import ingest, validate
+from .ai import doc as ai
 from .exceptions import (
     CodecCompressionError,
     CodecDecompressionError,
@@ -23,10 +25,7 @@ from .exceptions import (
 )
 from .helpers.detect import open_iterable
 from .helpers.typed import as_dataclasses, as_pydantic
-from .ai import doc as ai
-from .ingest import to_db as ingest
 from .ops import filter, inspect, schema, stats, transform
-from .validate import iterable as validate
 from .types import CodecArgs, IterableArgs, Row
 
 open_it = open_iterable

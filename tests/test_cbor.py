@@ -12,6 +12,7 @@ try:
 except ImportError:
     try:
         import cbor  # noqa: F401
+
         HAS_CBOR = True
         HAS_CBOR2 = False
     except ImportError:

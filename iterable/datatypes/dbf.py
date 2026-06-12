@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import typing
+from typing import Any
 
 from dbfread import DBF
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
-from typing import Any
+from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..exceptions import ReadError
 
 
 class DBFIterable(BaseFileIterable):
@@ -32,9 +33,13 @@ class DBFIterable(BaseFileIterable):
     def reset(self):
         """Reopen file and open DBF table"""
         super().reset()
+        if self.filename is None:
+            raise ReadError(
+                "DBF requires a file path; stream and codec are not supported.",
+                filename=None,
+                error_code="RESOURCE_REQUIREMENT_NOT_MET",
+            )
         # DBF files need to be opened directly using filename
-        # dbfread can accept filename or file-like object, but for codec support
-        # we use the filename directly (codecs are typically not used with DBF files)
         self.table = DBF(self.filename, encoding=self.encoding)
         self.iterator = iter(self.table)
 
@@ -75,7 +80,5 @@ class DBFIterable(BaseFileIterable):
                 # Convert OrderedDict to regular dict
                 chunk.append(dict(record))
             except StopIteration:
-                if len(chunk) > 0:
-                    return chunk
-                raise StopIteration from None
+                break
         return chunk

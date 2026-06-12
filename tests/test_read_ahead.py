@@ -1,11 +1,9 @@
 """Tests for read-ahead caching functionality."""
 
-import tempfile
-
 import pytest
 
-from iterable.helpers.read_ahead import ReadAheadBuffer
 from iterable.helpers.detect import open_iterable
+from iterable.helpers.read_ahead import ReadAheadBuffer
 
 
 class TestReadAheadBuffer:
@@ -105,9 +103,7 @@ class TestReadAheadIntegration:
         test_file.write_text("col1,col2\n" + "\n".join([f"val{i},val{i}" for i in range(20)]))
 
         # Open with read-ahead enabled
-        with open_iterable(
-            str(test_file), iterableargs={"read_ahead": True, "read_ahead_size": 5}
-        ) as source:
+        with open_iterable(str(test_file), iterableargs={"read_ahead": True, "read_ahead_size": 5}) as source:
             rows = list(source)
             assert len(rows) == 20
             assert rows[0]["col1"] == "val0"
@@ -118,9 +114,7 @@ class TestReadAheadIntegration:
         test_file = tmp_path / "test.jsonl"
         test_file.write_text("\n".join([f'{{"id": {i}, "value": "val{i}"}}' for i in range(15)]))
 
-        with open_iterable(
-            str(test_file), iterableargs={"read_ahead": True, "read_ahead_size": 10}
-        ) as source:
+        with open_iterable(str(test_file), iterableargs={"read_ahead": True, "read_ahead_size": 10}) as source:
             rows = list(source)
             assert len(rows) == 15
             assert rows[0]["id"] == 0

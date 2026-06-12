@@ -9,8 +9,10 @@ try:
 except ImportError:
     HAS_PYHOCON = False
 
-from ..base import BaseCodec, BaseFileIterable, DEFAULT_BULK_NUMBER
 from typing import Any
+
+from ..base import BaseCodec, BaseFileIterable
+from ..types import Row
 
 
 class HOCONIterable(BaseFileIterable):
@@ -87,16 +89,6 @@ class HOCONIterable(BaseFileIterable):
         row = next(self.iterator)
         self.pos += 1
         return row
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk HOCON records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk
 
     def write(self, record: Row) -> None:
         """Write single HOCON record"""

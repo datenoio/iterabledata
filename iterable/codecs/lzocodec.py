@@ -49,21 +49,22 @@ class LZOCodec(BaseCodec):
 
         return self._fileobj
 
-    def close(self):
+    def close(self) -> None:
         if hasattr(self, "_fileobj") and self._fileobj:
             if "w" in self.mode or "a" in self.mode:
-                # Compress and write buffered data
-                if hasattr(self, "_buffer"):
+                if hasattr(self, "_buffer") and self._buffer:
                     data = self._buffer.getvalue()
                     if data:
                         compressed_data = lzo.compress(data, self.compression_level)
                         with open(self.filename, "wb") as f:
                             f.write(compressed_data)
                     self._buffer.close()
+                    self._buffer = None
             else:
-                # Reading mode
-                if hasattr(self, "_buffer"):
+                if hasattr(self, "_buffer") and self._buffer:
                     self._buffer.close()
+                    self._buffer = None
+            self._fileobj = None
 
     def reset(self):
         """Reset file position"""

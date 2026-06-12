@@ -57,8 +57,7 @@ jobs:
     
     - name: Run tests
       run: |
-        pip install -r requirements.txt
-        pip install pytest mock
+        pip install -e ".[dev]"
         python -m pytest tests/ -v
     
     - name: Build source distribution and wheel
@@ -97,16 +96,8 @@ jobs:
         files: dist/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Publish to PyPI
-      if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-alpha') && !contains(github.ref, '-beta') && !contains(github.ref, '-rc')
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-      run: |
-        if [ -z "$TWINE_PASSWORD" ]; then
-          echo "PyPI_API_TOKEN secret not set, skipping PyPI upload"
-          exit 0
-        fi
-        python -m twine upload dist/*
+
+    # PyPI publishing happens in python-publish.yml, triggered when the
+    # GitHub Release created above is published (single publish path,
+    # using PyPI Trusted Publishing).
 
