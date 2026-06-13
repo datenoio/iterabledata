@@ -326,6 +326,8 @@ class TestExceptionIntegration:
 
     def test_write_not_supported_error_raised(self, tmp_path):
         """Test that WriteNotSupportedError is raised when writing to unsupported formats."""
+        pytest.importorskip("dpkt", reason="dpkt is required for PCAP support")
+
         from iterable.exceptions import WriteNotSupportedError
         from iterable.helpers.detect import open_iterable
 

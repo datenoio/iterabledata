@@ -679,6 +679,8 @@ class BaseFileIterable(BaseIterable):
 
     def open(self) -> typing.IO[Any] | None:
         """Open file as file data source"""
+        # Reopening clears the closed state so reset()/read() work again.
+        self._closed = False
         if self.stype == ITERABLE_TYPE_FILE:
             if self.filename is None:
                 raise ValueError("Cannot open file: filename is None")
@@ -715,6 +717,9 @@ class BaseFileIterable(BaseIterable):
         Raises:
             ReadError: If attempting to reset a non-seekable stream.
         """
+        if getattr(self, "_closed", False):
+            raise ValueError("Cannot reset a closed iterable")
+
         if getattr(self, "_debug", False):
             file_io_logger.debug(f"Resetting file: {getattr(self, 'filename', 'stream/codec')}")
 
@@ -739,6 +744,15 @@ class BaseFileIterable(BaseIterable):
             if self.fobj is not None:
                 # Check if stream is seekable
                 if hasattr(self.fobj, "seekable") and not self.fobj.seekable():
+                    # A fresh stream positioned at the start needs no rewind (this
+                    # happens during initial setup), so allow it; only reject an
+                    # actual reset that would require seeking backwards.
+                    try:
+                        at_start = self.fobj.tell() == 0
+                    except (OSError, ValueError):
+                        at_start = False
+                    if at_start:
+                        return
                     raise ReadError(
                         "Cannot reset: stream is not seekable (e.g., stdin, network stream)",
                         filename=getattr(self, "filename", None),
@@ -817,6 +831,7 @@ class BaseFileIterable(BaseIterable):
                 except Exception:
                     # Suppress exceptions during cleanup to ensure we don't mask original errors
                     pass
+        self._closed = True
 
     def __iter__(self) -> typing.Iterator[Row]:
         """Iterator with optional read-ahead caching and validation hooks.

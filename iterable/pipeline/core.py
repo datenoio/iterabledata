@@ -230,7 +230,11 @@ class Pipeline:
                 except Exception as e:
                     logger.error(f"Error processing record #{stats['rec_count'] + 1}: {e}", exc_info=debug)
                     stats["exceptions"] += 1
-                    if debug:
+                    # In atomic mode the write is all-or-nothing: a processing error
+                    # must abort the run so the original file is preserved and the
+                    # temporary file is cleaned up. In non-atomic mode errors are
+                    # tolerated and counted.
+                    if debug or self.atomic:
                         raise
                 stats["rec_count"] += 1
 

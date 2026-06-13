@@ -65,15 +65,17 @@ class TestParquet:
         assert chunk == FIXTURES_TYPES[:3]
         iterable.close()
 
-    def test_read_bulk_does_not_advance_pos(self):
+    def test_read_bulk_advances_pos(self):
+        # read_bulk consumes records and advances the cursor, consistent with the
+        # BaseIterable.read_bulk contract and TestDuckDBRefactoredEngine.
         iterable = DuckDBIterable("fixtures/2cols6rows.parquet")
         first_chunk = iterable.read_bulk(2)
         second_chunk = iterable.read_bulk(2)
         assert first_chunk == FIXTURES_TYPES[:2]
-        assert second_chunk == FIXTURES_TYPES[:2]  # position not advanced by read_bulk
-        # Now a single read should still return the first row
+        assert second_chunk == FIXTURES_TYPES[2:4]  # position advanced by read_bulk
+        # A subsequent read continues from where read_bulk left off
         row = iterable.read()
-        assert row == FIXTURES_TYPES[0]
+        assert row == FIXTURES_TYPES[4]
         iterable.close()
 
     def test_stop_iteration_after_exhaustion(self):

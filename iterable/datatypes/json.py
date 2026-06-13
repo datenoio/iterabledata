@@ -13,7 +13,7 @@ except ImportError:
     HAS_IJSON = False
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
-from ..exceptions import WriteError
+from ..exceptions import FormatParseError, WriteError
 from ..types import Row
 
 
@@ -61,6 +61,7 @@ class JSONIterable(BaseFileIterable):
         self._streaming = False
         self._parser = None
         self._items_buffer = []
+        self._parse_error = None
         if self.mode in ["w", "wr"]:
             # Re-initialize output (truncate if needed) and prepare streaming JSON writing.
             if hasattr(self.fobj, "seek") and hasattr(self.fobj, "truncate"):
@@ -102,7 +103,17 @@ class JSONIterable(BaseFileIterable):
             else:
                 # Use traditional json.load() for small files
                 self._streaming = False
-                self.data = json.load(self.fobj)
+                try:
+                    self.data = json.load(self.fobj)
+                except (json.JSONDecodeError, ValueError) as e:
+                    # Defer malformed/empty JSON errors to read() so that opening
+                    # the iterable succeeds and the error surfaces during iteration.
+                    self._parse_error = FormatParseError(
+                        format_id="json", message=str(e), filename=self.filename
+                    )
+                    self.data = []
+                    self.total = 0
+                    return
                 if self.tagname:
                     self.data = self.data[self.tagname]
                 self.total = len(self.data)
@@ -148,6 +159,8 @@ class JSONIterable(BaseFileIterable):
             except StopIteration:
                 raise StopIteration from None
         else:
+            if self._parse_error is not None:
+                raise self._parse_error
             # Use loaded data
             if self.pos >= self.total:
                 raise StopIteration
@@ -172,6 +185,8 @@ class JSONIterable(BaseFileIterable):
                     except StopIteration:
                         break
         else:
+            if self._parse_error is not None:
+                raise self._parse_error
             # For non-streaming, use efficient slicing
             remaining = self.total - self.pos
             if remaining == 0:

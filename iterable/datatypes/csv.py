@@ -16,14 +16,38 @@ DEFAULT_ENCODING = "utf8"
 DEFAULT_DELIMITER = ","
 
 
+def _rewind_stream(stream, pos) -> None:
+    """Restore a stream to a previous position, tolerating non-seekable streams."""
+    if pos is not None and hasattr(stream, "seek"):
+        try:
+            stream.seek(pos)
+            return
+        except (OSError, ValueError):
+            pass
+    if hasattr(stream, "reset"):
+        stream.reset()
+
+
 def detect_encoding_raw(filename=None, stream=None, limit=1000000):
     if filename is not None:
-        f = open(filename, "rb")
-        chunk = f.read(limit)
-        f.close()
+        with open(filename, "rb") as f:
+            chunk = f.read(limit)
     else:
+        pos = stream.tell() if hasattr(stream, "tell") else None
         chunk = stream.read(limit)
-        stream.reset()
+        _rewind_stream(stream, pos)
+        # Text streams (e.g. io.StringIO) already yield decoded ``str`` data, so
+        # byte-oriented encoding detection is neither possible nor meaningful.
+        if isinstance(chunk, str):
+            return {"encoding": DEFAULT_ENCODING}
+    # Prefer UTF-8 when the sample decodes cleanly: chardet can mis-identify short
+    # multilingual UTF-8 samples (e.g. CJK/emoji) as a single-byte codepage.
+    try:
+        chunk.decode("utf-8")
+        logging.debug("Detected encoding utf-8 (clean UTF-8 decode)")
+        return {"encoding": "utf-8", "confidence": 1.0}
+    except UnicodeDecodeError:
+        pass
     detected = chardet.detect(chunk)
     logging.debug("Detected encoding {}".format(detected["encoding"]))
     return detected
@@ -31,13 +55,12 @@ def detect_encoding_raw(filename=None, stream=None, limit=1000000):
 
 def detect_delimiter(filename=None, stream=None, encoding="utf8"):
     if filename is not None:
-        f = open(filename, encoding=encoding)
-        line = f.readline()
-        f.close()
+        with open(filename, encoding=encoding) as f:
+            line = f.readline()
     else:
+        pos = stream.tell() if hasattr(stream, "tell") else None
         line = stream.readline()
-        #        stream.seek(0,0)
-        stream.reset()
+        _rewind_stream(stream, pos)
     dict1 = {",": line.count(","), ";": line.count(";"), "\t": line.count("\t"), "|": line.count("|")}
     delimiter = max(dict1, key=dict1.get)
     logging.debug(f"Detected delimiter {delimiter}")
@@ -68,7 +91,7 @@ class CSVIterable(BaseFileIterable):
         elif "encoding" in options.keys() and options["encoding"] is not None:
             self.encoding = options["encoding"]
         if mode == "r":
-            if filename is not None and self.encoding is None:
+            if filename is not None and stream is None and self.encoding is None:
                 self.encoding = detect_encoding_raw(filename=filename)["encoding"]
             elif stream is not None and self.encoding is None:
                 self.encoding = detect_encoding_raw(stream=stream)["encoding"]
@@ -250,6 +273,8 @@ class CSVIterable(BaseFileIterable):
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk CSV records"""
+        if records is None:
+            raise TypeError("write_bulk() requires a list of records, got None")
         # Apply validation hooks if configured
         if self._validation_hooks:
             validated_records = []

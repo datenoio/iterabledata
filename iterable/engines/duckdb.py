@@ -30,6 +30,22 @@ class DuckDBEngineIterable(BaseFileIterable):
     ):
         if options is None:
             options = {}
+        # The DuckDB engine reads from a file path; validate it up front so that
+        # a missing/invalid filename surfaces as a typed ReadError rather than a
+        # generic "no source" ValueError from the base class.
+        if stream is None and codec is None:
+            if filename is None:
+                raise ReadError(
+                    "DuckDB engine requires a filename",
+                    filename=None,
+                    error_code="INVALID_PARAMETER",
+                )
+            if not isinstance(filename, str):
+                raise ReadError(
+                    "Filename must be a string",
+                    filename=None,
+                    error_code="INVALID_PARAMETER",
+                )
         self.pos = 0
         super().__init__(filename, stream, codec=codec, binary=False, mode=mode, encoding=encoding, options=options)
         self._connection = None
@@ -538,11 +554,31 @@ class DuckDBEngineIterable(BaseFileIterable):
         """Get the offset for a given batch index"""
         return batch_index * self._batch_size
 
+    @staticmethod
+    def _stringify_value(value: typing.Any) -> typing.Any:
+        """Coerce a value to ``str`` to match the text-format (CSV) contract.
+
+        ``None``/NaN are preserved as ``None``.
+        """
+        if value is None:
+            return None
+        # Detect NaN without importing numpy/pandas (NaN != NaN).
+        if isinstance(value, float) and value != value:
+            return None
+        return str(value)
+
+    def _stringify_row(self, row: dict) -> dict:
+        return {k: self._stringify_value(v) for k, v in row.items()}
+
     def _result_to_dicts(self, result) -> list[dict]:
         """Convert DuckDB result to list of dicts efficiently.
 
         Uses DuckDB's native DataFrame conversion if pandas is available,
         otherwise falls back to manual conversion.
+
+        For text-based formats (CSV) all values are coerced to strings so that
+        the DuckDB engine matches the contract of the internal CSV reader, where
+        every field is a string.
 
         Args:
             result: DuckDB result object from execute()
@@ -550,6 +586,7 @@ class DuckDBEngineIterable(BaseFileIterable):
         Returns:
             list[dict]: List of dictionaries, one per row
         """
+        stringify = self._file_format == "csv"
         if HAS_PANDAS:
             # Use DuckDB's optimized DataFrame conversion
             try:
@@ -567,6 +604,8 @@ class DuckDBEngineIterable(BaseFileIterable):
                         # Fallback: filter dicts after conversion
                         dicts = [{k: row.get(k) for k in self._columns if k in row} for row in dicts]
 
+                if stringify:
+                    dicts = [self._stringify_row(row) for row in dicts]
                 return dicts
             except (duckdb.Error, duckdb.ProgrammingError, duckdb.OperationalError):
                 # DuckDB-specific errors - fall back to manual conversion
@@ -585,6 +624,8 @@ class DuckDBEngineIterable(BaseFileIterable):
         if self._columns:
             dicts = [{k: row.get(k) for k in self._columns if k in row} for row in dicts]
 
+        if stringify:
+            dicts = [self._stringify_row(row) for row in dicts]
         return dicts
 
     def _load_batch(self, batch_index: int | None = None):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 import chardet
 
@@ -645,7 +645,7 @@ def detect_file_type_from_content(fileobj, peek_size: int = 8192) -> tuple[str, 
                             pass
 
             # CSV detection (heuristics) - Medium confidence (0.75-0.85)
-            if "," in text[:100] or "\t" in text[:100]:
+            if any(d in text[:100] for d in (",", "\t", "|", ";")):
                 # Check if it looks like CSV (has consistent delimiter)
                 lines = text.split("\n")[:5]
                 if len(lines) >= 2:
@@ -950,23 +950,96 @@ def _get_cloud_backend(filename: str) -> str | None:
     return None
 
 
+def _open_stream_iterable(
+    stream: Any,
+    mode: str = "r",
+    engine: str = "internal",
+    iterableargs: IterableArgs | None = None,
+    debug: bool = False,
+) -> BaseIterable:
+    """Open an iterable backed by an in-memory/file-like stream.
+
+    The format is taken from an explicit ``format`` option when provided,
+    otherwise content-based detection is attempted. Text streams that cannot be
+    identified fall back to CSV.
+    """
+    if iterableargs is None:
+        iterableargs = {}
+    iterableargs.setdefault("_debug", debug or is_debug_enabled())
+
+    normalized_mode = "r" if mode in ["r", "rb"] else "w"
+
+    explicit_format = iterableargs.get("format")
+    datatype: type[BaseIterable] | None = None
+
+    if explicit_format:
+        format_id = explicit_format.lower()
+        registry = _get_format_registry()
+        if format_id not in registry:
+            from ..exceptions import FormatNotSupportedError
+
+            raise FormatNotSupportedError(
+                format_id=format_id,
+                reason=f"Unknown format. Supported formats: {', '.join(sorted(set(registry.keys())))}",
+            )
+        datatype = _datatype_class(format_id)
+    elif normalized_mode == "r":
+        # Attempt content-based detection without consuming the stream.
+        try:
+            if hasattr(stream, "seekable") and stream.seekable():
+                pos = stream.tell()
+                result = detect_file_type("stream", fileobj=stream, debug=debug or is_debug_enabled())
+                try:
+                    stream.seek(pos)
+                except (OSError, ValueError):
+                    pass
+                if result.get("success"):
+                    datatype = result["datatype"]
+        except Exception:
+            # Detection is best-effort for streams; fall back to the default below.
+            pass
+
+    if datatype is None:
+        # Default to CSV for unidentified text streams.
+        datatype = _datatype_class("csv")
+
+    try:
+        return datatype(stream=stream, mode=normalized_mode, options=iterableargs)
+    except IterableDataError:
+        raise
+    except (OSError, ValueError, TypeError):
+        raise
+    except Exception as e:
+        raise RuntimeError(f"Failed to open stream with format '{datatype.__name__}'. Error: {str(e)}") from e
+
+
 def open_iterable(
-    filename: str,
+    filename: str | None = None,
     mode: Literal["r", "w", "rb", "wb"] = "r",
     engine: str = "internal",
     codecargs: CodecArgs | None = None,
     iterableargs: IterableArgs | None = None,
     debug: bool = False,
+    *,
+    options: IterableArgs | None = None,
+    stream: Any | None = None,
+    format: str | None = None,
 ) -> BaseIterable:
     """Opens file and returns iterable object.
 
     Args:
-        filename: Path to the file to open
+        filename: Path to the file to open. May also be a file-like object,
+            in which case it is treated as ``stream``.
         mode: File mode ('r' for read, 'w' for write, 'rb'/'wb' for binary)
         engine: Processing engine ('internal' or 'duckdb')
         codecargs: Dictionary with arguments for codec initialization
         iterableargs: Dictionary with arguments for iterable initialization
         debug: If True, enable verbose debug logging
+        options: Alias for ``iterableargs`` (keys here are merged into and take
+            precedence over ``iterableargs``)
+        stream: Open file-like object to read from instead of a filename
+        format: Explicit format identifier (e.g. ``"csv"``, ``"vortex"``) that
+            overrides automatic detection
 
     Returns:
         Iterable object for the detected file type
@@ -984,8 +1057,37 @@ def open_iterable(
     """
     import os
 
+    # Merge the ``options`` alias into ``iterableargs`` (options take precedence).
+    if options is not None:
+        iterableargs = {**(iterableargs or {}), **options}
+
+    # Allow the first positional argument to be a file-like object; in that case
+    # treat it as ``stream`` rather than a filename.
+    if (
+        filename is not None
+        and not isinstance(filename, (str, bytes))
+        and not hasattr(filename, "__fspath__")
+        and hasattr(filename, "read")
+    ):
+        stream = filename
+        filename = None
+
+    # An explicit ``format`` argument overrides automatic detection.
+    if format is not None:
+        iterableargs = {**(iterableargs or {}), "format": format}
+
+    # Stream-based access is handled separately from filename/cloud logic.
+    if stream is not None:
+        return _open_stream_iterable(
+            stream,
+            mode=mode,
+            engine=engine,
+            iterableargs=iterableargs,
+            debug=debug,
+        )
+
     # Normalize path-like (e.g. pathlib.Path) to str for .lower() and path checks
-    if not isinstance(filename, str):
+    if filename is not None and not isinstance(filename, str):
         filename = os.fspath(filename) if hasattr(filename, "__fspath__") else str(filename)
 
     if debug or is_debug_enabled():
@@ -1089,17 +1191,23 @@ def open_iterable(
             else:
                 raise RuntimeError(f"Failed to open cloud storage URI '{filename}': {str(e)}") from e
 
-    # Check file existence for read mode (only for local files)
-    elif normalized_mode == "r" and not os.path.exists(filename):
-        raise FileNotFoundError(
-            f"File not found: '{filename}'. Please check that the file exists and the path is correct."
-        )
+    # Determine local-file existence up front, but defer raising FileNotFoundError
+    # until after filename-based detection: an unrecognized extension on a missing
+    # path should be reported as a format error (per open_iterable's contract),
+    # whereas a recognized extension on a missing path is a clear FileNotFoundError.
+    file_missing = normalized_mode == "r" and not is_cloud_uri and not os.path.exists(filename)
 
     # Try filename-based detection first
     result = detect_file_type(filename, debug=debug or is_debug_enabled())
 
-    # If filename detection failed, try content-based detection
-    if not result["success"] and normalized_mode == "r":
+    if file_missing and result["success"]:
+        raise FileNotFoundError(
+            f"File not found: '{filename}'. Please check that the file exists and the path is correct."
+        )
+
+    # If filename detection failed, try content-based detection (only if the file
+    # actually exists; a missing file falls through to the format error below).
+    if not result["success"] and normalized_mode == "r" and not file_missing:
         if debug or is_debug_enabled():
             format_detection_logger.debug("Filename detection failed, attempting content-based detection")
         try:
@@ -1140,11 +1248,12 @@ def open_iterable(
                 result["detection_method"] = "explicit"
 
         if not result["success"]:
-            from ..exceptions import FormatDetectionError
+            from ..exceptions import FormatNotSupportedError
 
-            raise FormatDetectionError(
-                filename=filename,
-                reason=f"Could not detect file type from filename or content. "
+            ext = os.path.splitext(filename)[1].lstrip(".").lower() or "unknown"
+            raise FormatNotSupportedError(
+                format_id=ext,
+                reason=f"Could not detect file type from filename or content for file: {filename}. "
                 f"Supported formats: {', '.join(sorted(set(DATATYPE_REGISTRY.keys())))}",
             )
 
@@ -1218,6 +1327,11 @@ def open_iterable(
         raise FileNotFoundError(
             f"File not found: '{filename}'. Please check that the file exists and the path is correct."
         ) from e
+    except (OSError, LookupError):
+        # OS-level failures (e.g. PermissionError) and encoding lookup failures
+        # (e.g. an invalid encoding name) are meaningful on their own; surface
+        # them unwrapped rather than masking them behind a generic RuntimeError.
+        raise
     except IterableDataError:
         # Library exceptions (e.g. ReadError for query validation, FormatParseError)
         # carry typed context and error codes; let them propagate unwrapped rather

@@ -13,7 +13,6 @@ except ImportError:
 from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
-from ..exceptions import FormatNotSupportedError
 from ..types import Row
 
 
@@ -103,7 +102,7 @@ class WARCIterable(BaseFileIterable):
 
     def totals(self):
         """Returns file totals - not supported for WARC files"""
-        raise FormatNotSupportedError("warc", "WARC files don't support totals counting")
+        raise NotImplementedError("WARC files don't support totals counting")
 
     @staticmethod
     def id() -> str:

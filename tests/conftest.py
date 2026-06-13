@@ -34,6 +34,27 @@ def ensure_testdata_dir():
     return testdata_dir
 
 
+@pytest.fixture(autouse=True)
+def _reset_iterable_logging():
+    """Reset IterableData's logger hierarchy after each test.
+
+    ``enable_debug_mode`` attaches handlers and sets ``propagate = False`` on the
+    package loggers (notably the root ``iterable`` logger). Without a reset that
+    global state leaks across tests and, for example, prevents pytest's ``caplog``
+    fixture from capturing records emitted by child loggers. Restoring the loggers
+    after every test keeps tests isolated from one another.
+    """
+    import logging
+
+    yield
+
+    for name in ("iterable", "iterable.detect", "iterable.io", "iterable.parse", "iterable.perf"):
+        lg = logging.getLogger(name)
+        lg.handlers.clear()
+        lg.propagate = True
+        lg.setLevel(logging.NOTSET)
+
+
 def pytest_addoption(parser):
     """Register custom options used by the performance regression suite.
 

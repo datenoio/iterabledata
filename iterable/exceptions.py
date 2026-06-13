@@ -45,13 +45,15 @@ class FormatError(IterableDataError):
         self.format_id = format_id
 
 
-class FormatNotSupportedError(FormatError, ValueError):
+class FormatNotSupportedError(FormatError, ValueError, RuntimeError):
     """Format is not supported or not available.
 
     Raised when a requested format is not supported by the library,
     or when required dependencies are missing. Also a ``ValueError`` subclass
     so that callers following the documented ``open_iterable`` contract can
-    catch it as an invalid-argument error.
+    catch it as an invalid-argument error, and a ``RuntimeError`` subclass so
+    that ``open_iterable``'s documented "format could not be detected" failures
+    can be caught as ``RuntimeError`` as well.
 
     Error code: FORMAT_NOT_SUPPORTED
     """

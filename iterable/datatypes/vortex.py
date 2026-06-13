@@ -39,13 +39,9 @@ class VortexIterable(BaseFileIterable):
     ):
         if options is None:
             options = {}
-        if not HAS_VORTEX:
-            raise ImportError(
-                "Vortex support requires 'vortex-data' package. Install it with: pip install iterabledata[vortex]"
-            )
-        if not HAS_PYARROW:
-            raise ImportError("Vortex support requires 'pyarrow' package. Install it with: pip install pyarrow")
-        # Vortex requires a file path, not a stream
+        # Validate resource requirements before checking optional dependencies so
+        # that misuse (e.g. passing a stream) is reported as a ReadError regardless
+        # of whether the optional Vortex dependency is installed.
         if stream is not None:
             raise ReadError(
                 "Vortex format does not support stream mode. Use filename instead.",
@@ -58,6 +54,12 @@ class VortexIterable(BaseFileIterable):
                 filename=None,
                 error_code="RESOURCE_REQUIREMENT_NOT_MET",
             )
+        if not HAS_VORTEX:
+            raise ImportError(
+                "Vortex support requires 'vortex-data' package. Install it with: pip install iterabledata[vortex]"
+            )
+        if not HAS_PYARROW:
+            raise ImportError("Vortex support requires 'pyarrow' package. Install it with: pip install pyarrow")
         self.batch_size = batch_size
         self.__buffer = []
         self.vortex_file = None
