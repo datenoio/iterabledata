@@ -6,7 +6,7 @@ from typing import Any
 from avro.datafile import DataFileReader
 from avro.io import DatumReader
 
-from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..base import BaseCodec, BaseFileIterable
 
 
 class AVROIterable(BaseFileIterable):
@@ -43,13 +43,3 @@ class AVROIterable(BaseFileIterable):
         row = next(self.cursor)
         self.pos += 1
         return row
-
-    def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk records"""
-        chunk = []
-        for _n in range(0, num):
-            try:
-                chunk.append(self.read())
-            except StopIteration:
-                break
-        return chunk

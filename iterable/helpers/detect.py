@@ -31,9 +31,11 @@ def _load_symbol(module_path: str, symbol: str):
         return getattr(module, symbol)
     except ImportError as e:
         raise ImportError(
-            f"Failed to import '{symbol}' from '{module_path}'. "
-            f"This format/codec likely requires an optional dependency. "
-            f"Install the needed extras (for now: `pip install iterabledata[dev]` or `pip install iterabledata`)."
+            f"Failed to import '{symbol}' from '{module_path}': {e}. "
+            f"This format/codec requires an optional dependency that is not installed. "
+            f"Install the extra for this format (see the format's documentation or the "
+            f"'[project.optional-dependencies]' section of pyproject.toml), or install "
+            f"everything with `pip install 'iterabledata[all]'`."
         ) from e
 
 
@@ -49,9 +51,10 @@ def _ensure_plugins_discovered() -> None:
             from ..plugins import discover_plugins
 
             discover_plugins()
-        except Exception:
-            # Silently fail if plugin system not available
-            pass
+        except Exception as e:
+            # Don't let a broken plugin block built-in formats, but surface the
+            # failure at warning level so misconfigured entry points are visible.
+            format_detection_logger.warning("Plugin discovery failed: %s", e)
         _plugins_discovered = True
 
 
@@ -73,9 +76,8 @@ def _get_format_registry() -> dict[str, tuple[str, str]]:
         for format_id, value in registry._formats.items():
             if format_id not in merged:
                 merged[format_id] = value
-    except Exception:
-        # Silently fail if plugin system not available
-        pass
+    except Exception as e:
+        format_detection_logger.warning("Failed to load plugin formats: %s", e)
 
     return merged
 
@@ -98,9 +100,8 @@ def _get_codec_registry() -> dict[str, tuple[str, str]]:
         for codec_id, value in registry._codecs.items():
             if codec_id not in merged:
                 merged[codec_id] = value
-    except Exception:
-        # Silently fail if plugin system not available
-        pass
+    except Exception as e:
+        format_detection_logger.warning("Failed to load plugin codecs: %s", e)
 
     return merged
 
