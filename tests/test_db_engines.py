@@ -52,22 +52,14 @@ class TestPostgresDriver:
 
     def test_connect_with_connection_string(self):
         """Test connection with connection string."""
-        real_import = __import__
-        mock_conn = MagicMock()
-        mock_psycopg2 = MagicMock()
-        mock_psycopg2.connect = MagicMock(return_value=mock_conn)
+        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+            mock_conn = MagicMock()
+            mock_psycopg2.connect.return_value = mock_conn
 
-        def mock_import(name, *args, **kwargs):
-            if name == "psycopg2":
-                return mock_psycopg2
-            if name == "psycopg2.extensions":
-                mod = MagicMock()
-                mod.ISOLATION_LEVEL_READ_COMMITTED = 1
-                return mod
-            return real_import(name, *args, **kwargs)
-
-        with patch("builtins.__import__", side_effect=mock_import):
-            driver = PostgresDriver("postgresql://user:pass@localhost/db", query="SELECT 1")
+            # Disable pooling so the connection is created directly and once.
+            driver = PostgresDriver(
+                "postgresql://user:pass@localhost/db", query="SELECT 1", pool={"enabled": False}
+            )
             driver.connect()
 
             assert driver.is_connected
@@ -114,6 +106,7 @@ class TestPostgresDriver:
                 "postgresql://localhost/db",
                 query="SELECT 1",
                 connect_args={"sslmode": "require"},
+                pool={"enabled": False},
             )
             driver.connect()
 
@@ -122,17 +115,20 @@ class TestPostgresDriver:
     def test_read_only_transaction(self):
         """Test read-only transaction is set."""
         with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
-            from psycopg2.extensions import ISOLATION_LEVEL_READ_COMMITTED
+            isolation_level = mock_psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
 
             mock_conn = MagicMock()
             mock_psycopg2.connect.return_value = mock_conn
             mock_cursor = MagicMock()
             mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
-            driver = PostgresDriver("postgresql://localhost/db", query="SELECT 1", read_only=True)
+            # Disable pooling so the connection is created directly and once.
+            driver = PostgresDriver(
+                "postgresql://localhost/db", query="SELECT 1", read_only=True, pool={"enabled": False}
+            )
             driver.connect()
 
-            mock_conn.set_isolation_level.assert_called_once_with(ISOLATION_LEVEL_READ_COMMITTED)
+            mock_conn.set_isolation_level.assert_called_once_with(isolation_level)
             mock_conn.cursor.assert_called()
             mock_conn.commit.assert_called_once()
 
@@ -239,7 +235,7 @@ class TestPostgresDriver:
             mock_psycopg2.connect.return_value = mock_conn
             mock_cursor = MagicMock()
             mock_cursor.description = None
-            mock_cursor.fetchmany.return_value = [()]
+            mock_cursor.fetchmany.side_effect = [[()], []]
             mock_conn.cursor.return_value = mock_cursor
 
             driver = PostgresDriver("postgresql://localhost/db", query="INSERT INTO users VALUES (1)")
@@ -581,6 +577,7 @@ class TestOpenIterableIntegration:
         with patch("iterable.helpers.detect.get_driver") as mock_get_driver:
             with patch("iterable.helpers.detect.ClickHouseDriver") as mock_clickhouse_driver_class:
                 mock_driver = MagicMock()
+                mock_driver.is_connected = False
                 mock_driver.connect.side_effect = ConnectionError("Connection refused")
                 mock_clickhouse_driver_class.return_value = mock_driver
                 mock_get_driver.return_value = mock_clickhouse_driver_class

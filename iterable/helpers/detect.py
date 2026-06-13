@@ -11,6 +11,12 @@ from ..base import BaseCodec, BaseIterable
 # lightweight; heavy driver imports are internally guarded) so they can be
 # patched as ``iterable.helpers.detect.get_driver`` / ``is_database_engine``.
 from ..db import get_driver, is_database_engine
+
+# Re-exported so callers/tests can reference and patch them as
+# ``iterable.helpers.detect.<Driver>``; the heavy driver dependencies are guarded
+# inside these modules, so importing the classes here is cheap and safe.
+from ..db.clickhouse import ClickHouseDriver  # noqa: F401
+from ..db.postgres import PostgresDriver  # noqa: F401
 from ..exceptions import IterableDataError
 from ..types import CodecArgs, IterableArgs
 from .debug import file_io_logger, format_detection_logger, is_debug_enabled

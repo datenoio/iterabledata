@@ -12,6 +12,13 @@ from typing import Any
 from ..types import Row
 from .base import DBDriver
 
+# Imported at module level (guarded) so the optional dependency stays optional
+# while remaining patchable as ``iterable.db.mysql.pymysql`` in tests.
+try:
+    import pymysql
+except ImportError:  # pragma: no cover - exercised when dependency is absent
+    pymysql = None
+
 
 class MySQLDriver(DBDriver):
     """MySQL/MariaDB database driver.
@@ -45,20 +52,18 @@ class MySQLDriver(DBDriver):
             ImportError: If pymysql is not installed
             ConnectionError: If connection fails
         """
-        try:
-            import pymysql
-        except ImportError:
-            raise ImportError("pymysql is required for MySQL support. Install it with: pip install pymysql") from None
-
-        # If source is already a connection object, use it
+        # If source is already a connection object, use it (no driver import needed)
         if hasattr(self.source, "cursor") and hasattr(self.source, "close"):
             self.conn = self.source
             self._connected = True
             return
 
-        # Parse connection string
+        # Validate source type before requiring the driver dependency
         if not isinstance(self.source, str):
             raise ValueError(f"MySQL source must be a connection string or connection object, got {type(self.source)}")
+
+        if pymysql is None:
+            raise ImportError("pymysql is required for MySQL support. Install it with: pip install pymysql")
 
         # Extract connection arguments
         connect_args = self.kwargs.get("connect_args", {})
@@ -179,8 +184,6 @@ class MySQLDriver(DBDriver):
         self._start_metrics()
 
         try:
-            import pymysql.cursors
-
             # Create cursor
             if server_side_cursor:
                 # Use SSCursor (server-side cursor) for streaming
@@ -283,10 +286,8 @@ class MySQLDriver(DBDriver):
             ImportError: If pymysql is not installed
             ConnectionError: If connection fails
         """
-        try:
-            import pymysql
-        except ImportError:
-            raise ImportError("pymysql is required for MySQL support. Install it with: pip install pymysql") from None
+        if pymysql is None:
+            raise ImportError("pymysql is required for MySQL support. Install it with: pip install pymysql")
 
         try:
             # Parse connection string similar to connect()
@@ -355,7 +356,7 @@ class MySQLDriver(DBDriver):
                         cur.execute(query)
 
                 results = []
-                for row in cur:
+                for row in cur.fetchall():
                     results.append(
                         {
                             "schema": row[0],

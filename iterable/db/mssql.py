@@ -12,6 +12,13 @@ from typing import Any
 from ..types import Row
 from .base import DBDriver
 
+# Imported at module level (guarded) so the optional dependency stays optional
+# while remaining patchable as ``iterable.db.mssql.pyodbc`` in tests.
+try:
+    import pyodbc
+except ImportError:  # pragma: no cover - exercised when dependency is absent
+    pyodbc = None
+
 
 class MSSQLDriver(DBDriver):
     """Microsoft SQL Server database driver.
@@ -44,24 +51,20 @@ class MSSQLDriver(DBDriver):
             ImportError: If pyodbc is not installed
             ConnectionError: If connection fails
         """
-        try:
-            import pyodbc
-        except ImportError:
-            raise ImportError(
-                "pyodbc is required for SQL Server support. Install it with: pip install pyodbc"
-            ) from None
-
-        # If source is already a connection object, use it
+        # If source is already a connection object, use it (no driver import needed)
         if hasattr(self.source, "cursor") and hasattr(self.source, "close"):
             self.conn = self.source
             self._connected = True
             return
 
-        # Parse connection string
+        # Validate source type before requiring the driver dependency
         if not isinstance(self.source, str):
             raise ValueError(
                 f"SQL Server source must be a connection string or connection object, got {type(self.source)}"
             )
+
+        if pyodbc is None:
+            raise ImportError("pyodbc is required for SQL Server support. Install it with: pip install pyodbc")
 
         # Extract connection arguments
         connect_args = self.kwargs.get("connect_args", {})
@@ -293,12 +296,8 @@ class MSSQLDriver(DBDriver):
             ImportError: If pyodbc is not installed
             ConnectionError: If connection fails
         """
-        try:
-            import pyodbc
-        except ImportError:
-            raise ImportError(
-                "pyodbc is required for SQL Server support. Install it with: pip install pyodbc"
-            ) from None
+        if pyodbc is None:
+            raise ImportError("pyodbc is required for SQL Server support. Install it with: pip install pyodbc")
 
         try:
             # Parse connection string similar to connect()
@@ -375,7 +374,7 @@ class MSSQLDriver(DBDriver):
                     cur.execute(query)
 
                 results = []
-                for row in cur:
+                for row in cur.fetchall():
                     results.append(
                         {
                             "schema": row[0],

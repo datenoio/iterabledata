@@ -13,6 +13,13 @@ from ..types import Row
 from .base import DBDriver
 from .pooling import get_pool
 
+# Imported at module level (guarded) so the optional dependency stays optional
+# while remaining patchable as ``iterable.db.postgres.psycopg2`` in tests.
+try:
+    import psycopg2
+except ImportError:  # pragma: no cover - exercised when dependency is absent
+    psycopg2 = None
+
 
 class PostgresDriver(DBDriver):
     """PostgreSQL database driver.
@@ -55,25 +62,24 @@ class PostgresDriver(DBDriver):
             ImportError: If psycopg2 is not installed
             ConnectionError: If connection fails
         """
-        try:
-            import psycopg2
-            from psycopg2.extensions import ISOLATION_LEVEL_READ_COMMITTED
-        except ImportError:
-            raise ImportError(
-                "psycopg2-binary is required for PostgreSQL support. Install it with: pip install psycopg2-binary"
-            ) from None
-
-        # If source is already a connection object, use it (no pooling)
+        # If source is already a connection object, use it (no pooling). This
+        # path does not require psycopg2 to be importable.
         if hasattr(self.source, "cursor") and hasattr(self.source, "close"):
             self.conn = self.source
             self._connected = True
             return
 
-        # Parse connection string
+        # Validate source type before requiring the driver dependency
         if not isinstance(self.source, str):
             raise ValueError(
                 f"PostgreSQL source must be a connection string or connection object, got {type(self.source)}"
             )
+
+        if psycopg2 is None:
+            raise ImportError(
+                "psycopg2-binary is required for PostgreSQL support. Install it with: pip install psycopg2-binary"
+            )
+        ISOLATION_LEVEL_READ_COMMITTED = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
 
         # Extract pool configuration
         pool_config = self.kwargs.get("pool", {})
@@ -344,12 +350,10 @@ class PostgresDriver(DBDriver):
             ImportError: If psycopg2 is not installed
             ConnectionError: If connection fails
         """
-        try:
-            import psycopg2
-        except ImportError:
+        if psycopg2 is None:
             raise ImportError(
                 "psycopg2-binary is required for PostgreSQL support. Install it with: pip install psycopg2-binary"
-            ) from None
+            )
 
         try:
             conn = psycopg2.connect(connection_string, **connect_args)
@@ -387,7 +391,7 @@ class PostgresDriver(DBDriver):
                     cur.execute(query)
 
                 results = []
-                for row in cur:
+                for row in cur.fetchall():
                     results.append(
                         {
                             "schema": row[0],

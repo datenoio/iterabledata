@@ -13,6 +13,13 @@ from urllib.parse import urlparse
 from ..types import Row
 from .base import DBDriver
 
+# Imported at module level (guarded) so the optional dependency stays optional
+# while remaining patchable as ``iterable.db.mongo.MongoClient`` in tests.
+try:
+    from pymongo import MongoClient
+except ImportError:  # pragma: no cover - exercised when dependency is absent
+    MongoClient = None
+
 
 class MongoDriver(DBDriver):
     """MongoDB database driver.
@@ -51,17 +58,15 @@ class MongoDriver(DBDriver):
             ConnectionError: If connection fails
             ValueError: If database or collection is not specified
         """
-        try:
-            from pymongo import MongoClient
-        except ImportError:
-            raise ImportError("pymongo is required for MongoDB support. Install it with: pip install pymongo") from None
-
-        # If source is already a MongoClient object, use it
+        # If source is already a MongoClient object, use it (no driver import needed)
         if hasattr(self.source, "list_database_names") and hasattr(self.source, "close"):
             self.conn = self.source
             self._connected = True
             self._get_database_and_collection()
             return
+
+        if MongoClient is None:
+            raise ImportError("pymongo is required for MongoDB support. Install it with: pip install pymongo")
 
         # Parse connection string
         if not isinstance(self.source, str):
@@ -289,12 +294,8 @@ class MongoDriver(DBDriver):
             ConnectionError: If connection fails
             ValueError: If database is not specified
         """
-        try:
-            from urllib.parse import urlparse
-
-            from pymongo import MongoClient
-        except ImportError:
-            raise ImportError("pymongo is required for MongoDB support. Install it with: pip install pymongo") from None
+        if MongoClient is None:
+            raise ImportError("pymongo is required for MongoDB support. Install it with: pip install pymongo")
 
         try:
             # Parse connection string to extract database name if present

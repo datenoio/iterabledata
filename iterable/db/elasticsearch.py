@@ -12,6 +12,13 @@ from typing import Any
 from ..types import Row
 from .base import DBDriver
 
+# Imported at module level (guarded) so the optional dependency stays optional
+# while remaining patchable as ``iterable.db.elasticsearch.Elasticsearch`` in tests.
+try:
+    from elasticsearch import Elasticsearch
+except ImportError:  # pragma: no cover - exercised when dependency is absent
+    Elasticsearch = None
+
 
 class ElasticsearchDriver(DBDriver):
     """Elasticsearch database driver.
@@ -48,19 +55,17 @@ class ElasticsearchDriver(DBDriver):
             ConnectionError: If connection fails
             ValueError: If index is not specified
         """
-        try:
-            from elasticsearch import Elasticsearch
-        except ImportError:
-            raise ImportError(
-                "elasticsearch is required for Elasticsearch support. Install it with: pip install elasticsearch>=8.0"
-            ) from None
-
-        # If source is already an Elasticsearch client object, use it
+        # If source is already an Elasticsearch client object, use it (no driver import needed)
         if hasattr(self.source, "search") and hasattr(self.source, "close"):
             self.conn = self.source
             self._connected = True
             self._validate_index()
             return
+
+        if Elasticsearch is None:
+            raise ImportError(
+                "elasticsearch is required for Elasticsearch support. Install it with: pip install elasticsearch>=8.0"
+            )
 
         # Parse connection string
         if not isinstance(self.source, str):
@@ -233,12 +238,10 @@ class ElasticsearchDriver(DBDriver):
             ImportError: If elasticsearch is not installed
             ConnectionError: If connection fails
         """
-        try:
-            from elasticsearch import Elasticsearch
-        except ImportError:
+        if Elasticsearch is None:
             raise ImportError(
                 "elasticsearch is required for Elasticsearch support. Install it with: pip install elasticsearch>=8.0"
-            ) from None
+            )
 
         try:
             # Create Elasticsearch client

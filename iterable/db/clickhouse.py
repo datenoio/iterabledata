@@ -13,6 +13,13 @@ from typing import Any
 from ..types import Row
 from .base import DBDriver
 
+# Imported at module level (guarded) so the optional dependency stays optional
+# while remaining patchable as ``iterable.db.clickhouse.clickhouse_connect`` in tests.
+try:
+    import clickhouse_connect
+except ImportError:  # pragma: no cover - exercised when dependency is absent
+    clickhouse_connect = None
+
 
 class ClickHouseDriver(DBDriver):
     """ClickHouse database driver.
@@ -48,22 +55,20 @@ class ClickHouseDriver(DBDriver):
             ImportError: If clickhouse-connect is not installed
             ConnectionError: If connection fails
         """
-        try:
-            import clickhouse_connect
-        except ImportError:
-            raise ImportError(
-                "clickhouse-connect is required for ClickHouse support. Install it with: pip install clickhouse-connect"
-            ) from None
-
-        # If source is already a client object, use it
+        # If source is already a client object, use it (no driver import needed)
         if hasattr(self.source, "query") and hasattr(self.source, "close"):
             self.conn = self.source
             self._connected = True
             return
 
-        # Parse connection string
+        # Validate source type before requiring the driver dependency
         if not isinstance(self.source, str):
             raise ValueError(f"ClickHouse source must be a connection string or client object, got {type(self.source)}")
+
+        if clickhouse_connect is None:
+            raise ImportError(
+                "clickhouse-connect is required for ClickHouse support. Install it with: pip install clickhouse-connect"
+            )
 
         # Extract connection arguments
         connect_args = self.kwargs.get("connect_args", {})
@@ -296,12 +301,10 @@ class ClickHouseDriver(DBDriver):
             ImportError: If clickhouse-connect is not installed
             ConnectionError: If connection fails
         """
-        try:
-            import clickhouse_connect
-        except ImportError:
+        if clickhouse_connect is None:
             raise ImportError(
                 "clickhouse-connect is required for ClickHouse support. Install it with: pip install clickhouse-connect"
-            ) from None
+            )
 
         try:
             client = clickhouse_connect.get_client(url=connection_string, **connect_args)
