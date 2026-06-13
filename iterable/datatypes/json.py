@@ -108,9 +108,7 @@ class JSONIterable(BaseFileIterable):
                 except (json.JSONDecodeError, ValueError) as e:
                     # Defer malformed/empty JSON errors to read() so that opening
                     # the iterable succeeds and the error surfaces during iteration.
-                    self._parse_error = FormatParseError(
-                        format_id="json", message=str(e), filename=self.filename
-                    )
+                    self._parse_error = FormatParseError(format_id="json", message=str(e), filename=self.filename)
                     self.data = []
                     self.total = 0
                     return
