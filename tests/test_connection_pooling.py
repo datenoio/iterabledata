@@ -2,6 +2,7 @@
 Tests for connection pooling functionality.
 """
 
+import threading
 import time
 from unittest.mock import Mock, patch
 
@@ -404,3 +405,53 @@ class TestPostgresDriverPooling:
             assert driver2._pool is not None
 
             driver2.close()
+
+
+class TestPoolReentrancy:
+    """Regression tests for re-entrant lock usage during GC/__del__."""
+
+    def test_acquire_does_not_deadlock_on_reentrant_release(self):
+        """A release() triggered while a connection is being created must not deadlock.
+
+        This reproduces the GC scenario where building a connection inside
+        acquire() triggers garbage collection, whose __del__ -> close() ->
+        pool.release() re-enters the pool lock on the same thread. If acquire()
+        holds the lock across the factory call, that re-entry deadlocks on the
+        non-reentrant lock.
+        """
+        holder = {}
+        calls = {"n": 0}
+
+        def factory():
+            calls["n"] += 1
+            if calls["n"] == 1:
+                # Simulate a GC-driven __del__ -> release() happening mid-acquire.
+                holder["pool"].release(Mock(), time.time())
+            return Mock()
+
+        # validate=False forces release() down the lock-taking branch.
+        pool = SimpleConnectionPool(factory, min_size=0, max_size=3, validate=lambda conn: False)
+        holder["pool"] = pool
+
+        result = {}
+
+        def run():
+            result["conn"], result["created"] = pool.acquire()
+
+        worker = threading.Thread(target=run, daemon=True)
+        worker.start()
+        worker.join(timeout=10)
+
+        assert not worker.is_alive(), "acquire() deadlocked on a re-entrant release()"
+        assert "conn" in result
+
+    def test_acquire_releases_reserved_slot_on_factory_failure(self):
+        """If the factory raises, the reserved slot must be returned to the pool."""
+
+        def factory():
+            raise RuntimeError("cannot connect")
+
+        pool = SimpleConnectionPool(factory, min_size=0, max_size=2, timeout=1.0)
+        with pytest.raises(RuntimeError):
+            pool.acquire()
+        assert pool._created == 0

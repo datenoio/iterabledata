@@ -147,13 +147,26 @@ class SimpleConnectionPool(ConnectionPool):
 
                 return conn, created_time
             except Empty:
-                # No connection available, create new one if under max_size
+                # No connection available, create new one if under max_size.
+                # Reserve the slot under the lock, then build the connection
+                # OUTSIDE the lock: self._factory() can allocate and trigger GC,
+                # whose __del__ -> close() -> release() re-enters this same
+                # (non-reentrant) lock on the same thread and would deadlock.
+                reserved = False
                 with self._lock:
                     if self._created < self._max_size:
-                        conn = self._factory()
-                        created_time = time.time()
                         self._created += 1
-                        return conn, created_time
+                        reserved = True
+
+                if reserved:
+                    try:
+                        conn = self._factory()
+                    except Exception:
+                        # Creation failed: give the reserved slot back.
+                        with self._lock:
+                            self._created -= 1
+                        raise
+                    return conn, time.time()
 
                 # Wait a bit and retry
                 time.sleep(0.1)
