@@ -1111,9 +1111,7 @@ def open_iterable(
     # is reported regardless of whether the target file exists.
     on_error = iterableargs.get("on_error", "raise")
     if on_error not in ("raise", "skip", "warn"):
-        raise ValueError(
-            f"Invalid 'on_error' value: '{on_error}'. Valid values are: 'raise', 'skip', 'warn'"
-        )
+        raise ValueError(f"Invalid 'on_error' value: '{on_error}'. Valid values are: 'raise', 'skip', 'warn'")
 
     # Check if this is a database engine
     try:
@@ -1336,6 +1334,11 @@ def open_iterable(
         # Library exceptions (e.g. ReadError for query validation, FormatParseError)
         # carry typed context and error codes; let them propagate unwrapped rather
         # than masking them behind a generic RuntimeError.
+        raise
+    except ImportError:
+        # Missing optional dependencies for a format/codec surface as ImportError
+        # (with the format's install hint) so callers and tests can detect and skip
+        # them, instead of masking the cause behind a generic RuntimeError.
         raise
     except Exception as e:
         if debug or is_debug_enabled():
