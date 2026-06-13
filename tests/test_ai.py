@@ -38,7 +38,7 @@ class TestAIDoc:
             mock_get_provider.return_value = mock_provider
 
             result = doc.generate(
-                "tests/fixtures/2cols6rows.csv",
+                "fixtures/2cols6rows.csv",
                 provider="openai",
                 format="markdown",
             )

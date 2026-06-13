@@ -127,18 +127,8 @@ def medium_jsonl_data(tmp_path):
     return test_file
 
 
-def pytest_addoption(parser: Any) -> None:
-    """Add custom pytest options."""
-    parser.addoption(
-        "--update-baselines",
-        action="store_true",
-        help="Update baseline performance metrics",
-    )
-    parser.addoption(
-        "--skip-regression",
-        action="store_true",
-        help="Skip regression checks (run benchmarks only)",
-    )
+# NOTE: pytest options (--update-baselines, --skip-regression) are registered
+# in tests/conftest.py, since pytest only collects pytest_addoption from conftest.
 
 
 class TestCSVPerformanceRegression:

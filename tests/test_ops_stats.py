@@ -8,7 +8,7 @@ from iterable.ops import stats
 class TestStats:
     def test_compute_csv(self):
         """Test computing statistics for CSV file."""
-        summary = stats.compute("tests/fixtures/2cols6rows.csv")
+        summary = stats.compute("fixtures/2cols6rows.csv")
         assert isinstance(summary, dict)
         assert len(summary) > 0
 

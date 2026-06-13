@@ -64,12 +64,21 @@ def infer(
     fields: dict[str, dict[str, Any]] = {}
     constraints: dict[str, dict[str, Any]] = {}
 
+    total_rows = len(sample_rows)
+
     for field_name, field_info in inferred_schema.items():
         fields[field_name] = {
             "type": field_info.get("type", "string"),
-            "nullable": True,  # Will be determined from data
+            "nullable": True,  # Determined from data below
             "sample_values": [],
         }
+
+        # Determine nullability from the sampled data. A field is nullable if any
+        # sampled row has a None value for it or omits the field entirely.
+        present_values = [row.get(field_name) for row in sample_rows if field_name in row]
+        null_count = sum(1 for v in present_values if v is None)
+        missing_count = total_rows - len(present_values)
+        fields[field_name]["nullable"] = (null_count + missing_count) > 0
 
         # Detect constraints if requested
         if detect_constraints:
@@ -107,10 +116,6 @@ def infer(
                     if len(distinct_values) <= 10 and len(non_null_values) > 5:
                         # Might be an enum
                         field_constraints["possible_values"] = distinct_values
-
-                # Nullability
-                null_count = sum(1 for v in values if v is None)
-                fields[field_name]["nullable"] = null_count > 0
 
             if field_constraints:
                 constraints[field_name] = field_constraints
@@ -251,11 +256,8 @@ def to_cerberus(schema: dict[str, Any]) -> dict[str, Any]:
 
         cerberus_type = type_mapping.get(field_type, "string")
 
-        rule: dict[str, Any] = {"type": cerberus_type}
-
-        # Add nullable
-        if not field_info.get("nullable", True):
-            rule["required"] = True
+        nullable = field_info.get("nullable", True)
+        rule: dict[str, Any] = {"type": cerberus_type, "nullable": nullable, "required": not nullable}
 
         # Add constraints
         constraints = schema.get("constraints", {}).get(field_name, {})

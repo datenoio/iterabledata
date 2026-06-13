@@ -6,6 +6,11 @@ from typing import Literal, TypedDict
 import chardet
 
 from ..base import BaseCodec, BaseIterable
+
+# Database driver registry helpers. Imported at module level (the db package is
+# lightweight; heavy driver imports are internally guarded) so they can be
+# patched as ``iterable.helpers.detect.get_driver`` / ``is_database_engine``.
+from ..db import get_driver, is_database_engine
 from ..types import CodecArgs, IterableArgs
 from .debug import file_io_logger, format_detection_logger, is_debug_enabled
 
@@ -995,7 +1000,6 @@ def open_iterable(
 
     # Check if this is a database engine
     try:
-        from ..db import get_driver, is_database_engine
         from ..db.iterable import DatabaseIterable
 
         if is_database_engine(engine):

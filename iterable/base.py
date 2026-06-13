@@ -1,3 +1,4 @@
+import inspect
 import io
 import json
 import typing
@@ -550,6 +551,27 @@ class BaseFileIterable(BaseIterable):
             setattr(self, key, value)
 
     @classmethod
+    def _construct(cls, **kwargs: Any) -> "BaseFileIterable":
+        """Instantiate ``cls`` passing only constructor-supported keyword args.
+
+        Format constructors have heterogeneous signatures (e.g. text formats
+        like CSV do not accept ``binary``/``noopen``). The factory methods pass
+        a superset of arguments; this drops any the target constructor does not
+        accept, unless it declares ``**kwargs`` (VAR_KEYWORD), in which case all
+        are forwarded.
+        """
+        try:
+            params = inspect.signature(cls.__init__).parameters
+        except (TypeError, ValueError):
+            return cls(**kwargs)  # type: ignore[call-arg]
+
+        if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
+            return cls(**kwargs)  # type: ignore[call-arg]
+
+        accepted = {name: value for name, value in kwargs.items() if name in params}
+        return cls(**accepted)  # type: ignore[call-arg]
+
+    @classmethod
     def from_file(
         cls,
         filename: str,
@@ -575,7 +597,7 @@ class BaseFileIterable(BaseIterable):
         Example:
             >>> iterable = BaseFileIterable.from_file("data.csv", encoding="utf-8")
         """
-        return cls(
+        return cls._construct(
             filename=filename,
             stream=None,
             codec=None,
@@ -609,7 +631,7 @@ class BaseFileIterable(BaseIterable):
             >>> with open("data.csv") as f:
             ...     iterable = BaseFileIterable.from_stream(f)
         """
-        return cls(
+        return cls._construct(
             filename=None,
             stream=stream,
             codec=None,
@@ -644,7 +666,7 @@ class BaseFileIterable(BaseIterable):
             >>> codec = GZIPCodec(filename="data.csv.gz")
             >>> iterable = BaseFileIterable.from_codec(codec)
         """
-        return cls(
+        return cls._construct(
             filename=None,
             stream=None,
             codec=codec,

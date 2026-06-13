@@ -271,7 +271,10 @@ class SQLiteDriver(DBDriver):
 
             conn.row_factory = sqlite3.Row
 
-            with conn.cursor() as cur:
+            # sqlite3.Cursor does not support the context manager protocol,
+            # so manage it explicitly.
+            cur = conn.cursor()
+            try:
                 # Query sqlite_master for tables
                 query = """
                     SELECT 
@@ -286,7 +289,7 @@ class SQLiteDriver(DBDriver):
                 cur.execute(query)
 
                 results = []
-                for row in cur:
+                for row in cur.fetchall():
                     # Get actual row count for each table
                     table_name = row[1]
                     try:
@@ -308,8 +311,10 @@ class SQLiteDriver(DBDriver):
                         }
                     )
 
-                conn.close()
                 return results
+            finally:
+                cur.close()
+                conn.close()
 
         except Exception as e:
             raise ConnectionError(f"Failed to list tables from SQLite: {e}") from e

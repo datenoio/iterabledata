@@ -146,7 +146,7 @@ class TestPostgresDriver:
         """Test query building with schema."""
         driver = PostgresDriver("postgresql://localhost/db", query="users", schema="public")
         query = driver._build_query()
-        assert query == '"public"."users"'
+        assert query == 'SELECT * FROM "public"."users"'
 
     def test_build_query_with_columns(self):
         """Test query building with column projection."""

@@ -177,10 +177,26 @@ def sniff(filename: str) -> dict[str, Any]:
     # Use existing detect_file_type function
     file_type_info = detect_file_type(filename)
 
+    # detect_file_type returns the datatype/codec as classes (exposing a static
+    # id()), not plain strings, so resolve them to format/compression names here.
+    def _id_of(cls: Any) -> str | None:
+        if cls is None:
+            return None
+        id_attr = getattr(cls, "id", None)
+        if callable(id_attr):
+            try:
+                return id_attr()
+            except Exception:
+                return None
+        return None
+
+    datatype_cls = file_type_info.get("datatype")
+    codec_cls = file_type_info.get("codec")
+
     result: dict[str, Any] = {
-        "format": file_type_info.get("format", "unknown"),
+        "format": _id_of(datatype_cls) or "unknown",
         "encoding": file_type_info.get("encoding", "utf-8"),
-        "compression": file_type_info.get("codec", None),
+        "compression": _id_of(codec_cls),
         "has_header": None,  # Will be determined by opening the file
     }
 

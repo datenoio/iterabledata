@@ -30,6 +30,49 @@ _SAFE_OPERATORS = {
 }
 
 
+def _process_expr(expr: str) -> tuple[str, list[str]]:
+    """Translate a filter expression into a Python-evaluable string.
+
+    Protects string literals, rewrites backtick field access into ``row.get``
+    calls, and returns the processed expression alongside the extracted string
+    literals (in placeholder order).
+    """
+    string_literals: list[str] = []
+    string_pattern = r"(['\"])((?:\\.|(?!\1).)*)\1"
+
+    def replace_string(match):
+        content = match.group(2)
+        content = content.replace("\\'", "'").replace('\\"', '"')
+        idx = len(string_literals)
+        string_literals.append(content)
+        return f"__STRING_{idx}__"
+
+    processed_expr = re.sub(string_pattern, replace_string, expr)
+
+    def replace_field(match):
+        field_name = match.group(1).strip()
+        field_name_escaped = field_name.replace("'", "\\'")
+        return f"row.get('{field_name_escaped}', None)"
+
+    processed_expr = re.sub(r"`([^`]+)`", replace_field, processed_expr)
+    return processed_expr, string_literals
+
+
+def _validate_expr(expr: str) -> None:
+    """Validate that an expression is syntactically usable.
+
+    Raises:
+        ValueError: If the expression cannot be compiled (syntax error). This is
+            distinct from per-row runtime errors (e.g. comparing ``None``), which
+            callers may legitimately skip.
+    """
+    processed_expr, _ = _process_expr(expr)
+    try:
+        compile(processed_expr, "<filter_expr>", "eval")
+    except SyntaxError as e:
+        raise ValueError(f"Invalid filter expression: {expr!r}. Error: {e}") from e
+
+
 def _safe_eval_expr(expr: str, row: Row) -> bool:
     """
     Safely evaluate a boolean expression against a row.
@@ -51,31 +94,7 @@ def _safe_eval_expr(expr: str, row: Row) -> bool:
     Raises:
         ValueError: If expression is invalid or unsafe
     """
-    # First, protect string literals - replace them with placeholders
-    string_literals = []
-    string_pattern = r"(['\"])((?:\\.|(?!\1).)*)\1"
-
-    def replace_string(match):
-        content = match.group(2)
-        # Unescape escaped quotes
-        content = content.replace("\\'", "'").replace('\\"', '"')
-        # Store the literal
-        idx = len(string_literals)
-        string_literals.append(content)
-        return f"__STRING_{idx}__"
-
-    processed_expr = re.sub(string_pattern, replace_string, expr)
-
-    # Replace backtick field access with row access
-    # Pattern: `field_name` -> row.get('field_name', None)
-    def replace_field(match):
-        field_name = match.group(1).strip()
-        # Escape single quotes in field name
-        field_name_escaped = field_name.replace("'", "\\'")
-        return f"row.get('{field_name_escaped}', None)"
-
-    # Replace backtick-quoted fields
-    processed_expr = re.sub(r"`([^`]+)`", replace_field, processed_expr)
+    processed_expr, string_literals = _process_expr(expr)
 
     # Build a safe evaluation context
     safe_dict = {
@@ -139,6 +158,10 @@ def filter_expr(
             # Fall back to Python evaluation
             pass
 
+    # Validate the expression once up front so a malformed expression raises
+    # rather than silently matching nothing.
+    _validate_expr(expression)
+
     # Python fallback: evaluate expression for each row
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
@@ -148,7 +171,7 @@ def filter_expr(
             if _safe_eval_expr(expression, row):
                 yield row
         except ValueError:
-            # Skip rows that cause evaluation errors
+            # Skip rows that cause evaluation errors (e.g. missing fields)
             continue
 
 
@@ -327,11 +350,34 @@ def _sql_where_to_expr(where_clause: str) -> str:
     Returns:
         Expression string with backticks (e.g., "`status` == 'active'")
     """
-    # Simple conversion: add backticks around identifiers
-    # This is a basic implementation - a full parser would be more robust
-    # For now, we'll try to identify field names and wrap them
-    expr = where_clause
-    # Replace = with == for Python
-    expr = expr.replace(" = ", " == ").replace("=", " == ")
-    # Note: This is simplified - proper SQL parsing would be better
-    return expr
+    # Protect string literals so identifiers/operators inside them are untouched.
+    literals: list[str] = []
+
+    def _protect(match: re.Match[str]) -> str:
+        literals.append(match.group(0))
+        return f"__LIT_{len(literals) - 1}__"
+
+    protected = re.sub(r"(['\"])(?:\\.|(?!\1).)*\1", _protect, where_clause)
+
+    # Normalize SQL comparison operators to Python ones, leaving compound
+    # operators (==, <=, >=, !=) intact.
+    protected = protected.replace("<>", "!=")
+    protected = re.sub(r"(?<![<>=!])=(?!=)", " == ", protected)
+
+    # Wrap bare identifiers (field references) in backticks, skipping SQL/Python
+    # keywords and the literal placeholders.
+    keywords = {"and", "or", "not", "in", "is", "true", "false", "null", "none", "like"}
+
+    def _wrap(match: re.Match[str]) -> str:
+        word = match.group(0)
+        if word.startswith("__LIT_") or word.lower() in keywords:
+            return word
+        return f"`{word}`"
+
+    protected = re.sub(r"[A-Za-z_][A-Za-z0-9_]*", _wrap, protected)
+
+    # Restore the protected string literals.
+    for i, lit in enumerate(literals):
+        protected = protected.replace(f"__LIT_{i}__", lit)
+
+    return protected

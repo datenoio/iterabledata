@@ -32,3 +32,23 @@ def ensure_testdata_dir():
     testdata_dir = TESTS_DIR / "testdata"
     testdata_dir.mkdir(exist_ok=True)
     return testdata_dir
+
+
+def pytest_addoption(parser):
+    """Register custom options used by the performance regression suite.
+
+    pytest only collects ``pytest_addoption`` from conftest plugins, so these
+    must live here rather than in ``test_performance_regression.py``.
+    """
+    parser.addoption(
+        "--update-baselines",
+        action="store_true",
+        default=False,
+        help="Update baseline performance metrics",
+    )
+    parser.addoption(
+        "--skip-regression",
+        action="store_true",
+        default=False,
+        help="Skip regression checks (run benchmarks only)",
+    )

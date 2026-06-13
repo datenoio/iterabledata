@@ -10,18 +10,18 @@ from iterable.ops import inspect
 class TestInspect:
     def test_count_csv_file(self):
         """Test counting rows in a CSV file."""
-        count = inspect.count("tests/fixtures/2cols6rows.csv")
+        count = inspect.count("fixtures/2cols6rows.csv")
         assert count == 6
 
     def test_count_jsonl_file(self):
         """Test counting rows in a JSONL file."""
-        count = inspect.count("tests/fixtures/2cols6rows_flat.jsonl")
+        count = inspect.count("fixtures/2cols6rows_flat.jsonl")
         assert count == 6
 
     def test_count_with_duckdb(self):
         """Test counting with DuckDB engine."""
         try:
-            count = inspect.count("tests/fixtures/2cols6rows.csv", engine="duckdb")
+            count = inspect.count("fixtures/2cols6rows.csv", engine="duckdb")
             assert count == 6
         except ImportError:
             pytest.skip("DuckDB not available")
@@ -39,7 +39,7 @@ class TestInspect:
 
     def test_head_csv_file(self):
         """Test getting first N rows from CSV."""
-        rows = list(inspect.head("tests/fixtures/2cols6rows.csv", n=3))
+        rows = list(inspect.head("fixtures/2cols6rows.csv", n=3))
         assert len(rows) == 3
 
     def test_head_iterable(self):
@@ -56,7 +56,7 @@ class TestInspect:
 
     def test_tail_csv_file(self):
         """Test getting last N rows from CSV."""
-        rows = inspect.tail("tests/fixtures/2cols6rows.csv", n=3)
+        rows = inspect.tail("fixtures/2cols6rows.csv", n=3)
         assert len(rows) == 3
 
     def test_tail_iterable(self):
@@ -80,7 +80,7 @@ class TestInspect:
 
     def test_headers_csv_file(self):
         """Test getting headers from CSV file."""
-        headers = inspect.headers("tests/fixtures/2cols6rows.csv")
+        headers = inspect.headers("fixtures/2cols6rows.csv")
         assert len(headers) > 0
         assert isinstance(headers, list)
 
@@ -97,20 +97,20 @@ class TestInspect:
 
     def test_sniff_csv(self):
         """Test sniffing CSV file."""
-        info = inspect.sniff("tests/fixtures/2cols6rows.csv")
+        info = inspect.sniff("fixtures/2cols6rows.csv")
         assert "format" in info
         assert info["format"] == "csv"
         assert "encoding" in info
 
     def test_sniff_jsonl(self):
         """Test sniffing JSONL file."""
-        info = inspect.sniff("tests/fixtures/2cols6rows_flat.jsonl")
+        info = inspect.sniff("fixtures/2cols6rows_flat.jsonl")
         assert "format" in info
         assert info["format"] == "jsonl"
 
     def test_analyze_csv(self):
         """Test analyzing CSV dataset."""
-        analysis = inspect.analyze("tests/fixtures/2cols6rows.csv", sample_size=100)
+        analysis = inspect.analyze("fixtures/2cols6rows.csv", sample_size=100)
         assert "fields" in analysis
         assert "row_count" in analysis
         assert "structure" in analysis

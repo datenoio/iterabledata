@@ -84,8 +84,10 @@ class TestFilter:
             {"message": "success", "level": "warning"},
             {"message": "ok", "level": "error"},
         ]
+        # Matches: row 1 (message "error occurred"), row 2 (level "warning"),
+        # and row 3 (level "error") -> all three rows.
         result = list(f.search(rows, pattern="error|warning"))
-        assert len(result) == 2
+        assert len(result) == 3
 
     def test_search_specific_fields(self):
         """Test regex search in specific fields."""
@@ -155,7 +157,7 @@ class TestFilter:
         """Test filtering CSV file."""
         # This will test file path handling
         try:
-            result = list(f.filter_expr("tests/fixtures/2cols6rows.csv", "`col1` == 'value1'"))
+            result = list(f.filter_expr("fixtures/2cols6rows.csv", "`col1` == 'value1'"))
             # Result depends on file content
             assert isinstance(result, list)
         except Exception:
@@ -165,7 +167,7 @@ class TestFilter:
     def test_search_csv_file(self):
         """Test regex search on CSV file."""
         try:
-            result = list(f.search("tests/fixtures/2cols6rows.csv", pattern="value"))
+            result = list(f.search("fixtures/2cols6rows.csv", pattern="value"))
             assert isinstance(result, list)
         except Exception:
             pass

@@ -8,7 +8,7 @@ from iterable.ops import transform
 class TestTransform:
     def test_head_csv_file(self):
         """Test getting first N rows from CSV."""
-        rows = list(transform.head("tests/fixtures/2cols6rows.csv", n=3))
+        rows = list(transform.head("fixtures/2cols6rows.csv", n=3))
         assert len(rows) == 3
 
     def test_head_iterable(self):
@@ -20,7 +20,7 @@ class TestTransform:
 
     def test_tail_csv_file(self):
         """Test getting last N rows from CSV."""
-        rows = transform.tail("tests/fixtures/2cols6rows.csv", n=3)
+        rows = transform.tail("fixtures/2cols6rows.csv", n=3)
         assert len(rows) == 3
 
     def test_tail_iterable(self):
@@ -116,7 +116,7 @@ class TestTransform:
 
     def test_slice_rows_csv_file(self):
         """Test slicing rows from CSV file."""
-        sliced = list(transform.slice_rows("tests/fixtures/2cols6rows.csv", start=1, end=4))
+        sliced = list(transform.slice_rows("fixtures/2cols6rows.csv", start=1, end=4))
         assert len(sliced) <= 3
 
     def test_enum_field_int(self):

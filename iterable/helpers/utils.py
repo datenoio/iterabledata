@@ -211,7 +211,8 @@ def guess_datatype(s: str, qd: typing.Any) -> dict:
         return {"base": "typed"}
     #    s = s.decode('utf8', 'ignore')
     if s.isdigit():
-        if s[0] == 0:
+        if len(s) > 1 and s[0] == "0":
+            # Leading-zero numeric strings (e.g. "0123") are identifiers, not ints
             attrs = {"base": "numstr"}
         else:
             attrs = {"base": "int", "subtype": guess_int_size(int(s))}
@@ -287,13 +288,14 @@ def get_iterable_keys(iterable: BaseIterable, limit: int = 1000) -> list[str]:
 
 
 def is_flat_object(item: object) -> bool:
-    """Measures if object is flat"""
+    """Return True if the mapping has no nested containers.
+
+    A flat object contains only scalar values; any nested ``dict``, ``list`` or
+    ``tuple`` value makes it non-flat.
+    """
     for _k, v in item.items():
-        if isinstance(v, tuple) or isinstance(v, list):
+        if isinstance(v, (tuple, list, dict)):
             return False
-        elif isinstance(v, dict):
-            if not is_flat_object(v):
-                return False
     return True
 
 

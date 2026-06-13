@@ -157,7 +157,9 @@ class FormatParseError(FormatError):
         full_message += f": {message}"
 
         super().__init__(full_message, format_id=format_id, error_code="FORMAT_PARSE_FAILED")
-        self.position = position  # Keep for backward compatibility
+        # Keep `position` for backward compatibility; fall back to byte_offset
+        # when position is not explicitly provided.
+        self.position = position if position is not None else byte_offset
         self.filename = filename
         self.row_number = row_number
         self.byte_offset = byte_offset
