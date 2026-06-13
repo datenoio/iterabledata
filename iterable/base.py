@@ -595,7 +595,7 @@ class BaseFileIterable(BaseIterable):
             BaseFileIterable instance configured for file-based access
 
         Example:
-            >>> iterable = BaseFileIterable.from_file("data.csv", encoding="utf-8")
+            >>> iterable = BaseFileIterable.from_file("data.csv", encoding="utf-8")  # doctest: +SKIP
         """
         return cls._construct(
             filename=filename,
@@ -628,7 +628,7 @@ class BaseFileIterable(BaseIterable):
             BaseFileIterable instance configured for stream-based access
 
         Example:
-            >>> with open("data.csv") as f:
+            >>> with open("data.csv") as f:  # doctest: +SKIP
             ...     iterable = BaseFileIterable.from_stream(f)
         """
         return cls._construct(
@@ -663,8 +663,8 @@ class BaseFileIterable(BaseIterable):
 
         Example:
             >>> from iterable.codecs.gzipcodec import GZIPCodec
-            >>> codec = GZIPCodec(filename="data.csv.gz")
-            >>> iterable = BaseFileIterable.from_codec(codec)
+            >>> codec = GZIPCodec(filename="data.csv.gz")  # doctest: +SKIP
+            >>> iterable = BaseFileIterable.from_codec(codec)  # doctest: +SKIP
         """
         return cls._construct(
             filename=None,

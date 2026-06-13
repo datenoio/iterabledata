@@ -26,12 +26,12 @@ def as_dataclasses(
         >>> from dataclasses import dataclass
         >>> from iterable import open_iterable, as_dataclasses
         >>>
-        >>> @dataclass
-        >>> class Person:
+        >>> @dataclass  # doctest: +SKIP
+        >>> class Person:  # doctest: +SKIP
         ...     name: str
         ...     age: int
         ...
-        >>> with open_iterable('people.csv') as source:
+        >>> with open_iterable('people.csv') as source:  # doctest: +SKIP
         ...     for person in as_dataclasses(source, Person):
         ...         print(person.name, person.age)
     """
@@ -74,11 +74,11 @@ def as_pydantic(
         >>> from pydantic import BaseModel
         >>> from iterable import open_iterable, as_pydantic
         >>>
-        >>> class Person(BaseModel):
+        >>> class Person(BaseModel):  # doctest: +SKIP
         ...     name: str
         ...     age: int
         ...
-        >>> with open_iterable('people.csv') as source:
+        >>> with open_iterable('people.csv') as source:  # doctest: +SKIP
         ...     for person in as_pydantic(source, Person):
         ...         print(person.name, person.age)
     """

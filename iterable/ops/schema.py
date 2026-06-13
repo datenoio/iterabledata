@@ -41,8 +41,8 @@ def infer(
 
     Example:
         >>> from iterable.ops import schema
-        >>> sch = schema.infer("data.csv", detect_dates=True)
-        >>> print(sch["fields"]["price"]["type"])
+        >>> sch = schema.infer("data.csv", detect_dates=True)  # doctest: +SKIP
+        >>> print(sch["fields"]["price"]["type"])  # doctest: +SKIP
     """
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
@@ -143,8 +143,8 @@ def to_jsonschema(schema: dict[str, Any]) -> dict[str, Any]:
 
     Example:
         >>> from iterable.ops import schema
-        >>> sch = schema.infer("data.csv")
-        >>> json_schema = schema.to_jsonschema(sch)
+        >>> sch = schema.infer("data.csv")  # doctest: +SKIP
+        >>> json_schema = schema.to_jsonschema(sch)  # doctest: +SKIP
     """
     json_schema: dict[str, Any] = {
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -210,8 +210,8 @@ def to_yaml(schema: dict[str, Any]) -> str:
 
     Example:
         >>> from iterable.ops import schema
-        >>> sch = schema.infer("data.csv")
-        >>> yaml_str = schema.to_yaml(sch)
+        >>> sch = schema.infer("data.csv")  # doctest: +SKIP
+        >>> yaml_str = schema.to_yaml(sch)  # doctest: +SKIP
     """
     try:
         import yaml
@@ -234,8 +234,8 @@ def to_cerberus(schema: dict[str, Any]) -> dict[str, Any]:
 
     Example:
         >>> from iterable.ops import schema
-        >>> sch = schema.infer("data.csv")
-        >>> cerberus_schema = schema.to_cerberus(sch)
+        >>> sch = schema.infer("data.csv")  # doctest: +SKIP
+        >>> cerberus_schema = schema.to_cerberus(sch)  # doctest: +SKIP
     """
     cerberus_schema: dict[str, Any] = {}
 
@@ -290,8 +290,8 @@ def to_avro(schema: dict[str, Any], namespace: str = "iterabledata") -> dict[str
 
     Example:
         >>> from iterable.ops import schema
-        >>> sch = schema.infer("data.csv")
-        >>> avro_schema = schema.to_avro(sch)
+        >>> sch = schema.infer("data.csv")  # doctest: +SKIP
+        >>> avro_schema = schema.to_avro(sch)  # doctest: +SKIP
     """
     fields_list: list[dict[str, Any]] = []
 
@@ -349,8 +349,8 @@ def to_parquet_metadata(schema: dict[str, Any]) -> dict[str, Any]:
 
     Example:
         >>> from iterable.ops import schema
-        >>> sch = schema.infer("data.csv")
-        >>> parquet_meta = schema.to_parquet_metadata(sch)
+        >>> sch = schema.infer("data.csv")  # doctest: +SKIP
+        >>> parquet_meta = schema.to_parquet_metadata(sch)  # doctest: +SKIP
     """
     # This is a simplified implementation
     # Full Parquet schema would require pyarrow
@@ -405,9 +405,9 @@ def validate(
 
     Example:
         >>> from iterable.ops import schema
-        >>> sch = schema.infer("data.csv")
-        >>> result = schema.validate("data.csv", sch)
-        >>> print(f"Valid: {len(result['valid_rows'])}, Invalid: {len(result['invalid_rows'])}")
+        >>> sch = schema.infer("data.csv")  # doctest: +SKIP
+        >>> result = schema.validate("data.csv", sch)  # doctest: +SKIP
+        >>> print(f"Valid: {len(result['valid_rows'])}, Invalid: {len(result['invalid_rows'])}")  # doctest: +SKIP
     """
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)

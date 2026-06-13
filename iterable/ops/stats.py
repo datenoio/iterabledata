@@ -42,8 +42,8 @@ def compute(
 
     Example:
         >>> from iterable.ops import stats
-        >>> summary = stats.compute("data.csv", detect_dates=True)
-        >>> print(summary["price"]["mean"])
+        >>> summary = stats.compute("data.csv", detect_dates=True)  # doctest: +SKIP
+        >>> print(summary["price"]["mean"])  # doctest: +SKIP
     """
     if isinstance(iterable, str) and engine == "duckdb":
         # Try DuckDB optimization for supported formats
@@ -150,8 +150,8 @@ def frequency(
 
     Example:
         >>> from iterable.ops import stats
-        >>> freq = stats.frequency("data.csv", fields=["status"])
-        >>> print(freq["status"]["active"])  # Count of "active" status
+        >>> freq = stats.frequency("data.csv", fields=["status"])  # doctest: +SKIP
+        >>> print(freq["status"]["active"])  # Count of "active" status  # doctest: +SKIP
     """
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
@@ -201,8 +201,8 @@ def uniq(
 
     Example:
         >>> from iterable.ops import stats
-        >>> unique_emails = list(stats.uniq("data.csv", fields=["email"], values_only=True))
-        >>> print(f"Unique emails: {len(unique_emails)}")
+        >>> unique_emails = list(stats.uniq("data.csv", fields=["email"], values_only=True))  # doctest: +SKIP
+        >>> print(f"Unique emails: {len(unique_emails)}")  # doctest: +SKIP
     """
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)

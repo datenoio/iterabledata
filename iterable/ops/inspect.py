@@ -32,8 +32,8 @@ def count(iterable: collections.abc.Iterable[Row], engine: str | None = None) ->
 
     Example:
         >>> from iterable.ops import inspect
-        >>> count = inspect.count("data.csv", engine="duckdb")
-        >>> print(f"Total rows: {count}")
+        >>> count = inspect.count("data.csv", engine="duckdb")  # doctest: +SKIP
+        >>> print(f"Total rows: {count}")  # doctest: +SKIP
     """
     # If it's a string (file path), try to use DuckDB for fast counting
     if isinstance(iterable, str) and engine == "duckdb":
@@ -73,7 +73,7 @@ def head(iterable: collections.abc.Iterable[Row], n: int = 10) -> Iterator[Row]:
 
     Example:
         >>> from iterable.ops import inspect
-        >>> for row in inspect.head("data.csv", n=5):
+        >>> for row in inspect.head("data.csv", n=5):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -103,8 +103,8 @@ def tail(iterable: collections.abc.Iterable[Row], n: int = 10) -> list[Row]:
 
     Example:
         >>> from iterable.ops import inspect
-        >>> last_rows = inspect.tail("data.csv", n=5)
-        >>> print(last_rows)
+        >>> last_rows = inspect.tail("data.csv", n=5)  # doctest: +SKIP
+        >>> print(last_rows)  # doctest: +SKIP
     """
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
@@ -133,8 +133,8 @@ def headers(iterable: collections.abc.Iterable[Row], limit: int | None = None) -
 
     Example:
         >>> from iterable.ops import inspect
-        >>> cols = inspect.headers("data.csv")
-        >>> print(f"Columns: {cols}")
+        >>> cols = inspect.headers("data.csv")  # doctest: +SKIP
+        >>> print(f"Columns: {cols}")  # doctest: +SKIP
     """
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
@@ -171,8 +171,8 @@ def sniff(filename: str) -> dict[str, Any]:
 
     Example:
         >>> from iterable.ops import inspect
-        >>> info = inspect.sniff("data.csv.gz")
-        >>> print(f"Format: {info['format']}, Compression: {info['compression']}")
+        >>> info = inspect.sniff("data.csv.gz")  # doctest: +SKIP
+        >>> print(f"Format: {info['format']}, Compression: {info['compression']}")  # doctest: +SKIP
     """
     # Use existing detect_file_type function
     file_type_info = detect_file_type(filename)
@@ -247,8 +247,8 @@ def analyze(
 
     Example:
         >>> from iterable.ops import inspect
-        >>> analysis = inspect.analyze("data.csv")
-        >>> print(f"Fields: {list(analysis['fields'].keys())}")
+        >>> analysis = inspect.analyze("data.csv")  # doctest: +SKIP
+        >>> print(f"Fields: {list(analysis['fields'].keys())}")  # doctest: +SKIP
     """
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)

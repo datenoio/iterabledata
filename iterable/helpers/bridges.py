@@ -30,8 +30,8 @@ def to_dask(
         ValueError: If files is empty or invalid.
 
     Example:
-        >>> df = to_dask(['file1.csv', 'file2.jsonl', 'file3.parquet'])
-        >>> result = df.groupby('category').sum().compute()
+        >>> df = to_dask(['file1.csv', 'file2.jsonl', 'file3.parquet'])  # doctest: +SKIP
+        >>> result = df.groupby('category').sum().compute()  # doctest: +SKIP
     """
     try:
         import dask.dataframe as dd

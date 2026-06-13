@@ -40,14 +40,14 @@ async def aopen_iterable(
         AsyncBaseIterable instance
 
     Examples:
-        >>> async def main():
+        >>> async def main():  # doctest: +SKIP
         ...     source = await aopen_iterable('data.csv')
         ...     async with source:
         ...         async for row in source:
         ...             print(row)
         ...
         >>> import asyncio
-        >>> asyncio.run(main())
+        >>> asyncio.run(main())  # doctest: +SKIP
 
     Note:
         Currently uses thread pool executor to wrap synchronous operations.

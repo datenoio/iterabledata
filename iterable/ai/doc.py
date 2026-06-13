@@ -73,13 +73,13 @@ def generate(
 
     Example:
         >>> from iterable.ai import doc
-        >>> documentation = doc.generate(
+        >>> documentation = doc.generate(  # doctest: +SKIP
         ...     "data.csv",
         ...     provider="openai",
         ...     model="gpt-4o-mini",
         ...     format="markdown"
         ... )
-        >>> print(documentation)
+        >>> print(documentation)  # doctest: +SKIP
     """
     # Determine if we have a file path for semantic type detection and usage samples
     filename: str | None = None

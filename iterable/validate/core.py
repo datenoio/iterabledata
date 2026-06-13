@@ -40,8 +40,8 @@ def iterable(
 
     Example:
         >>> from iterable import validate
-        >>> rules = {"email": ["common.email"], "url": ["common.url"]}
-        >>> for record, errors in validate.iterable("data.csv", rules):
+        >>> rules = {"email": ["common.email"], "url": ["common.url"]}  # doctest: +SKIP
+        >>> for record, errors in validate.iterable("data.csv", rules):  # doctest: +SKIP
         ...     if errors:
         ...         print(f"Errors: {errors}")
     """

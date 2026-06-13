@@ -142,7 +142,7 @@ def filter_expr(
     Example:
         >>> from iterable.ops import filter as f
         >>> # Filter active items with price > 100
-        >>> for row in f.filter_expr("data.csv", "`status` == 'active' and `price` > 100"):
+        >>> for row in f.filter_expr("data.csv", "`status` == 'active' and `price` > 100"):  # doctest: +SKIP
         ...     print(row)
     """
     # Try DuckDB pushdown for file paths
@@ -222,10 +222,10 @@ def search(
     Example:
         >>> from iterable.ops import filter as f
         >>> # Search for error or warning in any field
-        >>> for row in f.search("logs.jsonl", pattern="error|warning"):
+        >>> for row in f.search("logs.jsonl", pattern="error|warning"):  # doctest: +SKIP
         ...     print(row)
         >>> # Search in specific fields
-        >>> for row in f.search("data.csv", pattern=r"\\d{3}-\\d{3}-\\d{4}", fields=["phone"]):
+        >>> for row in f.search("data.csv", pattern=r"\\d{3}-\\d{3}-\\d{4}", fields=["phone"]):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -275,10 +275,10 @@ def query_mistql(
     Example:
         >>> from iterable.ops import filter as f
         >>> # Simple WHERE query
-        >>> for row in f.query_mistql("data.csv", "SELECT * WHERE status = 'active'"):
+        >>> for row in f.query_mistql("data.csv", "SELECT * WHERE status = 'active'"):  # doctest: +SKIP
         ...     print(row)
         >>> # Select specific fields
-        >>> for row in f.query_mistql("data.csv", "SELECT id, name WHERE price > 100"):
+        >>> for row in f.query_mistql("data.csv", "SELECT id, name WHERE price > 100"):  # doctest: +SKIP
         ...     print(row)
     """
     # Parse query (basic parser)

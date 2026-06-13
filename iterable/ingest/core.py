@@ -64,7 +64,7 @@ def to_db(
 
     Example:
         >>> from iterable import ingest
-        >>> result = ingest.to_db(
+        >>> result = ingest.to_db(  # doctest: +SKIP
         ...     "data.csv",
         ...     db_url="postgresql://user:pass@localhost:5432/mydb",
         ...     table="users",
@@ -72,7 +72,7 @@ def to_db(
         ...     mode="upsert",
         ...     upsert_key="id"
         ... )
-        >>> print(f"Inserted: {result.rows_inserted}")
+        >>> print(f"Inserted: {result.rows_inserted}")  # doctest: +SKIP
     """
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)

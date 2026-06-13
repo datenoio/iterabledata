@@ -38,10 +38,10 @@ def with_progress(
         >>> from iterable.helpers.detect import open_iterable
         >>> from iterable.helpers.progress import with_progress
         >>>
-        >>> def progress_callback(stats):
+        >>> def progress_callback(stats):  # doctest: +SKIP
         ...     print(f"Processed {stats['rows_read']} rows in {stats['elapsed']:.2f}s")
         >>>
-        >>> with open_iterable('large_file.csv') as source:
+        >>> with open_iterable('large_file.csv') as source:  # doctest: +SKIP
         ...     for row in with_progress(source, callback=progress_callback):
         ...         process(row)
     """

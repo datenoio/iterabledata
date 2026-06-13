@@ -92,10 +92,10 @@ def schema_validator(schema: dict[str, Any]) -> ValidationHook:
         >>> from iterable.ops import schema
         >>> from iterable.helpers.validation import schema_validator
         >>>
-        >>> sch = schema.infer('data.csv')
-        >>> hook = schema_validator(sch)
+        >>> sch = schema.infer('data.csv')  # doctest: +SKIP
+        >>> hook = schema_validator(sch)  # doctest: +SKIP
         >>>
-        >>> with open_iterable('data.csv', validation_hook=hook) as source:
+        >>> with open_iterable('data.csv', validation_hook=hook) as source:  # doctest: +SKIP
         ...     for row in source:
         ...         process(row)
     """
@@ -179,10 +179,10 @@ def rules_validator(rules: dict[str, list[str]]) -> ValidationHook:
     Example:
         >>> from iterable.helpers.validation import rules_validator
         >>>
-        >>> rules = {"email": ["common.email"], "url": ["common.url"]}
-        >>> hook = rules_validator(rules)
+        >>> rules = {"email": ["common.email"], "url": ["common.url"]}  # doctest: +SKIP
+        >>> hook = rules_validator(rules)  # doctest: +SKIP
         >>>
-        >>> with open_iterable('data.csv', validation_hook=hook) as source:
+        >>> with open_iterable('data.csv', validation_hook=hook) as source:  # doctest: +SKIP
         ...     for row in source:
         ...         process(row)
     """

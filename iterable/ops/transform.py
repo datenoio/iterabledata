@@ -33,7 +33,7 @@ def head(iterable: collections.abc.Iterable[Row], n: int = 10) -> Iterator[Row]:
 
     Example:
         >>> from iterable.ops import transform
-        >>> for row in transform.head("data.csv", n=5):
+        >>> for row in transform.head("data.csv", n=5):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -60,7 +60,7 @@ def tail(iterable: collections.abc.Iterable[Row], n: int = 10) -> list[Row]:
 
     Example:
         >>> from iterable.ops import transform
-        >>> last_rows = transform.tail("data.csv", n=5)
+        >>> last_rows = transform.tail("data.csv", n=5)  # doctest: +SKIP
     """
 
     if isinstance(iterable, str):
@@ -94,7 +94,7 @@ def sample_rows(
 
     Example:
         >>> from iterable.ops import transform
-        >>> for row in transform.sample_rows("data.csv", n=100, seed=42):
+        >>> for row in transform.sample_rows("data.csv", n=100, seed=42):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -140,7 +140,7 @@ def deduplicate(
 
     Example:
         >>> from iterable.ops import transform
-        >>> for row in transform.deduplicate("data.csv", keys=["email"]):
+        >>> for row in transform.deduplicate("data.csv", keys=["email"]):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -195,10 +195,10 @@ def select(
     Example:
         >>> from iterable.ops import transform
         >>> # Select specific fields
-        >>> for row in transform.select("data.csv", fields=["id", "name"]):
+        >>> for row in transform.select("data.csv", fields=["id", "name"]):  # doctest: +SKIP
         ...     print(row)
         >>> # Select and rename
-        >>> for row in transform.select("data.csv", fields={"old_name": "new_name"}):
+        >>> for row in transform.select("data.csv", fields={"old_name": "new_name"}):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -235,7 +235,7 @@ def slice_rows(
 
     Example:
         >>> from iterable.ops import transform
-        >>> for row in transform.slice_rows("data.csv", start=100, end=200):
+        >>> for row in transform.slice_rows("data.csv", start=100, end=200):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -270,10 +270,10 @@ def enum_field(
     Example:
         >>> from iterable.ops import transform
         >>> # Add sequence numbers
-        >>> for row in transform.enum_field("data.csv", field="seq_id", type="int"):
+        >>> for row in transform.enum_field("data.csv", field="seq_id", type="int"):  # doctest: +SKIP
         ...     print(row)
         >>> # Add UUIDs
-        >>> for row in transform.enum_field("data.csv", field="id", type="uuid"):
+        >>> for row in transform.enum_field("data.csv", field="id", type="uuid"):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -304,7 +304,7 @@ def reverse(iterable: collections.abc.Iterable[Row]) -> Iterator[Row]:
 
     Example:
         >>> from iterable.ops import transform
-        >>> for row in transform.reverse("data.csv"):
+        >>> for row in transform.reverse("data.csv"):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -337,10 +337,10 @@ def fill_missing(
     Example:
         >>> from iterable.ops import transform
         >>> # Forward fill
-        >>> for row in transform.fill_missing("data.csv", field="status", strategy="forward"):
+        >>> for row in transform.fill_missing("data.csv", field="status", strategy="forward"):  # doctest: +SKIP
         ...     print(row)
         >>> # Fill with constant
-        >>> for row in transform.fill_missing("data.csv", field="category", value="unknown"):
+        >>> for row in transform.fill_missing("data.csv", field="category", value="unknown"):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -400,7 +400,7 @@ def rename_fields(
 
     Example:
         >>> from iterable.ops import transform
-        >>> for row in transform.rename_fields("data.csv", {"old_name": "new_name"}):
+        >>> for row in transform.rename_fields("data.csv", {"old_name": "new_name"}):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -435,10 +435,10 @@ def explode(
     Example:
         >>> from iterable.ops import transform
         >>> # Explode array field
-        >>> for row in transform.explode("data.jsonl", field="tags"):
+        >>> for row in transform.explode("data.jsonl", field="tags"):  # doctest: +SKIP
         ...     print(row)
         >>> # Explode delimited string
-        >>> for row in transform.explode("data.csv", field="categories", separator=","):
+        >>> for row in transform.explode("data.csv", field="categories", separator=","):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -491,10 +491,12 @@ def replace_values(
     Example:
         >>> from iterable.ops import transform
         >>> # Simple replacement
-        >>> for row in transform.replace_values("data.csv", field="status", pattern="old", replacement="new"):
+        >>> for row in transform.replace_values(  # doctest: +SKIP
+        ...     "data.csv", field="status", pattern="old", replacement="new"
+        ... ):
         ...     print(row)
         >>> # Regex replacement
-        >>> for row in transform.replace_values(
+        >>> for row in transform.replace_values(  # doctest: +SKIP
         ...     "data.csv", field="text", pattern=r"\\d+", replacement="NUMBER", regex=True
         ... ):
         ...     print(row)
@@ -537,10 +539,10 @@ def sort_rows(
     Example:
         >>> from iterable.ops import transform
         >>> # Sort by single field
-        >>> for row in transform.sort_rows("data.csv", by=["date"]):
+        >>> for row in transform.sort_rows("data.csv", by=["date"]):  # doctest: +SKIP
         ...     print(row)
         >>> # Sort by multiple fields
-        >>> for row in transform.sort_rows("data.csv", by=["status", "id"], desc=[True, False]):
+        >>> for row in transform.sort_rows("data.csv", by=["status", "id"], desc=[True, False]):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -587,7 +589,7 @@ def transpose(iterable: collections.abc.Iterable[Row]) -> Iterator[Row]:
 
     Example:
         >>> from iterable.ops import transform
-        >>> for row in transform.transpose("data.csv"):
+        >>> for row in transform.transpose("data.csv"):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -633,7 +635,9 @@ def split(
 
     Example:
         >>> from iterable.ops import transform
-        >>> for row in transform.split("data.csv", field="full_name", separator=" ", into=["first", "last"]):
+        >>> for row in transform.split(  # doctest: +SKIP
+        ...     "data.csv", field="full_name", separator=" ", into=["first", "last"]
+        ... ):
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -677,7 +681,7 @@ def fixlengths(
 
     Example:
         >>> from iterable.ops import transform
-        >>> for row in transform.fixlengths("data.csv", lengths={"code": 10, "name": 50}):
+        >>> for row in transform.fixlengths("data.csv", lengths={"code": 10, "name": 50}):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
@@ -710,7 +714,7 @@ def cat(*iterables: collections.abc.Iterable[Row]) -> Iterator[Row]:
 
     Example:
         >>> from iterable.ops import transform
-        >>> for row in transform.cat("file1.csv", "file2.csv", "file3.csv"):
+        >>> for row in transform.cat("file1.csv", "file2.csv", "file3.csv"):  # doctest: +SKIP
         ...     print(row)
     """
     for iterable in iterables:
@@ -740,7 +744,7 @@ def join(
 
     Example:
         >>> from iterable.ops import transform
-        >>> for row in transform.join("users.csv", "orders.csv", on="user_id", join_type="left"):
+        >>> for row in transform.join("users.csv", "orders.csv", on="user_id", join_type="left"):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(left, str):
@@ -818,7 +822,7 @@ def diff(
 
     Example:
         >>> from iterable.ops import transform
-        >>> for row in transform.diff("file1.csv", "file2.csv", keys=["id"]):
+        >>> for row in transform.diff("file1.csv", "file2.csv", keys=["id"]):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(left, str):
@@ -857,7 +861,7 @@ def exclude(
 
     Example:
         >>> from iterable.ops import transform
-        >>> for row in transform.exclude("all_users.csv", "deleted_users.csv", keys=["id"]):
+        >>> for row in transform.exclude("all_users.csv", "deleted_users.csv", keys=["id"]):  # doctest: +SKIP
         ...     print(row)
     """
     if isinstance(iterable, str):
