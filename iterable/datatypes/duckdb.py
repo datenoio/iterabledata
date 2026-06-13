@@ -6,7 +6,6 @@ from typing import Any
 import duckdb
 
 from ..base import BaseCodec, BaseFileIterable
-from ..exceptions import FormatNotSupportedError, ReadError, WriteError
 from ..types import Row
 
 
@@ -28,17 +27,9 @@ class DuckDBDatabaseIterable(BaseFileIterable):
         # Validate before BaseFileIterable initializes, to avoid BaseFileIterable failing
         # when no source is provided.
         if stream is not None:
-            raise ReadError(
-                "DuckDB requires a filename, not a stream",
-                filename=None,
-                error_code="RESOURCE_REQUIREMENT_NOT_MET",
-            )
+            raise ValueError("DuckDB requires a filename, not a stream")
         if filename is None:
-            raise ReadError(
-                "DuckDB requires a filename",
-                filename=None,
-                error_code="RESOURCE_REQUIREMENT_NOT_MET",
-            )
+            raise ValueError("DuckDB requires a filename")
         super().__init__(filename, stream, codec=codec, mode=mode, binary=True, noopen=True, options=options)
         self.table = table
         self.query = query
@@ -173,11 +164,7 @@ class DuckDBDatabaseIterable(BaseFileIterable):
     def read(self, skip_empty: bool = True) -> dict:
         """Read single DuckDB record"""
         if self._no_tables:
-            raise FormatNotSupportedError(
-                "No tables found in DuckDB database",
-                format_id="duckdb",
-                reason="Database file contains no tables",
-            )
+            raise ValueError("No tables found in DuckDB database file")
         row = self.cursor.fetchone()
         if row is None:
             raise StopIteration
@@ -189,17 +176,9 @@ class DuckDBDatabaseIterable(BaseFileIterable):
     def write(self, record: Row) -> None:
         """Write single DuckDB record"""
         if self.mode not in ["w", "wr"]:
-            raise WriteError(
-                "Write mode not enabled",
-                filename=self.filename,
-                error_code="INVALID_MODE",
-            )
+            raise ValueError("Write mode not enabled")
         if self.table is None:
-            raise WriteError(
-                "Table name required for writing",
-                filename=self.filename,
-                error_code="INVALID_PARAMETER",
-            )
+            raise ValueError("Table name required for writing")
 
         if self.connection is None:
             self.connection = duckdb.connect(self.filename)
@@ -241,17 +220,9 @@ class DuckDBDatabaseIterable(BaseFileIterable):
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk DuckDB records"""
         if self.mode not in ["w", "wr"]:
-            raise WriteError(
-                "Write mode not enabled",
-                filename=self.filename,
-                error_code="INVALID_MODE",
-            )
+            raise ValueError("Write mode not enabled")
         if self.table is None:
-            raise WriteError(
-                "Table name required for writing",
-                filename=self.filename,
-                error_code="INVALID_PARAMETER",
-            )
+            raise ValueError("Table name required for writing")
 
         if self.connection is None:
             self.connection = duckdb.connect(self.filename)

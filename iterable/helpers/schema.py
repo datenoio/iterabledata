@@ -49,7 +49,7 @@ def merge_schemes(alist, novalue=True):
                         obj[k]["schema"] = merge_schemes([obj[k]["schema"], item[k]["schema"]])
                 else:
                     if not novalue:
-                        obj[k]["value"] += item["value"]
+                        obj[k]["value"] += item[k]["value"]
     return obj
 
 

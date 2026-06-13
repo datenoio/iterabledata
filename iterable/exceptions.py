@@ -45,11 +45,13 @@ class FormatError(IterableDataError):
         self.format_id = format_id
 
 
-class FormatNotSupportedError(FormatError):
+class FormatNotSupportedError(FormatError, ValueError):
     """Format is not supported or not available.
 
     Raised when a requested format is not supported by the library,
-    or when required dependencies are missing.
+    or when required dependencies are missing. Also a ``ValueError`` subclass
+    so that callers following the documented ``open_iterable`` contract can
+    catch it as an invalid-argument error.
 
     Error code: FORMAT_NOT_SUPPORTED
     """
@@ -112,11 +114,13 @@ class FormatDetectionError(FormatError):
         return base_message
 
 
-class FormatParseError(FormatError):
+class FormatParseError(FormatError, ValueError):
     """Format parsing failed.
 
     Raised when a file cannot be parsed as the expected format,
-    typically due to malformed data.
+    typically due to malformed data. Also a ``ValueError`` subclass since a
+    parse failure is fundamentally an invalid-value condition, so callers can
+    catch it with ``except ValueError``.
 
     Error code: FORMAT_PARSE_FAILED
     """

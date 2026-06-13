@@ -501,6 +501,7 @@ def test_duckdb_list_tables_reuses_connection():
         # Create test database
         conn = duckdb.connect(tmp_path)
         conn.execute("CREATE TABLE test_table (name VARCHAR)")
+        conn.execute("INSERT INTO test_table VALUES ('Alice')")
         if hasattr(conn, "commit"):
             conn.commit()
         conn.close()

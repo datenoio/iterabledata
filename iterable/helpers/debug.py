@@ -32,27 +32,31 @@ def enable_debug_mode(level: int = logging.DEBUG, handler: logging.Handler | Non
         >>> enable_debug_mode(level=logging.DEBUG)
         >>> # Now all IterableData operations will log debug information
     """
+    explicit_handler = handler is not None
     if handler is None:
         handler = logging.StreamHandler()
         handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
 
-    # Configure root iterable logger
-    logger.setLevel(level)
-    if not logger.handlers:
-        logger.addHandler(handler)
-    logger.propagate = False  # Don't propagate to root logger
-
-    # Configure sub-loggers
-    for sub_logger in [
+    all_loggers = [
+        logger,
         format_detection_logger,
         file_io_logger,
         parsing_logger,
         performance_logger,
-    ]:
-        sub_logger.setLevel(level)
-        if not sub_logger.handlers:
-            sub_logger.addHandler(handler)
-        sub_logger.propagate = False
+    ]
+
+    # When an explicit handler is provided (e.g. a test capture), replace any
+    # previously-attached handlers so the new handler actually receives records.
+    # Otherwise only add a default handler once to avoid duplicate output.
+    if explicit_handler:
+        for lg in all_loggers:
+            lg.handlers.clear()
+
+    for lg in all_loggers:
+        lg.setLevel(level)
+        if not lg.handlers:
+            lg.addHandler(handler)
+        lg.propagate = False  # Don't propagate to root logger
 
 
 def is_debug_enabled() -> bool:

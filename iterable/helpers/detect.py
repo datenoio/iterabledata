@@ -11,6 +11,7 @@ from ..base import BaseCodec, BaseIterable
 # lightweight; heavy driver imports are internally guarded) so they can be
 # patched as ``iterable.helpers.detect.get_driver`` / ``is_database_engine``.
 from ..db import get_driver, is_database_engine
+from ..exceptions import IterableDataError
 from ..types import CodecArgs, IterableArgs
 from .debug import file_io_logger, format_detection_logger, is_debug_enabled
 
@@ -998,6 +999,14 @@ def open_iterable(
         iterableargs = {}
     iterableargs["_debug"] = debug or is_debug_enabled()
 
+    # Validate the error policy early (before any file I/O) so an invalid value
+    # is reported regardless of whether the target file exists.
+    on_error = iterableargs.get("on_error", "raise")
+    if on_error not in ("raise", "skip", "warn"):
+        raise ValueError(
+            f"Invalid 'on_error' value: '{on_error}'. Valid values are: 'raise', 'skip', 'warn'"
+        )
+
     # Check if this is a database engine
     try:
         from ..db.iterable import DatabaseIterable
@@ -1203,6 +1212,11 @@ def open_iterable(
         raise FileNotFoundError(
             f"File not found: '{filename}'. Please check that the file exists and the path is correct."
         ) from e
+    except IterableDataError:
+        # Library exceptions (e.g. ReadError for query validation, FormatParseError)
+        # carry typed context and error codes; let them propagate unwrapped rather
+        # than masking them behind a generic RuntimeError.
+        raise
     except Exception as e:
         if debug or is_debug_enabled():
             file_io_logger.error(f"Failed to open file '{filename}': {e}", exc_info=True)
