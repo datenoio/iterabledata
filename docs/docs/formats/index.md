@@ -115,6 +115,33 @@ Iterable Data supports a wide variety of data formats, from common formats like 
 | [XML](/formats/xml) | `.xml` | Text | No | ✅ | ❌ | `lxml` | [Details](/formats/xml) |
 | [YAML](/formats/yaml) | `.yaml`, `.yml` | Text | No | ✅ | ✅ | `pyyaml` | [Details](/formats/yaml) |
 
+| [ARFF](/formats/arff) | `.arff` | Text | Yes | ✅ | ❌ | `arff` | [Details](/formats/arff) |
+| [BAM](/formats/bam) | `.bam` | Binary | Yes | ✅ | ❌ | `alignment` | [Details](/formats/bam) |
+| [CDF](/formats/cdf) | `.cdf` | Binary | No | ✅ | ❌ | `cdf` | [Details](/formats/cdf) |
+| [DXF](/formats/dxf) | `.dxf` | Binary | No | ✅ | ❌ | `dxf` | [Details](/formats/dxf) |
+| [FA](/formats/fa) | `.fa`, `.fasta`, `.fna`, `.faa` | Text | Yes | ✅ | ❌ | - | [Details](/formats/fa) |
+| [FQ](/formats/fq) | `.fq`, `.fastq` | Text | Yes | ✅ | ❌ | - | [Details](/formats/fq) |
+| [GEXF](/formats/gexf) | `.gexf` | Text | No | ✅ | ❌ | `graph` | [Details](/formats/gexf) |
+| [GPX](/formats/gpx) | `.gpx` | Text | No | ✅ | ❌ | - | [Details](/formats/gpx) |
+| [Graphml](/formats/graphml) | `.graphml` | Text | No | ✅ | ❌ | `graph` | [Details](/formats/graphml) |
+| [GV](/formats/gv) | `.gv`, `.dot` | Text | No | ✅ | ❌ | `graph` | [Details](/formats/gv) |
+| [Jsonld](/formats/jsonld) | `.jsonld` | Text | No | ✅ | ✅ | - | [Details](/formats/jsonld) |
+| [KMZ](/formats/kmz) | `.kmz` | Text | No | ✅ | ❌ | `geospatial` | [Details](/formats/kmz) |
+| [Libsvm](/formats/libsvm) | `.libsvm` | Binary | Yes | ✅ | ✅ | - | [Details](/formats/libsvm) |
+| [LTSV](/formats/ltsv) | `.ltsv` | Text | No | ✅ | ✅ | - | [Details](/formats/ltsv) |
+| [MVT](/formats/mvt) | `.mvt`, `.pbf` | Binary | No | ✅ | ❌ | `mvt` | [Details](/formats/mvt) |
+| [N3](/formats/n3) | `.n3` | Text | No | ✅ | ❌ | `rdf` | [Details](/formats/n3) |
+| [NC](/formats/nc) | `.nc`, `.netcdf` | Binary | No | ✅ | ❌ | `netcdf` | [Details](/formats/nc) |
+| [NPY](/formats/npy) | `.npy`, `.npz` | Binary | Yes | ✅ | ✅ | - | [Details](/formats/npy) |
+| [PCAP](/formats/pcap) | `.pcap`, `.pcapng` | Binary | No | ✅ | ❌ | `pcap` | [Details](/formats/pcap) |
+| [RSS](/formats/rss) | `.rss`, `.feed`, `.atom` | Binary | No | ✅ | ❌ | `feed` | [Details](/formats/rss) |
+| [SAM](/formats/sam) | `.sam` | Text | Yes | ✅ | ❌ | `alignment` | [Details](/formats/sam) |
+| [Topojson](/formats/topojson) | `.topojson` | Binary | No | ✅ | ✅ | `topojson` | [Details](/formats/topojson) |
+| [TRIG](/formats/trig) | `.trig` | Text | No | ✅ | ❌ | `rdf` | [Details](/formats/trig) |
+| [TRIX](/formats/trix) | `.trix` | Text | No | ✅ | ❌ | `rdf` | [Details](/formats/trix) |
+| [XLSB](/formats/xlsb) | `.xlsb` | Binary | Yes | ✅ | ❌ | `xlsb` | [Details](/formats/xlsb) |
+| [Zipxml](/formats/zipxml) | `.zipxml` | Binary | No | ✅ | ❌ | - | [Details](/formats/zipxml) |
+
 ## Compression Support
 
 All formats can be used with compression codecs:

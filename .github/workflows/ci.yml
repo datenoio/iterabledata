@@ -30,7 +30,23 @@ jobs:
       run: ruff format --check iterable tests
 
     - name: Mypy core modules (blocking)
-      run: mypy --follow-imports=silent iterable/types.py iterable/exceptions.py iterable/async_base.py
+      run: |
+        mypy --follow-imports=skip \
+          iterable/base.py \
+          iterable/codec_base.py \
+          iterable/guidance.py \
+          iterable/exceptions.py \
+          iterable/types.py \
+          iterable/dataframe_adapters.py \
+          iterable/async_base.py \
+          iterable/helpers/utils.py \
+          iterable/helpers/detect.py \
+          iterable/helpers/open_iterable.py \
+          iterable/helpers/content_detection.py \
+          iterable/helpers/format_registry.py
+
+    - name: Fixture coverage report (advisory)
+      run: python dev/scripts/find_missing_fixtures.py || true
 
     - name: Mypy full package (advisory)
       run: mypy iterable || true
@@ -70,6 +86,10 @@ jobs:
       run: |
         pytest --verbose --cov=iterable --cov-report=xml --cov-report=term
 
+    - name: Per-package coverage report (advisory)
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+      run: python dev/scripts/coverage_by_package.py || true
+
     - name: Upload coverage reports
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
       uses: codecov/codecov-action@v3
@@ -100,8 +120,8 @@ jobs:
     - name: Bandit full report (advisory)
       run: bandit -r iterable -ll || true
 
-    - name: Dependency vulnerability scan with pip-audit (advisory)
+    - name: Dependency vulnerability scan with pip-audit (blocking)
       run: |
         pip freeze > requirements-frozen.txt
-        pip-audit --requirement requirements-frozen.txt || true
+        pip-audit --requirement requirements-frozen.txt
         rm requirements-frozen.txt

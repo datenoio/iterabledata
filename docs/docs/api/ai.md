@@ -596,8 +596,89 @@ pip install iterabledata[ai]
 7. **Detect and mask PII** for privacy-aware documentation
 8. **Choose appropriate models** based on quality vs. cost needs
 9. **Use local providers** for sensitive data or cost-free generation
-10. **Cache results** for repeated documentation generation
+10. **Cache results** for repeated documentation generation (`cache=True` on `doc.generate()`)
 11. **Review generated docs** - AI may make mistakes, always verify
+
+## Additional AI Operations
+
+Beyond documentation generation, `iterable.ai` provides planning, transform suggestions, and
+natural-language filter translation. All return structured JSON (not executable code).
+
+### `plan_conversion()`
+
+Build a declarative conversion plan between two paths or formats:
+
+```python
+from iterable.ai.plan import plan_conversion
+
+plan = plan_conversion("data.csv", "data.parquet")
+print(plan["steps"])
+print(plan["warnings"])  # read-only targets, missing optional deps, etc.
+```
+
+### `suggest_transform()`
+
+Suggest whitelisted transform operations for a goal (samples are redacted by default):
+
+```python
+from iterable.ai.suggest import suggest_transform
+from iterable.ops.transform import apply_spec
+from iterable.helpers.detect import open_iterable
+
+with open_iterable("users.csv") as source:
+    spec = suggest_transform(source, goal="normalize email addresses")
+    transformed = apply_spec(source, spec)
+```
+
+### `translate_filter()`
+
+Parse a simple DSL into a safe filter AST and apply it:
+
+```python
+from iterable.ai.filter import translate_filter, apply_ast
+from iterable.helpers.detect import open_iterable
+
+result = translate_filter("age > 30 and country = 'US'")
+with open_iterable("users.csv") as source:
+    filtered = apply_ast(source, result["ast"])
+```
+
+SQL keywords and multi-statement input are rejected before execution.
+
+## Native Cloud Providers
+
+First-class SDK providers (install optional extras):
+
+| Provider | Name | Extra | Environment |
+|----------|------|-------|-------------|
+| Anthropic | `"anthropic"` | `pip install iterabledata[anthropic]` | `ANTHROPIC_API_KEY` |
+| Google Gemini | `"gemini"` | `pip install iterabledata[google-genai]` | `GOOGLE_API_KEY` |
+| Azure OpenAI | `"azure"` | `pip install openai` | `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT` |
+
+```python
+from iterable.ai import doc
+
+docs = doc.generate("data.csv", provider="anthropic", model="claude-3-5-haiku-latest")
+docs = doc.generate("data.csv", provider="gemini")
+docs = doc.generate("data.csv", provider="azure", model="gpt-4o-mini")
+```
+
+## Documentation Caching
+
+Opt-in LRU cache for `doc.generate()` (default `cache=False`):
+
+```python
+from iterable.ai import doc
+from iterable.ai.cache import cache_clear
+
+doc.generate("data.csv", provider="openai", cache=True)  # calls API
+doc.generate("data.csv", provider="openai", cache=True)  # cache hit
+
+cache_clear()  # useful in tests
+```
+
+Cached entries are keyed by content hash and generation parameters. Do not enable caching when
+samples contain sensitive data unless redaction is applied.
 
 ## Error Handling and Graceful Degradation
 

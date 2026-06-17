@@ -72,6 +72,12 @@ dataframes = ["pandas>=1.5.0", "polars>=0.19.0", "dask[dataframe]>=2023.1.0"]
 cloud = ["fsspec>=2023.1.0", "s3fs>=2023.1.0", "gcsfs>=2023.1.0", "adlfs>=2023.1.0"]
 # AI-powered documentation
 ai = ["openai>=1.0.0", "requests>=2.28.0"]
+anthropic = ["anthropic>=0.40.0"]
+google-genai = ["google-genai>=1.0.0"]
+# Agent tool integrations
+langchain = ["langchain-core>=0.3.0"]
+mcp = ["mcp>=1.6.0"]
+agents = ["langchain-core>=0.3.0", "mcp>=1.6.0"]
 # Database engines (read-only support)
 db = [
     "psycopg2-binary>=2.9.0",  # PostgreSQL
@@ -221,6 +227,9 @@ dev = [
     "check-wheel-contents>=0.5.0",
 ]
 
+[project.scripts]
+iterable-mcp = "iterable.mcp.server:main"
+
 [project.urls]
 Homepage = "https://github.com/datenoio/iterabledata/"
 Repository = "https://github.com/datenoio/iterabledata/"
@@ -258,6 +267,8 @@ markers = [
     "stress: marks tests as stress tests (creates large files, may take long time)",
     "slow: marks tests as slow running (may take several minutes)",
     "benchmark: marks tests as benchmarks (use --benchmark-only to run)",
+    "ai: marks tests related to AI/LLM features",
+    "integration: marks tests requiring live external services or API keys",
 ]
 
 [tool.coverage.run]
@@ -332,6 +343,28 @@ module = [
     "iterable.engines.*",
 ]
 ignore_missing_imports = true  # Many formats have optional dependencies without type stubs
+
+# Strict typing for core modules (plan 3.5 — expand as mypy errors are cleared).
+[[tool.mypy.overrides]]
+module = [
+    "iterable.base",
+    "iterable.codec_base",
+    "iterable.guidance",
+    "iterable.exceptions",
+    "iterable.types",
+    "iterable.helpers.detect",
+    "iterable.helpers.open_iterable",
+    "iterable.helpers.content_detection",
+    "iterable.helpers.format_registry",
+    "iterable.async_base",
+    "iterable.helpers.utils",
+]
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "iterable.dataframe_adapters"
+disallow_untyped_defs = true
+ignore_missing_imports = true
 
 # Packages with type stubs available (no ignore_missing_imports needed):
 # - pandas (pandas-stubs package available, but not installed by default)

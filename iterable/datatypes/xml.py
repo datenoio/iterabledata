@@ -45,21 +45,21 @@ class XMLIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         mode="r",
-        tagname: str = None,
+        tagname: str | None = None,
         prefix_strip: bool = True,
         options: dict[str, Any] | None = None,
     ):
         if options is None:
             options = {}
         super().__init__(filename, stream, codec=codec, mode=mode, binary=True, encoding="utf8", options=options)
-        self.tagname = tagname
+        if tagname is not None:
+            self.tagname = tagname
         self.prefix_strip = prefix_strip
         self.reset()
-        pass
 
     def reset(self):
         super().reset()

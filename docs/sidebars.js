@@ -57,6 +57,8 @@ const sidebars = {
         'api/validate',
         'api/ingest',
         'api/ai',
+        'api/catalog',
+        'api/tools',
         'api/type-system',
       ],
     },

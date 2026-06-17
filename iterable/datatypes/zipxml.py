@@ -22,10 +22,12 @@ class ZIPXMLSource(ZIPSourceWrapper):
         options = options or {}
         tagname = tagname if tagname is not None else options.get("tagname")
         prefix_strip = options.get("prefix_strip", prefix_strip)
-        super().__init__(filename)
+        if filename is None:
+            raise ValueError("ZIPXMLSource requires a filename")
+        super().__init__(filename, mode=mode, options=options)
         self.tagname = tagname
         self.prefix_strip = prefix_strip
-        self.reader = etree.iterparse(self.current_file, recover=True)
+        self.reader = etree.iterparse(self.current_file, recover=True) if self.current_file is not None else None
 
     @staticmethod
     def id() -> str:
@@ -34,7 +36,10 @@ class ZIPXMLSource(ZIPSourceWrapper):
     def reset(self) -> None:
         """Reset to the first file and recreate the XML reader."""
         super().reset()
-        self.reader = etree.iterparse(self.current_file, recover=True)
+        if self.current_file is not None:
+            self.reader = etree.iterparse(self.current_file, recover=True)
+        else:
+            self.reader = None
 
     def is_flat(self) -> bool:
         return False
@@ -76,9 +81,9 @@ class ZIPXMLSource(ZIPSourceWrapper):
         except Exception:
             return None
 
-    def iterfile(self) -> dict:
+    def iterfile(self) -> bool:
         res = super().iterfile()
-        if res:
+        if res and self.current_file is not None:
             self.reader = etree.iterparse(self.current_file, recover=True)
         return res
 

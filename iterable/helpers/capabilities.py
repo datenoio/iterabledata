@@ -10,13 +10,24 @@ import inspect
 from typing import TYPE_CHECKING
 
 from ..exceptions import FormatDetectionError
-from .detect import READ_ONLY_FORMATS, _get_format_registry, _load_symbol
+from .detect import _get_format_registry, _load_symbol
+from .format_registry import build_read_only_formats, get_descriptor
 
 if TYPE_CHECKING:
     from ..base import BaseIterable
 
 # Capability cache: format_id -> capabilities dict
 _CAPABILITY_CACHE: dict[str, dict[str, bool | None]] = {}
+
+
+def _is_read_only(format_id: str) -> bool:
+    """Return True when the format is known not to support writing."""
+    fid = format_id.lower()
+    desc = get_descriptor(fid)
+    if desc is not None:
+        return not desc.writable
+    # Orphan ids (e.g. ``zipped``) not backed by a descriptor entry.
+    return fid in build_read_only_formats()
 
 
 def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, bool | None]:
@@ -52,8 +63,8 @@ def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, bool | N
     except (AttributeError, TypeError):
         pass
 
-    # Quick check: if format is in READ_ONLY_FORMATS registry, it's definitely not writable
-    if format_id and format_id.lower() in READ_ONLY_FORMATS:
+    # Quick check via format descriptor (falls back to legacy read-only set for orphans).
+    if format_id and _is_read_only(format_id):
         caps["writable"] = False
     else:
         # Need to distinguish between actual implementation and base class default
@@ -293,9 +304,8 @@ def get_format_capabilities(format_id: str) -> dict[str, bool | None]:
     if format_id_lower in _CAPABILITY_CACHE:
         return _CAPABILITY_CACHE[format_id_lower].copy()
 
-    # Quick check: if format is in READ_ONLY_FORMATS registry, we can set writable=False early
-    # This avoids loading the format class if we already know it's read-only
-    if format_id_lower in READ_ONLY_FORMATS:
+    # Quick check via format descriptor before loading the format class.
+    if _is_read_only(format_id_lower):
         # Still need to load class for other capabilities, but we know writable=False
         try:
             format_class = _get_format_class(format_id_lower)

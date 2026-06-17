@@ -1,0 +1,13 @@
+Translate the following natural language filter into a declarative filter AST JSON.
+
+Expression: {expression}
+Known fields: {fields}
+
+Return only valid JSON representing a filter AST node. Allowed node ops:
+- comparison: {{"op": "eq|ne|lt|le|gt|ge", "field": "...", "value": ...}}
+- logical: {{"op": "and|or", "left": {{...}}, "right": {{...}}}}
+- not: {{"op": "not", "child": {{...}}}}
+- in: {{"op": "in", "field": "...", "values": [...]}}
+- regex: {{"op": "regex", "field": "...", "pattern": "...", "ignore_case": false}}
+
+Do not return SQL or Python code.

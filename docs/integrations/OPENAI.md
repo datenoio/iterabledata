@@ -179,7 +179,7 @@ print(result["semantic_analysis"])
 
 ### Data Transformation with OpenAI
 
-Use OpenAI to generate transformation functions:
+Use OpenAI to plan transformations, then apply an explicit, reviewable function via `pipeline()`:
 
 ```python
 from openai import OpenAI
@@ -189,16 +189,19 @@ import json
 
 client = OpenAI(api_key="YOUR_API_KEY")
 
-def openai_transform_pipeline(input_file: str, output_file: str, 
-                              transformation_goal: str):
-    """Use OpenAI to create transformation pipeline."""
-    
-    # Analyze input data
+
+def normalize_record(record: dict) -> dict:
+    out = dict(record)
+    if "email" in out and isinstance(out["email"], str):
+        out["email"] = out["email"].strip().lower()
+    return out
+
+
+def openai_guided_transform(input_file: str, output_file: str, transformation_goal: str):
     with open_iterable(input_file) as source:
         sample = [row for i, row in enumerate(source) if i < 5]
         sample_str = json.dumps(sample, indent=2, default=str)
-    
-    # Get transformation code from OpenAI
+
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -209,43 +212,25 @@ def openai_transform_pipeline(input_file: str, output_file: str,
 
 Goal: {transformation_goal}
 
-Provide a Python function that transforms each record (dict) to achieve the goal.
-Function signature: def transform(record: dict) -> dict:
-Only return the function code, no explanations."""
+List transformation steps as a numbered checklist. Do not output executable Python.""",
             }
         ],
-        max_tokens=2048
+        max_tokens=2048,
     )
-    
-    transform_code = response.choices[0].message.content.strip()
-    
-    # Extract function (handle markdown code blocks)
-    if '```python' in transform_code:
-        transform_code = transform_code.split('```python')[1].split('```')[0]
-    elif '```' in transform_code:
-        transform_code = transform_code.split('```')[1].split('```')[0]
-    
-    # Execute transformation
-    exec(transform_code, globals())
-    
-    # Apply transformation
-    with open_iterable(input_file) as source, \
-         open_iterable(output_file, mode='w') as dest:
-        pipeline(
-            source=source,
-            destination=dest,
-            process_func=transform
-        )
-    
-    return f"Transformed {input_file} -> {output_file}"
+    print(response.choices[0].message.content)
 
-# Use it
-openai_transform_pipeline(
-    'raw_data.jsonl',
-    'cleaned_data.jsonl',
-    'Normalize email addresses, convert dates to ISO format, remove nulls'
-)
+    with open_iterable(input_file) as source, open_iterable(output_file, mode="w") as dest:
+        pipeline(source=source, destination=dest, process_func=normalize_record)
+
+    return f"Transformed {input_file} -> {output_file}"
 ```
+
+## Data Privacy
+
+- Sample only a few rows for cloud API calls; avoid uploading full datasets.
+- Prefer local models (Ollama, LM Studio) for sensitive data.
+- Use `iterable.ai.doc.generate()` with `pii_mask_samples=True` when documenting PII-bearing data.
+- Never `exec()` LLM-generated code in production pipelines.
 
 ### Data Quality Analysis
 

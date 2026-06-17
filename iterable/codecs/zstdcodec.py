@@ -3,6 +3,7 @@ from __future__ import annotations
 import zstandard as zstd
 
 from ..base import BaseCodec
+from ._stream import get_underlying_fileobj
 
 # Zstandard file object doesn't support file seek so reset rewritten to close and open file
 
@@ -24,19 +25,21 @@ class ZSTDCodec(BaseCodec):
 
     def open(self) -> zstd.ZstdDecompressionReader:
         # If fileobj was provided (e.g., from cloud storage), use it
-        if self._fileobj is not None:
-            # fileobj provided, use zstd to wrap it
-            # Store original for potential reset operations
-            if not hasattr(self, "_original_fileobj"):
-                self._original_fileobj = self._fileobj
+        if self._fileobj is not None or getattr(self, "_original_fileobj", None) is not None:
+            underlying = get_underlying_fileobj(
+                self,
+                (zstd.ZstdDecompressionReader, zstd.ZstdCompressionWriter),
+            )
+            if underlying is None:
+                raise ValueError("ZSTDCodec cannot determine underlying file object")
             if "r" in self.mode or "rb" in self.mode:
                 # Reading: create decompression reader
                 dctx = zstd.ZstdDecompressor()
-                self._fileobj = dctx.stream_reader(self._original_fileobj)
+                self._fileobj = dctx.stream_reader(underlying)
             else:
                 # Writing: create compression writer
                 cctx = zstd.ZstdCompressor(level=self.compression_level)
-                self._fileobj = cctx.stream_writer(self._original_fileobj)
+                self._fileobj = cctx.stream_writer(underlying)
         elif self.filename is not None:
             # Open from filename as usual
             # zstd.open() doesn't support compression level, so we need to handle it manually

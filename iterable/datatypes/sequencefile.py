@@ -20,7 +20,7 @@ class SequenceFileIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         mode: str = "r",

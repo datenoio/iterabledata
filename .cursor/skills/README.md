@@ -25,6 +25,7 @@ Each skill is stored in its own directory:
 - **format-implementation** - Guide for implementing new data formats
 - **testing-patterns** - Testing conventions and best practices
 - **database-engine-implementation** - Guide for implementing database engines
+- **ai-integration** - AI/LLM features, catalog, and agent patterns
 
 ## Creating New Skills
 

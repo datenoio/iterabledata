@@ -18,7 +18,7 @@ class PickleIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         mode: str = "r",
@@ -47,15 +47,12 @@ class PickleIterable(BaseFileIterable):
 
     def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
         """Read bulk records"""
-        chunk = []
-        for _n in range(0, num):
+        chunk: list[dict] = []
+        for _ in range(num):
             try:
-                obj = pickle.load(self.fobj)
-                chunk.append(obj)
-            except Exception:
-                if len(chunk) > 0:
-                    return chunk
-                raise StopIteration from None
+                chunk.append(pickle.load(self.fobj))
+            except EOFError:
+                break
         return chunk
 
     def write(self, record: Row) -> None:

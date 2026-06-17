@@ -19,7 +19,7 @@ class NTriplesIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         mode: str = "r",
@@ -175,7 +175,7 @@ class NTriplesIterable(BaseFileIterable):
             return result
 
     def _format_uri_or_literal(
-        self, value: str, value_type: str = None, datatype: str = None, language: str = None
+        self, value: str, value_type: str | None = None, datatype: str | None = None, language: str | None = None
     ) -> str:
         """Format URI or literal for N-Triples output"""
         if value_type == "uri" or (

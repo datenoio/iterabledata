@@ -44,10 +44,12 @@ These unblock everything else and carry release/security risk.
 ### 2.2 Fix SQL injection surface in ingest
 - `iterable/ingest/postgresql.py`, `mysql.py`, `sqlite.py`, etc. interpolate table/column names directly into SQL.
 - Add identifier validation/quoting (e.g. `psycopg.sql.Identifier`, backtick/bracket quoting per driver, plus an allowlist regex for identifiers).
+- **Status: Done.** `iterable/ingest/identifiers.py` validates and quotes table/column names; used by postgresql/mysql/sqlite/duckdb ingest and `_sql_base.py`. Covered by `tests/test_ingest_identifiers.py`.
 
 ### 2.3 Fix broken iterator contracts
 - `iterable/datatypes/pcap.py`: raise `StopIteration` instead of returning `None`; add `id()`, `read_bulk()`, proper `reset()`; switch to relative imports.
 - `iterable/async_base.py` `__anext__`: only convert `StopIteration` to `StopAsyncIteration`; let parse/I/O errors propagate. Align async default bulk size (1000) with sync `DEFAULT_BULK_NUMBER` (100) or document the difference.
+- **Status: Done.** `pcap.py` refactored: `read()`/`__iter__` yield row dicts and raise `StopIteration` at EOF; `reset()` clears reader state; contract tests in `test_pcap.py`. `async_base.py` uses `DEFAULT_BULK_NUMBER` (100); error propagation tests in `test_async_support.py`.
 
 ### 2.4 Fix docs deployment
 - Resolve the org/repo mismatch: `docs/docusaurus.config.js` targets `iterabledata.github.io` while the repo is `datenoio/iterabledata`; both URLs currently 404.
@@ -61,27 +63,32 @@ These unblock everything else and carry release/security risk.
 - Replace the parallel lists in `iterable/helpers/detect.py` (`DATATYPE_REGISTRY` ~160 keys, `TEXT_DATA_TYPES`, `FLAT_TYPES`, `READ_ONLY_FORMATS`) and the 521-line conditional-import `iterable/datatypes/__init__.py` with declarative per-format descriptors: id, aliases, module/class, text vs binary, flat, streaming, read/write capability, optional extra name, magic bytes.
 - Drive `detect_file_type_from_content()` (currently a long if/elif chain), `capabilities.py`, and docs generation from the same descriptors.
 - This also fixes the stale `READ_ONLY_FORMATS` list automatically.
+- **Status: Implemented (core)** via OpenSpec change `add-format-metadata-registry`. New `iterable/helpers/format_registry.py` holds 108 `FormatDescriptor` entries; `detect.py` derives `DATATYPE_REGISTRY`, `READ_ONLY_FORMATS`, `TEXT_DATA_TYPES`, and `FLAT_TYPES` from them. Magic-byte detection uses `match_magic_prefix()`. `capabilities.py` uses `get_descriptor()` for read-only checks. Covered by `tests/test_format_registry.py`. Full suite verified (`pytest -m "not stress"`: 1959 passed). Follow-up: optional `datatypes/__init__.py` generation from descriptors.
 
 ### 3.2 Eliminate boilerplate duplication
 - Add a default `read_bulk()` loop to `BaseIterable` (the exact loop copy-pasted in ~90 files); keep optimized overrides (parquet `iter_batches`, csv inline error handling).
 - Create shared helpers: `_graph_to_records` (gexf/graphml/dot), RDF `_term_to_str` and load-then-iterate pattern (trig/n3/trix/turtle), optional-dependency import guard.
 - Extract a generic SQL ingest base (batch loop, table creation, upsert, `IngestionResult`) so `postgresql.py`/`mysql.py`/`sqlite.py` shrink to driver-specific deltas. Same idea for the `_original_fileobj` stream-wrapping pattern shared by gzip/bz2/lzma/zstd codecs.
+- **Status: Partially done.** Default `read_bulk()` in `BaseIterable` (17 optimized overrides remain). Shared helpers in `iterable/datatypes/_shared.py` (`graph_to_records`, `rdf_term_to_str`). SQL ingest batch loop + table creation extracted to `iterable/ingest/_sql_base.py` (used by postgresql/mysql/sqlite). Codec stream-wrapping deduped in `iterable/codecs/_stream.py` (gzip, bz2, zstd).
 
 ### 3.3 Fix architectural outliers
 - Migrate `zipped.py` / `zipxml.py` from raw `BaseIterable` to `BaseFileIterable` (or implement the abstract contract properly); register `zipxml` in `DATATYPE_REGISTRY` so it works through `open_iterable()`.
 - Decide the fate of placeholders: `flatbuffers.py` ("This is a placeholder"), `hudi.py` ("Placeholder"), the disabled `7zcodec.py_` (wire it in or delete it; README currently advertises 7z).
 - Remove the no-op DuckDB path in `iterable/ops/stats.py::compute()` or implement it.
+- **Status: Done.** ZIP wrappers on `BaseFileIterable`; stats no-op removed. Placeholders kept registered with module docstrings documenting partial/schema-dependent behavior. Stale `7zcodec.py_` removed (`szipcodec.py` is canonical); `7z` added to `CODEC_REGISTRY`.
 
 ### 3.4 Split oversized modules
 - `iterable/helpers/detect.py` (1,196 lines) → registry, content detection, and `open_iterable` orchestration modules.
 - `iterable/base.py` (955 lines) → split codec base and DataFrame adapters (`to_pandas`/`to_polars`/`to_dask` share near-identical chunking) out of the iterable hierarchy.
 - `iterable/exceptions.py` (716 lines) → move the ~230 lines of guidance strings into a separate `guidance` module.
+- **Status: Done.** Splits: `content_detection.py`, `open_iterable.py`, `format_registry.py`, `guidance.py`, `dataframe_adapters.py`, `codec_base.py`. `exceptions.py` ~451 lines; `base.py` ~866 lines; `detect.py` ~440 lines (lazy re-exports).
 
 ### 3.5 Typing and consistency cleanup
 - Replace legacy `filename: str = None` with `str | None = None` (~90 files); add `from __future__ import annotations` and return types on `reset()` in older modules.
 - Make mypy blocking in CI for core modules first (`base.py`, `types.py`, `helpers/detect.py`, `exceptions.py`), then enable `disallow_untyped_defs` package by package.
 - Standardize the new-format template: module docstring, typed `__init__`, explicit streaming behavior, `_handle_error`/`on_error` integration (currently only ~15 formats use it), read-only declared in the registry rather than implied by base-class default.
 - Stop swallowing plugin discovery errors silently in `detect.py` (`_ensure_plugins_discovered`); log at warning level with the failing entry point.
+- **Status: In progress.** Strict mypy on 12 core modules (`helpers/utils.py` added). CI lint job runs blocking mypy on them.
 
 ---
 
@@ -90,16 +97,20 @@ These unblock everything else and carry release/security risk.
 ### 4.1 Close the format coverage gap
 - Add tests for the 10 uncovered formats: `kafka`, `pulsar`, `flink`, `beam` (mock/integration-marker based), `lance`, `recordio`, `sequencefile`, `tfrecord`, `flexbuffers`, `zipped`.
 - For broker-backed formats (kafka, pulsar) use unit tests with mocked clients plus optional `@pytest.mark.integration` tests behind docker-compose.
+- **Status: Implemented (baseline)** in `tests/test_uncovered_formats.py` — registry/contract tests for all 10, write/read round-trips for tfrecord/recordio/kafka/pulsar/flink/beam, SequenceFile read contract, zipped wrapper tests; flexbuffers/lance round-trips skip when optional deps are missing.
 
 ### 4.2 Contract test for all formats
 - Add a parametrized conformance suite that iterates the format registry and asserts the base contract for every registered format with an available fixture: `read()` raises `StopIteration` at EOF, `read_bulk(n)` length semantics, `reset()` re-yields identical rows, `id()` is a static string, write round-trip where `supports_write` is true. This would have caught the `pcap.py` bug.
 - Extend `dev/scripts/find_missing_fixtures.py` to binary formats and wire it into CI as a report.
+- **Status: Done (baseline).** `tests/test_format_conformance.py` uses auto-discovery via `tests/conformance_fixtures.py` (24 golden formats). Write round-trip tests for writable fixture-backed formats. `dev/scripts/find_missing_fixtures.py` reports text+codec gaps and missing binary golden fixtures; CI runs it as an advisory step.
 
 ### 4.3 Consolidate fixtures
 - Merge the duplicate fixture roots (`tests/fixtures/`, `tests/testdata/`, repo-root `testdata/`) into one documented layout.
+- **Status: Done.** All committed fixtures live under `tests/fixtures/`. `tests/testdata` is a symlink to `fixtures/` for legacy paths. Repo-root `testdata/` removed (files merged into `tests/fixtures/`). See `tests/fixtures/README.md` and `fixture_path()` in `tests/conftest.py`.
 
 ### 4.4 Raise the bar gradually
 - Once gaps are closed, raise `fail_under` from 75 toward 85; track per-package coverage so `datatypes/` weak spots are visible.
+- **Status: Started.** `dev/scripts/coverage_by_package.py` prints per-package breakdown from `.coverage`; CI runs it (advisory) on Ubuntu 3.11 after pytest. Global `fail_under` remains 75 until coverage gaps close.
 
 ---
 
@@ -109,11 +120,13 @@ These unblock everything else and carry release/security risk.
 - Merge `ci.yml` and `test.yml` (they overlap on pytest + ruff for the same branches) into one matrix workflow; keep `lint.yml` checks inside it.
 - Make checks blocking in stages: ruff format check first, then mypy on core modules, then pydocstyle on new code. Keep vulture/radon advisory.
 - Make `bandit`/`pip-audit` failures at high severity blocking (currently all `|| true` / `continue-on-error`).
+- **Status: Done (baseline).** Single `ci.yml` with lint, matrix test, and security jobs. Blocking: ruff, format, mypy (11 core modules), bandit high-severity, pip-audit. Advisory: pydocstyle, vulture, radon, fixture/coverage reports. Weekly `security.yml` retained for scheduled scans.
 
 ### 5.2 Unify release pipeline
 - Pick one publish path: `release.yml` (tag-triggered, `PYPI_API_TOKEN`) vs `python-publish.yml` (release-triggered, `PYPI_ITERABLE_API_TOKEN`). Prefer one workflow using PyPI Trusted Publishing (OIDC, no token secret).
 - Release workflow should install via `pip install -e ".[dev]"` like CI, not the legacy `requirements.txt`.
 - Add `check-wheel-contents` and `twine check` to the release job (deps already present).
+- **Status: Partial.** Tag workflow uses `pip install -e ".[dev]"`, `twine check`, and `check-wheel-contents`. PyPI publish is OIDC-only via `python-publish.yml` on release published. Follow-up: remove any legacy token publish path if still referenced elsewhere.
 
 ### 5.3 Pre-commit alignment
 - Bump pinned ruff (v0.1.6 is old) and align hook versions with CI; consider adding mypy on changed files.
@@ -138,18 +151,18 @@ These unblock everything else and carry release/security risk.
 ### 6.5 Plugin ecosystem
 - Publish one reference plugin package (e.g. a niche format) to prove the entry-point path end to end, and document plugin authoring in the docs site.
 
-### 6.6 CLI (new feature candidate)
-- The ops layer (inspect/filter/transform/schema/stats/convert/validate) maps naturally to a `iterabledata` console command (`iterable convert in.csv out.parquet`, `iterable inspect head file.jsonl`). Low effort over existing APIs, high product visibility.
+### 6.6 CLI (out of scope — handled externally)
+- A CLI is already provided through the project's distribution metadata, not from this package. **Do not add a CLI module (`iterable/cli.py`) or a `[project.scripts]` entry point to this repo.** See the note in `AGENTS.md`.
 
 ---
 
 ## 7. Documentation and DX (P2)
 
-- Add docs pages for the 26 undocumented formats (bam, cdf, fasta, fastq, gexf, gpx, graphml, kmz, n3, sam, topojson, trig, trix, xlsb, dot, arff, bsonf, dxf, feed, libsvm, mvt, netcdf, numpy, pcap, picklef, zipped). Consider generating stubs from the format metadata registry (3.1).
-- Add `CONTRIBUTING.md` (can largely link to AGENTS.md), GitHub issue templates, and a PR template.
+- Add docs pages for the 26 undocumented formats (bam, cdf, fasta, fastq, gexf, gpx, graphml, kmz, n3, sam, topojson, trig, trix, xlsb, dot, arff, bsonf, dxf, feed, libsvm, mvt, netcdf, numpy, pcap, picklef, zipped). Consider generating stubs from the format metadata registry (3.1). **Status: Done (stubs).** `dev/scripts/generate_format_doc_stubs.py` generates registry stubs; 23 pages added under `docs/docs/formats/` and linked from `index.md`. Expand stubs with full examples over time.
+- Add `CONTRIBUTING.md` (can largely link to AGENTS.md), GitHub issue templates, and a PR template. **Status: Done** — `CONTRIBUTING.md`, `.github/ISSUE_TEMPLATE/`, and `.github/pull_request_template.md`.
 - Fix the `[Unreleased]` CHANGELOG discipline after the 1.0.12 release: keep entries small and release more frequently.
 - Fix the `iterable/iterabledata.code-workspace` file accidentally placed inside the package directory (untracked; should not ship in the wheel).
-- Clean up the misleading `ImportError` hint in `detect.py::_load_symbol` that suggests `pip install iterabledata[dev]` for missing format extras — point to the correct extra per format (also enabled by 3.1).
+- Clean up the misleading `ImportError` hint in `detect.py::_load_symbol` that suggests `pip install iterabledata[dev]` for missing format extras — point to the correct extra per format (also enabled by 3.1). **Status: Done** — `install_extra_hint()` in `format_registry.py` drives per-format `pip install iterabledata[<extra>]` messages.
 
 ---
 

@@ -160,6 +160,51 @@ class TestAsyncBaseFileIterable:
             os.unlink(temp_filename)
 
 
+class TestAsyncErrorPropagation:
+    """Async iteration must not swallow parse/I/O errors as StopAsyncIteration."""
+
+    def test_anext_propagates_sync_read_errors(self):
+        class BrokenIterable(CSVIterable):
+            def read(self, skip_empty: bool = True) -> Row:
+                raise ValueError("parse error")
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write("col1\nval1\n")
+            temp_filename = f.name
+
+        try:
+
+            async def test():
+                sync_iterable = BrokenIterable(filename=temp_filename)
+                sync_iterable.open()
+                async_iterable = AsyncBaseFileIterable(sync_iterable=sync_iterable)
+                with pytest.raises(ValueError, match="parse error"):
+                    await async_iterable.__anext__()
+
+            asyncio.run(test())
+        finally:
+            os.unlink(temp_filename)
+
+    def test_anext_converts_stopiteration_only(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write("col1\nval1\n")
+            temp_filename = f.name
+
+        try:
+
+            async def test():
+                sync_iterable = CSVIterable(filename=temp_filename)
+                sync_iterable.open()
+                async_iterable = AsyncBaseFileIterable(sync_iterable=sync_iterable)
+                await async_iterable.__anext__()
+                with pytest.raises(StopAsyncIteration):
+                    await async_iterable.__anext__()
+
+            asyncio.run(test())
+        finally:
+            os.unlink(temp_filename)
+
+
 class TestAOpenIterable:
     """Test aopen_iterable() function."""
 

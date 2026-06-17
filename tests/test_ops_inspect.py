@@ -131,3 +131,54 @@ class TestInspect:
         analysis = inspect.analyze([])
         assert analysis["row_count"] == 0
         assert len(analysis["fields"]) == 0
+
+    def test_analyze_autodoc_disabled_has_no_documentation_keys(self):
+        """Test analyze without autodoc does not include documentation keys."""
+        analysis = inspect.analyze("fixtures/2cols6rows.csv", autodoc=False)
+        assert "documentation" not in analysis
+        assert "documentation_meta" not in analysis
+
+    def test_analyze_autodoc_enabled(self):
+        """Test analyze with autodoc calls AI documentation generation."""
+        from unittest.mock import patch
+
+        with patch("iterable.ai.doc.generate") as mock_generate:
+            mock_generate.return_value = {
+                "documentation": "# Dataset Documentation\n\nOverview text.",
+                "usage": {"total_tokens": 42},
+                "field_descriptions": {"col1": "First column"},
+            }
+            analysis = inspect.analyze(
+                "fixtures/2cols6rows.csv",
+                autodoc=True,
+                autodoc_provider="openai",
+                autodoc_model="gpt-4o-mini",
+            )
+
+        mock_generate.assert_called_once()
+        call_kwargs = mock_generate.call_args.kwargs
+        assert call_kwargs["provider"] == "openai"
+        assert call_kwargs["model"] == "gpt-4o-mini"
+        assert call_kwargs["include_schema"] is False
+        assert analysis["documentation"] == "# Dataset Documentation\n\nOverview text."
+        assert analysis["documentation_meta"]["provider"] == "openai"
+        assert analysis["documentation_meta"]["usage"]["total_tokens"] == 42
+
+    def test_analyze_autodoc_iterable_input(self):
+        """Test autodoc with in-memory iterable passes collected rows."""
+        from unittest.mock import patch
+
+        rows = [{"a": 1, "b": "x"}, {"a": 2, "b": "y"}]
+        with patch("iterable.ai.doc.generate") as mock_generate:
+            mock_generate.return_value = {"documentation": "doc", "usage": {}}
+            inspect.analyze(rows, autodoc=True)
+
+        assert mock_generate.call_args.args[0] == rows
+
+    def test_analyze_autodoc_missing_dependencies(self):
+        """Test autodoc propagates ImportError when AI dependencies are missing."""
+        from unittest.mock import patch
+
+        with patch("iterable.ai.doc.generate", side_effect=ImportError("pip install openai")):
+            with pytest.raises(ImportError, match="pip install openai"):
+                inspect.analyze("fixtures/2cols6rows.csv", autodoc=True)

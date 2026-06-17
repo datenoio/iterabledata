@@ -57,9 +57,7 @@ class TestPostgresDriver:
             mock_psycopg2.connect.return_value = mock_conn
 
             # Disable pooling so the connection is created directly and once.
-            driver = PostgresDriver(
-                "postgresql://user:pass@localhost/db", query="SELECT 1", pool={"enabled": False}
-            )
+            driver = PostgresDriver("postgresql://user:pass@localhost/db", query="SELECT 1", pool={"enabled": False})
             driver.connect()
 
             assert driver.is_connected

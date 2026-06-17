@@ -64,7 +64,7 @@ Instructions for AI coding agents working on the IterableData project.
   - `pipeline/` - Data pipeline processing
 - `tests/` - Test suite (one test file per format/feature)
 - `examples/` - Usage examples
-- `testdata/` - Test data files
+- `tests/fixtures/` - Committed test data files (`tests/testdata/` is a symlink to this directory)
 - `fixtures/` - Test fixtures
 
 ## Testing instructions
@@ -165,6 +165,15 @@ Instructions for AI coding agents working on the IterableData project.
 - Test with various encodings for text formats
 - Handle edge cases: empty files, malformed data, missing dependencies
 
+## Scope constraints
+
+- **Do not add a CLI to this package.** The command-line interface is already provided
+  through the project's distribution metadata (a separate console entry point), not from this
+  repository. Do not create `iterable/cli.py`, do not add a `[project.scripts]` entry point in
+  `pyproject.toml`, and do not propose a CLI as an improvement. This package is a library only;
+  expose functionality through the Python API (`open_iterable`, the `ops`/`convert`/`validate`
+  layers), not new console commands.
+
 ## Known issues
 
 - Some formats require optional dependencies (see `pyproject.toml` for optional-dependencies)
@@ -181,8 +190,20 @@ This project includes Cursor Skills (`.cursor/skills/`) that provide specialized
 - **format-implementation** - Guide for implementing new data formats
 - **testing-patterns** - Testing conventions and best practices
 - **database-engine-implementation** - Guide for implementing database engines
+- **ai-integration** - AI/LLM features, catalog, tools, and agent patterns
 
 Skills are automatically applied by Cursor AI when relevant. See `.cursor/skills/README.md` for details.
+
+## AI and LLM development
+
+- Install AI extras: `pip install -e ".[dev,ai]"`
+- Native providers: `openai`, `anthropic`, `gemini`, `azure` via `iterable.ai.doc.generate(provider=...)`
+- Agent tools: `from iterable.tools import detect_format, read_sample, ...` (see `docs/docs/api/tools.md`)
+- MCP server (optional): `pip install iterabledata[mcp]` then `iterable-mcp` (stdio)
+- Mock LLM calls in tests: `patch("iterable.ai.doc.get_provider")` or `patch("iterable.ai.doc.generate")`
+- Mark AI tests: `@pytest.mark.ai`; live API tests: `@pytest.mark.integration` (see `tests/test_ai_integration.py`)
+- Default CI excludes integration tests; workflow `.github/workflows/ai-integration.yml` runs them on schedule when secrets are set
+- Never commit API keys; use heuristic `redact_for_llm()` before cloud provider calls
 
 ## Resources
 

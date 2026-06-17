@@ -24,12 +24,12 @@ class IcebergIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         mode: str = "r",
-        catalog_name: str = None,
-        table_name: str = None,
+        catalog_name: str | None = None,
+        table_name: str | None = None,
         options: dict[str, Any] | None = None,
     ):
         if options is None:

@@ -17,9 +17,13 @@ from ..helpers.detect import open_iterable
 from ..ops import schema, stats
 from ..types import Row
 from . import metadata, semantic
+from .cache import get_cached, make_doc_cache_key, set_cached
+from .context import redact_for_llm
 from .providers import get_provider
 
 logger = logging.getLogger(__name__)
+
+_CLOUD_PROVIDERS = frozenset({"openai", "anthropic", "gemini", "google", "azure", "openrouter", "perplexity"})
 
 
 def generate(
@@ -42,6 +46,8 @@ def generate(
     pii_detect: bool = False,
     pii_mask_samples: bool = False,
     language: str = "English",
+    validate_output: bool = False,
+    cache: bool = False,
     **kwargs: Any,
 ) -> str | dict[str, Any]:
     """
@@ -66,6 +72,8 @@ def generate(
         pii_detect: Whether to detect PII fields using Metacrafter (default: False)
         pii_mask_samples: Whether to mask PII in sample data (default: False)
         language: Language for AI-generated content (default: "English")
+        validate_output: When True and format is json, validate response against Pydantic models
+        cache: When True, cache results keyed by content hash and parameters (default: False)
         **kwargs: Additional provider-specific options
 
     Returns:
@@ -85,6 +93,30 @@ def generate(
     filename: str | None = None
     if isinstance(iterable, str) and os.path.exists(iterable):
         filename = iterable
+
+    cache_params = {
+        "provider": provider,
+        "model": model,
+        "format": format,
+        "include_schema": include_schema,
+        "include_samples": include_samples,
+        "sample_size": sample_size,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "include_field_descriptions": include_field_descriptions,
+        "include_statistics": include_statistics,
+        "include_metadata": include_metadata,
+        "semantic_types": semantic_types,
+        "pii_detect": pii_detect,
+        "pii_mask_samples": pii_mask_samples,
+        "language": language,
+        "validate_output": validate_output,
+    }
+    if cache:
+        cache_key = make_doc_cache_key(iterable, cache_params, sample_size)
+        cached = get_cached(cache_key)
+        if cached is not None:
+            return cached
 
     # Collect context information
     context: dict[str, Any] = {}
@@ -197,6 +229,10 @@ def generate(
             context["samples"] = samples
         except Exception as e:
             logger.warning(f"PII masking failed: {e}")
+    elif include_samples and samples and provider.lower() in _CLOUD_PROVIDERS and not pii_mask_samples:
+        # Heuristic redaction for cloud providers when Metacrafter masking is off
+        samples = redact_for_llm(samples)
+        context["samples"] = samples
 
     # Get statistics if requested
     # Use file path if available to avoid issues with exhausted iterables
@@ -274,16 +310,30 @@ def generate(
         ) from e
 
     # Format output
+    result: str | dict[str, Any]
     if format == "json":
-        return _format_as_json(generated_text, context, llm_provider.get_usage_info(), extracted_metadata)
+        result = _format_as_json(generated_text, context, llm_provider.get_usage_info(), extracted_metadata)
+        if validate_output:
+            try:
+                from .models import validate_documentation_result
+
+                validate_documentation_result(result)
+            except ImportError:
+                logger.warning("validate_output requires pydantic: pip install pydantic")
+            except Exception as exc:
+                logger.warning("Documentation JSON validation failed: %s", exc)
     elif format == "html":
-        return _format_as_html(generated_text)
+        result = _format_as_html(generated_text)
     elif format == "yaml":
-        return _format_as_yaml(generated_text, context, llm_provider.get_usage_info(), extracted_metadata)
+        result = _format_as_yaml(generated_text, context, llm_provider.get_usage_info(), extracted_metadata)
     elif format == "text":
-        return _format_as_text(generated_text)
+        result = _format_as_text(generated_text)
     else:  # markdown
-        return generated_text
+        result = generated_text
+
+    if cache:
+        set_cached(cache_key, result)
+    return result
 
 
 def _build_documentation_prompt(context: dict[str, Any], language: str = "English") -> str:

@@ -1,3 +1,10 @@
+"""FlatBuffers iterable (partial, schema-dependent).
+
+Reading and writing FlatBuffers payloads requires generated Python code from a
+``.fbs`` schema. This module provides registry/discovery integration and a
+minimal read path for tests; production use needs schema-specific decoding.
+"""
+
 from __future__ import annotations
 
 import typing
@@ -21,12 +28,12 @@ class FlatBuffersIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         mode: str = "r",
-        schema_file: str = None,
-        root_type: str = None,
+        schema_file: str | None = None,
+        root_type: str | None = None,
         options: dict[str, Any] | None = None,
     ):
         if options is None:

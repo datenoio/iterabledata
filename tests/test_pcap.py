@@ -134,11 +134,28 @@ class TestPCAP:
         try:
             with open_iterable(pcapng_file) as source:
                 assert isinstance(source, PCAPIterable)
-                # Try to read - may fail if file is incomplete, but should at least open
                 records = list(source)
-                # If we got here, the file was valid enough to read
                 assert isinstance(records, list)
         except (ValueError, dpkt.dpkt.NeedData, Exception):
-            # If the minimal file isn't complete enough, that's okay for this test
-            # The important thing is that detection works
             pass
+
+    def test_read_raises_stopiteration_at_eof(self, pcap_file):
+        with open_iterable(pcap_file) as source:
+            row = source.read()
+            assert row is not None
+            with pytest.raises(StopIteration):
+                source.read()
+
+    def test_read_bulk_semantics(self, pcap_file):
+        with open_iterable(pcap_file) as source:
+            chunk = source.read_bulk(10)
+            assert isinstance(chunk, list)
+            assert len(chunk) == 1
+            assert source.read_bulk(10) == []
+
+    def test_reset_round_trip(self, pcap_file):
+        with open_iterable(pcap_file) as source:
+            first = source.read()
+            source.reset()
+            again = source.read()
+            assert again == first

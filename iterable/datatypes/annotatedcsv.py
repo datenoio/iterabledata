@@ -71,7 +71,7 @@ class AnnotatedCSVIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         keys: list[str] | None = None,

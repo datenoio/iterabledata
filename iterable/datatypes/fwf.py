@@ -13,7 +13,7 @@ DEFAULT_ENCODING = "utf8"
 class FixedWidthIterable(BaseFileIterable):
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         widths: list[int] = None,

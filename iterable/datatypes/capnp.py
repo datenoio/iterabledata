@@ -21,12 +21,12 @@ class CapnpIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         mode: str = "r",
-        schema_file: str = None,
-        schema_name: str = None,
+        schema_file: str | None = None,
+        schema_name: str | None = None,
         options: dict[str, Any] | None = None,
     ):
         if options is None:

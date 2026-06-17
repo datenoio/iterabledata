@@ -20,10 +20,10 @@ class CSVWIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
-        metadata_file: str = None,
+        metadata_file: str | None = None,
         delimiter: str | None = None,
         quotechar: str = '"',
         mode: str = "r",

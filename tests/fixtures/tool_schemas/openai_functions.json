@@ -1,0 +1,298 @@
+[
+  {
+    "function": {
+      "description": "Detect data format and compression for a file path.",
+      "name": "detect_format",
+      "parameters": {
+        "properties": {
+          "path": {
+            "description": "Path to the data file",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Describe format metadata, example args, and capabilities by format id or alias.",
+      "name": "describe_capabilities",
+      "parameters": {
+        "properties": {
+          "format_id": {
+            "description": "Format id or alias (e.g. csv, tsv, xml)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "format_id"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Read a bounded sample of rows from a data file.",
+      "name": "read_sample",
+      "parameters": {
+        "properties": {
+          "n": {
+            "default": 10,
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          },
+          "redact": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Infer schema (field types and constraints) for a data file.",
+      "name": "infer_schema",
+      "parameters": {
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Analyze dataset structure; optionally include AI-generated documentation.",
+      "name": "analyze_dataset",
+      "parameters": {
+        "properties": {
+          "autodoc": {
+            "default": false,
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Compute column statistics for a data file.",
+      "name": "compute_stats",
+      "parameters": {
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Convert a file to another format. Writes require confirm=true; use dry_run to plan only.",
+      "name": "convert_file",
+      "parameters": {
+        "properties": {
+          "confirm": {
+            "default": false,
+            "type": "boolean"
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          },
+          "input_path": {
+            "type": "string"
+          },
+          "output_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "input_path",
+          "output_path"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Generate AI-powered dataset documentation (requires iterabledata[ai]).",
+      "name": "generate_documentation",
+      "parameters": {
+        "properties": {
+          "doc_format": {
+            "default": "json",
+            "enum": [
+              "json",
+              "markdown",
+              "html",
+              "yaml",
+              "text"
+            ],
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "provider": {
+            "default": "openai",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Validate rows against field rules; returns stats by default.",
+      "name": "validate_data",
+      "parameters": {
+        "properties": {
+          "mode": {
+            "default": "stats",
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "rules": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "description": "Map of field name to rule names (e.g. email: [common.email])",
+            "type": "object"
+          }
+        },
+        "required": [
+          "path",
+          "rules"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Produce a declarative conversion plan between source and target paths (does not convert).",
+      "name": "plan_conversion",
+      "parameters": {
+        "properties": {
+          "provider": {
+            "default": "openai",
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "use_llm": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source",
+          "target"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Suggest a declarative transform spec for a dataset and goal (requires iterabledata[ai]).",
+      "name": "suggest_transform",
+      "parameters": {
+        "properties": {
+          "goal": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "provider": {
+            "default": "openai",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "goal"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Translate natural language or DSL into a validated filter AST.",
+      "name": "translate_filter",
+      "parameters": {
+        "properties": {
+          "expression": {
+            "type": "string"
+          },
+          "provider": {
+            "description": "Optional LLM provider for NL translation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  }
+]

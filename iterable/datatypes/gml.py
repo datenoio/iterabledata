@@ -188,12 +188,12 @@ class GMLIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         mode="r",
         prefix_strip: bool = True,
-        feature_member: str = None,
+        feature_member: str | None = None,
         options: dict[str, Any] | None = None,
     ):
         if options is None:

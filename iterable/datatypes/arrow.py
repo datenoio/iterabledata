@@ -23,7 +23,7 @@ class ArrowIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         mode: str = "r",
         codec: BaseCodec | None = None,

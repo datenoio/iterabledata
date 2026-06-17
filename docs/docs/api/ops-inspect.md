@@ -163,10 +163,26 @@ print(analysis["fields"]["a"]["type"])  # "int"
 print(analysis["fields"]["b"]["type"])  # "str"
 ```
 
+# Analyze with AI documentation (requires iterabledata[ai])
+analysis = inspect.analyze(
+    "data.csv",
+    autodoc=True,
+    autodoc_provider="openai",
+    autodoc_model="gpt-4o-mini",
+)
+print(analysis["documentation"])
+print(analysis["documentation_meta"])
+```
+
 **Parameters:**
 - `iterable`: An iterable of row dictionaries, or a file path/stream
-- `autodoc`: Whether to include AI-powered documentation (requires AI dependencies, default: False)
+- `autodoc`: Whether to include AI-powered documentation (requires `iterabledata[ai]`, default: False)
 - `sample_size`: Number of rows to sample for analysis (default: 10000)
+- `autodoc_provider`: LLM provider when `autodoc=True` (default: `"openai"`)
+- `autodoc_model`: Model name when `autodoc=True`
+- `autodoc_format`: Documentation output format when `autodoc=True` (default: `"json"`)
+- `include_field_descriptions`: Per-field AI descriptions when `autodoc=True`
+- Additional keyword arguments are forwarded to `iterable.ai.doc.generate()`
 
 **Returns:** Dictionary containing:
 - `row_count`: Total number of rows (if calculable, None if exceeds sample_size)
@@ -174,9 +190,14 @@ print(analysis["fields"]["b"]["type"])  # "str"
   - `type`: Inferred type (str, int, float, bool, etc.)
   - `nullable`: Whether field contains null values
   - `sample_values`: Sample values from the dataset
+  - `description`: AI-generated field description when `autodoc=True` and field descriptions enabled
 - `structure`: Overall structure information:
   - `field_count`: Number of fields
   - `analyzed_rows`: Number of rows analyzed
+- `documentation`: Generated documentation text when `autodoc=True`
+- `documentation_meta`: Provider, model, format, and token usage when `autodoc=True`
+
+See also: [AI-Powered Documentation](ai.md).
 
 ## Examples
 

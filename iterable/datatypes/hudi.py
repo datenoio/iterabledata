@@ -1,3 +1,10 @@
+"""Apache Hudi table iterable (partial, table-path dependent).
+
+Uses ``pyhudi`` or ``hudi`` when installed. Full table reads depend on the
+installed library's API; write support is not implemented. Pass ``table_path``
+(or ``filename``) pointing at a Hudi table directory.
+"""
+
 from __future__ import annotations
 
 import typing
@@ -28,11 +35,11 @@ class HudiIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         mode: str = "r",
-        table_path: str = None,
+        table_path: str | None = None,
         options: dict[str, Any] | None = None,
     ):
         if options is None:

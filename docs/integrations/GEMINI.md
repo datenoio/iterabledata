@@ -166,7 +166,7 @@ print(result["semantic_analysis"])
 
 ### Data Transformation with Gemini
 
-Use Gemini to generate transformation functions:
+Use Gemini for planning, then apply explicit transforms via `pipeline()` (do not `exec()` generated code):
 
 ```python
 import google.generativeai as genai
@@ -175,59 +175,40 @@ from iterable.pipeline import pipeline
 import json
 
 genai.configure(api_key="YOUR_API_KEY")
-model = genai.GenerativeModel('gemini-pro')
+model = genai.GenerativeModel("gemini-pro")
 
-def gemini_transform_pipeline(input_file: str, output_file: str, 
-                              transformation_goal: str):
-    """Use Gemini to create transformation pipeline."""
-    
-    # Analyze input data
+
+def normalize_record(record: dict) -> dict:
+    out = dict(record)
+    if "email" in out and isinstance(out["email"], str):
+        out["email"] = out["email"].strip().lower()
+    return out
+
+
+def gemini_guided_transform(input_file: str, output_file: str, transformation_goal: str):
     with open_iterable(input_file) as source:
         sample = [row for i, row in enumerate(source) if i < 5]
         sample_str = json.dumps(sample, indent=2, default=str)
-    
-    # Get transformation code from Gemini
-    prompt = f"""
-    Given this data sample:
-    {sample_str}
-    
-    Goal: {transformation_goal}
-    
-    Provide a Python function that transforms each record (dict) to achieve the goal.
-    Function signature: def transform(record: dict) -> dict:
-    Only return the function code, no explanations.
-    """
-    
-    response = model.generate_content(prompt)
-    transform_code = response.text.strip()
-    
-    # Extract function (handle markdown code blocks)
-    if '```python' in transform_code:
-        transform_code = transform_code.split('```python')[1].split('```')[0]
-    elif '```' in transform_code:
-        transform_code = transform_code.split('```')[1].split('```')[0]
-    
-    # Execute transformation
-    exec(transform_code, globals())
-    
-    # Apply transformation
-    with open_iterable(input_file) as source, \
-         open_iterable(output_file, mode='w') as dest:
-        pipeline(
-            source=source,
-            destination=dest,
-            process_func=transform
-        )
-    
-    return f"Transformed {input_file} -> {output_file}"
 
-# Use it
-gemini_transform_pipeline(
-    'raw_data.jsonl',
-    'cleaned_data.jsonl',
-    'Normalize email addresses, convert dates to ISO format, remove nulls'
-)
+    prompt = f"""Given this data sample:
+{sample_str}
+
+Goal: {transformation_goal}
+
+List transformation steps as a numbered checklist. Do not output executable Python."""
+    print(model.generate_content(prompt).text)
+
+    with open_iterable(input_file) as source, open_iterable(output_file, mode="w") as dest:
+        pipeline(source=source, destination=dest, process_func=normalize_record)
+
+    return f"Transformed {input_file} -> {output_file}"
 ```
+
+## Data Privacy
+
+- Limit samples sent to Google's API; use on-prem or local tooling for regulated data.
+- Prefer `iterable.ai` with local providers when data cannot leave your environment.
+- Mask PII in samples before any cloud LLM call.
 
 ### Data Quality Analysis
 

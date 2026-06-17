@@ -261,7 +261,44 @@ pip install iterabledata[all]
 - `[db-sql]`: SQL databases only (PostgreSQL, ClickHouse, MySQL, MSSQL)
 - `[db-nosql]`: NoSQL databases only (MongoDB, Elasticsearch)
 
-See the [API documentation](docs/docs/api/) for details on these features.
+See the [API documentation](https://datenoio.github.io/iterabledata/) for details on these features.
+
+For AI agents and LLM tooling, see **[llms.txt](llms.txt)** (machine-readable index) and [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## AI Quick Start
+
+Generate dataset documentation with a **local** LLM (no API key) via LM Studio or Ollama, or use OpenAI:
+
+```python
+from iterable.ai import doc
+
+# Local (LM Studio on http://localhost:1234/v1)
+documentation = doc.generate(
+    "data.csv",
+    provider="lmstudio",
+    base_url="http://localhost:1234/v1",
+    format="markdown",
+)
+
+# Or analyze structure + docs in one call
+from iterable.ops import inspect
+
+analysis = inspect.analyze("data.csv", autodoc=True, autodoc_provider="openai")
+print(analysis["documentation"])
+```
+
+Install AI support: `pip install iterabledata[ai]`. See [examples/ai/](examples/ai/) and [docs/docs/api/ai.md](docs/docs/api/ai.md).
+
+### Format catalog (agents)
+
+```python
+from iterable.catalog import describe_format
+
+info = describe_format("xml")
+print(info["example_args"])  # {'tagname': 'item'}
+```
+
+Full export: `dev/formats.json` or `export_catalog(format="json")`. See [docs/docs/api/catalog.md](docs/docs/api/catalog.md).
 
 ## Quick Start
 

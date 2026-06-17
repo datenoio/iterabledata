@@ -884,3 +884,54 @@ def exclude(
 
 # Alias for backward compatibility with task specification
 sample = sample_rows
+
+
+_ALLOWED_SPEC_OPS = frozenset({"rename", "fill", "replace", "select", "filter"})
+
+
+def apply_spec(
+    iterable: collections.abc.Iterable[Row],
+    spec: dict[str, Any],
+) -> Iterator[Row]:
+    """
+    Apply a declarative transform spec with whitelisted operations only.
+
+    Supported ops: rename, fill, replace, select, filter.
+    """
+    from ..ops import filter as filter_ops
+
+    operations = spec.get("operations", [])
+    if not isinstance(operations, list):
+        raise ValueError("Transform spec must include an 'operations' list")
+
+    current: collections.abc.Iterable[Row] = iterable
+    for raw_op in operations:
+        if not isinstance(raw_op, dict):
+            raise ValueError("Each transform operation must be an object")
+        op_name = raw_op.get("op")
+        if op_name not in _ALLOWED_SPEC_OPS:
+            raise ValueError(f"Unknown transform operation: {op_name!r}")
+
+        if op_name == "rename":
+            current = rename_fields(current, raw_op.get("mapping") or {})
+        elif op_name == "fill":
+            current = fill_missing(
+                current,
+                field=raw_op["field"],
+                strategy=raw_op.get("strategy", "forward"),
+                value=raw_op.get("value"),
+            )
+        elif op_name == "replace":
+            current = replace_values(
+                current,
+                field=raw_op["field"],
+                pattern=raw_op["pattern"],
+                replacement=raw_op.get("replacement", ""),
+                regex=bool(raw_op.get("regex", False)),
+            )
+        elif op_name == "select":
+            current = select(current, fields=raw_op.get("fields"))
+        elif op_name == "filter":
+            current = filter_ops.filter_expr(current, raw_op["expression"])
+
+    yield from current

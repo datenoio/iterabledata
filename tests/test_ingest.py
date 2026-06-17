@@ -8,6 +8,22 @@ import tempfile
 import pytest
 
 from iterable import ingest
+from iterable.ingest._sql_base import run_batched_ingest
+
+
+class TestSQLIngestBase:
+    def test_run_batched_ingest_flushes_partial_final_batch(self):
+        batches: list[list[dict]] = []
+
+        rows_processed, rows_inserted = run_batched_ingest(
+            [{"id": i} for i in range(5)],
+            batch=2,
+            insert_batch=batches.append,
+        )
+
+        assert rows_processed == 5
+        assert rows_inserted == 5
+        assert batches == [[{"id": 0}, {"id": 1}], [{"id": 2}, {"id": 3}], [{"id": 4}]]
 
 
 class TestIngest:

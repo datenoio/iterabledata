@@ -20,7 +20,7 @@ DUCKDB_CACHE_SIZE = 1000
 class DuckDBEngineIterable(BaseFileIterable):
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO = None,
         codec: BaseCodec = None,
         engine: str = "duckdb",

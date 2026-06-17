@@ -68,6 +68,7 @@ jobs:
       run: |
         ls -lh dist/
         python -m twine check dist/*
+        check-wheel-contents dist/*.whl
     
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1

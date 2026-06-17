@@ -1,13 +1,15 @@
 import inspect
-import io
 import json
 import typing
 import warnings
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from datetime import datetime
 from types import TracebackType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
+from .codec_base import BaseCodec
+from .dataframe_adapters import iterable_to_dask, iterable_to_pandas, iterable_to_polars
 from .exceptions import ReadError, WriteNotSupportedError
 from .helpers.debug import file_io_logger, is_debug_enabled
 from .helpers.read_ahead import ReadAheadBuffer
@@ -23,81 +25,10 @@ ITERABLE_TYPE_CODEC = 30
 DEFAULT_BULK_NUMBER = 100
 
 
-class BaseCodec:
-    """Basic codec class"""
-
-    def __init__(
-        self,
-        filename: str | None = None,
-        fileobj: typing.IO[Any] | None = None,
-        mode: str = "r",
-        open_it: bool = False,
-        options: dict[str, Any] | None = None,
-    ) -> None:
-        if options is None:
-            options = {}
-        self._fileobj: typing.IO[Any] | None = fileobj
-        self.filename = filename
-        self.mode = mode
-        if open_it:
-            self.open()
-
-        if len(options) > 0:
-            for k, v in options.items():
-                setattr(self, k, v)
-        pass
-
-    @staticmethod
-    def fileexts() -> list[str]:
-        """Return file extensions"""
-        raise NotImplementedError
-
-    def reset(self) -> None:
-        """Reset file"""
-        #        if self._fileobj.seekable():
-        #            self._fileobj.seek(0)
-        #        else:
-        self.close()
-        self.open()
-
-    def open(self) -> None:
-        """Open codec file object"""
-        raise NotImplementedError
-
-    def fileobj(self) -> typing.IO[Any]:
-        """Return file object"""
-        if self._fileobj is None:
-            raise ValueError("File object is not initialized")
-        return self._fileobj
-
-    def close(self) -> None:
-        """Close codec. Not implemented by default"""
-        raise NotImplementedError
-
-    def __enter__(self) -> "BaseCodec":
-        """Context manager entry"""
-        if self._fileobj is None and self.filename is not None:
-            self.open()
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        """Context manager exit"""
-        self.close()
-
-    def textIO(self, encoding: str = "utf8") -> io.TextIOWrapper:
-        """Return text wrapper over binary stream"""
-        return io.TextIOWrapper(self.fileobj(), encoding=encoding, write_through=False)
-
-
 class BaseIterable(ABC):
     """Base iterable data class"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize base iterable"""
         self._closed = False
         self._validation_hooks: list[ValidationHook] = []
@@ -113,7 +44,7 @@ class BaseIterable(ABC):
         Returns:
             Validated row, or None if skipped (when on_validation_error='skip')
         """
-        return apply_validation_hooks(row, self._validation_hooks, self._on_validation_error)
+        return cast(Row | None, apply_validation_hooks(row, self._validation_hooks, self._on_validation_error))
 
     @abstractmethod
     def reset(self) -> None:
@@ -257,30 +188,7 @@ class BaseIterable(ABC):
         Raises:
             ImportError: If pandas is not installed. Message includes installation instructions.
         """
-        try:
-            import pandas as pd
-        except ImportError:
-            raise ImportError("pandas is required for to_pandas(). Install it with: pip install pandas") from None
-
-        if chunksize is None:
-            # Collect all rows and return single DataFrame
-            rows = list(self)
-            if not rows:
-                return pd.DataFrame()
-            return pd.DataFrame(rows)
-        else:
-            # Return iterator of DataFrames
-            def _chunked_iterator():
-                chunk = []
-                for row in self:
-                    chunk.append(row)
-                    if len(chunk) >= chunksize:
-                        yield pd.DataFrame(chunk)
-                        chunk = []
-                if chunk:
-                    yield pd.DataFrame(chunk)
-
-            return _chunked_iterator()
+        return iterable_to_pandas(self, chunksize)
 
     def to_polars(self, chunksize: int | None = None) -> Any:
         """Convert iterable to Polars DataFrame(s).
@@ -297,30 +205,7 @@ class BaseIterable(ABC):
         Raises:
             ImportError: If polars is not installed. Message includes installation instructions.
         """
-        try:
-            import polars as pl
-        except ImportError:
-            raise ImportError("polars is required for to_polars(). Install it with: pip install polars") from None
-
-        if chunksize is None:
-            # Collect all rows and return single DataFrame
-            rows = list(self)
-            if not rows:
-                return pl.DataFrame()
-            return pl.DataFrame(rows)
-        else:
-            # Return iterator of DataFrames
-            def _chunked_iterator():
-                chunk = []
-                for row in self:
-                    chunk.append(row)
-                    if len(chunk) >= chunksize:
-                        yield pl.DataFrame(chunk)
-                        chunk = []
-                if chunk:
-                    yield pl.DataFrame(chunk)
-
-            return _chunked_iterator()
+        return iterable_to_polars(self, chunksize)
 
     def to_dask(self, chunksize: int = 1000000) -> Any:
         """Convert iterable to Dask DataFrame.
@@ -334,26 +219,7 @@ class BaseIterable(ABC):
         Raises:
             ImportError: If dask or pandas is not installed. Message includes installation instructions.
         """
-        try:
-            import dask.dataframe as dd
-            import pandas as pd
-        except ImportError as e:
-            if "dask" in str(e).lower():
-                raise ImportError(
-                    "dask[dataframe] is required for to_dask(). Install it with: pip install 'dask[dataframe]'"
-                ) from None
-            else:
-                raise ImportError("pandas is required for to_dask(). Install it with: pip install pandas") from None
-
-        # Collect all rows first (Dask needs to know the structure)
-        rows = list(self)
-        if not rows:
-            # Return empty Dask DataFrame
-            return dd.from_pandas(pd.DataFrame(), npartitions=1)
-
-        # Convert to pandas first, then to Dask
-        df = pd.DataFrame(rows)
-        return dd.from_pandas(df, npartitions=max(1, len(df) // chunksize))
+        return iterable_to_dask(self, chunksize)
 
 
 class BaseFileIterable(BaseIterable):
@@ -405,7 +271,7 @@ class BaseFileIterable(BaseIterable):
         self.binary = binary
         self.mode = mode
         self.codec = codec
-        self.fobj = None
+        self.fobj: typing.IO[Any] | None = None
         if self.binary:
             self.datamode = "binary"
 
@@ -563,13 +429,13 @@ class BaseFileIterable(BaseIterable):
         try:
             params = inspect.signature(cls.__init__).parameters
         except (TypeError, ValueError):
-            return cls(**kwargs)  # type: ignore[call-arg]
+            return cls(**kwargs)
 
         if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
-            return cls(**kwargs)  # type: ignore[call-arg]
+            return cls(**kwargs)
 
         accepted = {name: value for name, value in kwargs.items() if name in params}
-        return cls(**accepted)  # type: ignore[call-arg]
+        return cls(**accepted)
 
     @classmethod
     def from_file(
@@ -842,7 +708,7 @@ class BaseFileIterable(BaseIterable):
         """
         if self._read_ahead_enabled:
             # Create an iterator that calls read() until StopIteration
-            def base_iterator():
+            def base_iterator() -> Iterator[Row]:
                 while True:
                     try:
                         row = self.read()
@@ -868,7 +734,7 @@ class BaseFileIterable(BaseIterable):
             # Standard iteration with validation hooks
             if self._validation_hooks:
 
-                def validated_iterator():
+                def validated_iterator() -> Iterator[Row]:
                     while True:
                         try:
                             row = self.read()

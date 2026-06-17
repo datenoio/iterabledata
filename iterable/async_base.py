@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
-from .base import BaseFileIterable
+from .base import DEFAULT_BULK_NUMBER, BaseFileIterable
 from .types import Row
 
 # Sentinel returned by executor workers when the wrapped sync source is
@@ -47,7 +47,7 @@ class AsyncBaseIterable(ABC):
         """
         raise NotImplementedError
 
-    async def aread_bulk(self, num: int = 1000) -> list[Row]:
+    async def aread_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[Row]:
         """Read multiple rows asynchronously.
 
         Args:
@@ -195,7 +195,7 @@ class AsyncBaseFileIterable(AsyncBaseIterable):
             raise StopAsyncIteration
         return cast(Row, result)
 
-    async def aread_bulk(self, num: int = 1000) -> list[Row]:
+    async def aread_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[Row]:
         """Read multiple rows asynchronously.
 
         Args:
@@ -211,9 +211,9 @@ class AsyncBaseFileIterable(AsyncBaseIterable):
         sync = self._sync
 
         def _read_bulk() -> list[Row]:
-            return sync.read_bulk(num)
+            return cast(list[Row], sync.read_bulk(num))
 
-        return await loop.run_in_executor(None, _read_bulk)
+        return cast(list[Row], await loop.run_in_executor(None, _read_bulk))
 
     async def awrite(self, record: Row) -> None:
         """Write a single row asynchronously.

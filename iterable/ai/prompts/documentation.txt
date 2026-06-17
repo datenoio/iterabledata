@@ -1,0 +1,9 @@
+Generate comprehensive documentation for a dataset in {language}. Include:
+- Dataset overview and purpose
+- Field descriptions with types and constraints
+- Data quality notes
+- Usage examples
+
+{body}
+
+Generate well-formatted markdown documentation in {language} that describes this dataset comprehensively.

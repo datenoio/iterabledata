@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Format metadata registry**: New `iterable/helpers/format_registry.py` with declarative `FormatDescriptor` entries as the single source of truth for built-in format metadata. `detect.py` now derives `DATATYPE_REGISTRY`, `READ_ONLY_FORMATS`, `TEXT_DATA_TYPES`, and `FLAT_TYPES` from the descriptor table; content-based magic-byte detection uses `match_magic_prefix()`. Lookup API: `get_descriptor()`, `iter_descriptors()`. `capabilities.py` uses descriptor-based read-only checks. See OpenSpec change `add-format-metadata-registry` and `tests/test_format_registry.py`.
+- **Ingest and codec deduplication**: Shared SQL ingest helpers (`create_text_table`, `run_batched_ingest`) in `iterable/ingest/_sql_base.py` for PostgreSQL/MySQL/SQLite backends. Shared codec stream helper `get_underlying_fileobj()` in `iterable/codecs/_stream.py` for gzip/bz2/zstd.
+- **Uncovered format tests**: New `tests/test_uncovered_formats.py` with registry, round-trip, and contract tests for the ten formats that previously had no dedicated coverage (plan item 4.1).
+
+### Changed
+- **Fixture consolidation**: All test data merged into `tests/fixtures/`; `tests/testdata` is a symlink for legacy paths; repo-root `testdata/` removed (plan item 4.3).
+- **Detect module split**: Content-based detection in `iterable/helpers/content_detection.py`; `open_iterable()` in `iterable/helpers/open_iterable.py` (plan item 3.4).
+- **Guidance and DataFrame splits**: Actionable error guidance moved to `iterable/guidance.py`; shared `to_pandas`/`to_polars`/`to_dask` logic in `iterable/dataframe_adapters.py` (plan item 3.4).
+- **Codec base split**: `BaseCodec` moved to `iterable/codec_base.py` (re-exported from `iterable.base`) (plan item 3.4).
+- **Strict mypy core (partial)**: `disallow_untyped_defs` enabled for seven core modules in `pyproject.toml` (plan item 3.5).
+- **Placeholder formats documented**: Module docstrings for `flatbuffers` and `hudi` clarify partial/schema-dependent support; removed stale `7zcodec.py_` duplicate (plan item 3.3).
+- **ZIP wrappers on `BaseFileIterable`**: `ZIPSourceWrapper` and `ZIPXMLSource` now extend `BaseFileIterable` with proper close/reset lifecycle and `_closed` handling (plan item 3.3).
+
 ## [1.0.12] - 2026-06-12
 
 ### Security

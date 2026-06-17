@@ -1,5 +1,7 @@
 # AI Frameworks Integration Guide
 
+> **See also:** [Building AI Agents](../docs/integrations/BUILDING_AGENTS.md) — canonical hub for `iterable.tools`, MCP, and schemas.
+
 This document provides guidance on integrating IterableData with AI agent frameworks (LangChain, CrewAI, AutoGen) for automated data processing, transformation, and analysis tasks.
 
 ## Overview
@@ -272,6 +274,34 @@ Implement robust error handling for agent operations.
 ### 4. Context Management
 
 Always use context managers (`with` statements) to ensure proper resource cleanup.
+
+### 5. Declarative Transforms (Safe Pattern)
+
+Do not `exec()` LLM-generated Python. Use the LLM for planning, then apply explicit functions:
+
+```python
+from iterable.helpers.detect import open_iterable
+from iterable.pipeline import pipeline
+
+
+def normalize_row(record: dict) -> dict:
+    out = dict(record)
+    if "email" in out and isinstance(out["email"], str):
+        out["email"] = out["email"].strip().lower()
+    return out
+
+
+with open_iterable("input.csv") as source, open_iterable("output.jsonl", mode="w") as dest:
+    pipeline(source=source, destination=dest, process_func=normalize_row)
+```
+
+For AI-generated documentation, use `iterable.ai.doc.generate()` or `inspect.analyze(autodoc=True)`.
+
+### 6. Data Privacy
+
+- Sample small subsets for agent/LLM prompts.
+- Prefer local providers (Ollama, LM Studio) for sensitive datasets.
+- Enable PII masking when using `iterable.ai` on production data.
 
 ---
 

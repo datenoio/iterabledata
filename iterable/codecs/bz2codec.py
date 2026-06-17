@@ -4,6 +4,7 @@ import bz2
 from typing import Any
 
 from ..base import BaseCodec
+from ._stream import get_underlying_fileobj
 
 
 class BZIP2Codec(BaseCodec):
@@ -22,16 +23,9 @@ class BZIP2Codec(BaseCodec):
         super().__init__(filename=filename, fileobj=fileobj, mode=mode, open_it=open_it, options=options)
 
     def open(self) -> bz2.BZ2File:
-        # Prefer _original_fileobj on reset (after close() set _fileobj=None)
-        original = getattr(self, "_original_fileobj", None)
-        if original is not None:
-            self._fileobj = bz2.BZ2File(original, mode=self.mode, compresslevel=self.compression_level)
-            return self._fileobj
-        # If fileobj was provided (e.g., from cloud storage), wrap it with BZ2File
-        if self._fileobj is not None and not isinstance(self._fileobj, bz2.BZ2File):
-            if not hasattr(self, "_original_fileobj"):
-                self._original_fileobj = self._fileobj
-            self._fileobj = bz2.BZ2File(self._original_fileobj, mode=self.mode, compresslevel=self.compression_level)
+        underlying = get_underlying_fileobj(self, bz2.BZ2File)
+        if underlying is not None:
+            self._fileobj = bz2.BZ2File(underlying, mode=self.mode, compresslevel=self.compression_level)
         elif self.filename is not None:
             self._fileobj = bz2.open(self.filename, self.mode, compresslevel=self.compression_level)
         else:

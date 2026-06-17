@@ -20,11 +20,11 @@ class GeoPackageIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         mode="r",
-        layer: str = None,
+        layer: str | None = None,
         options: dict[str, Any] | None = None,
     ):
         if options is None:

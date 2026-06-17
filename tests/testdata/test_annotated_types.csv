@@ -1,5 +1,0 @@
-#datatype,string,long,double,boolean
-#group,false,false,false,false
-,name,count,price,active
-,Item1,10,19.99,true
-,Item2,20,29.99,false

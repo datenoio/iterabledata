@@ -1,7 +1,10 @@
 # ops-inspect Specification
 
 ## Purpose
-TBD - created by archiving change add-high-level-operations. Update Purpose after archive.
+The `ops-inspect` capability provides dataset inspection operations: row counting, head/tail
+sampling, header detection, file sniffing, structure analysis, and optional AI-powered
+documentation via integration with `iterable.ai`.
+
 ## Requirements
 ### Requirement: Dataset Row Counting
 The system SHALL provide a function to efficiently count rows in an iterable dataset, with optional DuckDB engine support for fast counting on supported formats.
@@ -93,6 +96,12 @@ The system SHALL provide a function to analyze dataset structure, field types, a
 #### Scenario: Analyze with autodoc enabled
 - **WHEN** `inspect.analyze()` is called with `autodoc=True` and AI dependencies available
 - **THEN** the function performs structure analysis
-- **AND** includes AI-generated field descriptions in the metadata
-- **AND** gracefully degrades if AI dependencies are unavailable
+- **AND** calls `iterable.ai.doc.generate()` using the dataset path or analyzed rows
+- **AND** includes `documentation` and `documentation_meta` in the result
+- **AND** merges AI field descriptions into field metadata when enabled
+
+#### Scenario: Analyze with autodoc and missing AI dependencies
+- **WHEN** `inspect.analyze()` is called with `autodoc=True` and AI optional dependencies are not installed
+- **THEN** the function raises `ImportError` with installation instructions
+- **AND** does not return a partial result silently
 

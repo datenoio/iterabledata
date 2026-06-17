@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import typing
+from collections.abc import Iterator
 from typing import Any
 
-from ..base import BaseFileIterable
+from ..base import BaseCodec, BaseFileIterable
 from ..exceptions import WriteNotSupportedError
 from ..types import Row
 
@@ -14,68 +17,76 @@ except ImportError:
 
 
 class PCAPIterable(BaseFileIterable):
-    """PCAP iterable"""
+    """PCAP / PCAP-NG packet capture iterable."""
 
     datamode = "binary"
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
-        codec=None,
+        codec: BaseCodec | None = None,
         binary: bool = True,
         encoding: str | None = None,
         noopen: bool = False,
         mode: str = "r",
         options: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         if not HAS_DPKT:
             raise ImportError("dpkt is required for PCAP support. Install with 'pip install iterabledata[pcap]'")
         super().__init__(
             filename, stream, codec, binary=True, encoding=encoding, noopen=noopen, mode=mode, options=options
         )
-        self.reader = None
-        self._iter = None
+        self.reader: Any = None
+        self._packet_iter: Iterator[tuple[Any, bytes]] | None = None
 
     @staticmethod
     def id() -> str:
         return "pcap"
 
-    def reset(self):
+    def reset(self) -> None:
         super().reset()
         self.reader = None
-        self._iter = None
+        self._packet_iter = None
 
-    def read(self, skip_empty: bool = True) -> Row:
-        if self._iter is None:
-            self._iter = iter(self)
-        timestamp, buf = next(self._iter)
-        return {"timestamp": timestamp, "data": buf}
-
-    def __iter__(self):
+    def _open_reader(self) -> None:
         if self.fobj is None:
             self.open()
-
-        # Determine if it's pcap or pcapng based on magic bytes or just try pcap first
-        # dpkt doesn't auto-detect easily from stream, but we can try.
-        # However, for now, let's assume pcap.Reader. pcapng.Reader is also available.
-        # A simple heuristic check could be useful, or we trust dpkt.
+        if self.fobj is None:
+            raise ValueError("Cannot read PCAP: file object is not open")
 
         try:
             self.reader = dpkt.pcap.Reader(self.fobj)
         except (ValueError, dpkt.dpkt.NeedData):
-            # Fallback for pcapng or invalid
+            self.fobj.seek(0)
             try:
-                self.fobj.seek(0)
                 self.reader = dpkt.pcapng.Reader(self.fobj)
             except Exception:
-                # If simple pcap failed, it might have been really pcap but empty/corrupt,
-                # or it was pcapng and that failed too.
-                # Raise the original error or a generic one.
                 self.fobj.seek(0)
                 self.reader = dpkt.pcap.Reader(self.fobj)
 
+    def _packet_rows(self) -> Iterator[tuple[float, bytes]]:
+        if self.reader is None:
+            self._open_reader()
+        assert self.reader is not None
         yield from self.reader
+
+    def read(self, skip_empty: bool = True) -> Row:
+        if self._packet_iter is None:
+            self._packet_iter = self._packet_rows()
+        try:
+            timestamp, buf = next(self._packet_iter)
+        except StopIteration:
+            raise
+        return {"timestamp": timestamp, "data": buf}
+
+    def __iter__(self) -> Iterator[Row]:
+        self._packet_iter = self._packet_rows()
+        while True:
+            try:
+                yield self.read()
+            except StopIteration:
+                break
 
     def write(self, record: Row) -> None:
         raise WriteNotSupportedError("pcap", "Writing PCAP files is not yet implemented")

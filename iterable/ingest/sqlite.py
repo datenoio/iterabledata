@@ -5,12 +5,14 @@ SQLite database ingestor.
 from __future__ import annotations
 
 import collections.abc
+import itertools
 import sqlite3
 import time
 from collections.abc import Callable
 from typing import Any
 
 from ..types import Row
+from ._sql_base import create_text_table, run_batched_ingest
 from .core import IngestionResult
 from .identifiers import quote_columns, quote_table_name
 
@@ -51,41 +53,21 @@ def ingest(
         conn = sqlite3.connect(db_url)
         cursor = conn.cursor()
 
-        # Get first row to determine schema
         iterator = iter(iterable)
         first_row = next(iterator, None)
         if first_row is None:
+            conn.close()
             return IngestionResult(elapsed_seconds=time.time() - start_time)
 
-        # Create table if needed
         if create_table:
-            columns = quote_columns(list(first_row.keys()))
-            columns_def = ", ".join([f"{col} TEXT" for col in columns])
-            create_query = f"CREATE TABLE IF NOT EXISTS {quote_table_name(table)} ({columns_def})"
-            cursor.execute(create_query)
-            conn.commit()
+            create_text_table(cursor.execute, conn.commit, table, first_row)
 
-        # Prepare batch
-        batch_rows: list[Row] = [first_row]
-        rows_processed = 1
-
-        # Process remaining rows
-        for row in iterator:
-            batch_rows.append(row)
-            rows_processed += 1
-
-            if len(batch_rows) >= batch:
-                _insert_batch(cursor, conn, table, batch_rows, mode, upsert_key)
-                rows_inserted += len(batch_rows)
-                batch_rows = []
-
-                if progress:
-                    progress({"rows_processed": rows_processed, "rows_inserted": rows_inserted})
-
-        # Insert remaining batch
-        if batch_rows:
-            _insert_batch(cursor, conn, table, batch_rows, mode, upsert_key)
-            rows_inserted += len(batch_rows)
+        rows_processed, rows_inserted = run_batched_ingest(
+            itertools.chain([first_row], iterator),
+            batch=batch,
+            progress=progress,
+            insert_batch=lambda rows: _insert_batch(cursor, conn, table, rows, mode, upsert_key),
+        )
 
         conn.commit()
         conn.close()

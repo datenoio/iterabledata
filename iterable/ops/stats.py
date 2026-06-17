@@ -45,17 +45,6 @@ def compute(
         >>> summary = stats.compute("data.csv", detect_dates=True)  # doctest: +SKIP
         >>> print(summary["price"]["mean"])  # doctest: +SKIP
     """
-    if isinstance(iterable, str) and engine == "duckdb":
-        # Try DuckDB optimization for supported formats
-        try:
-            with open_iterable(iterable, engine="duckdb") as _:
-                # For now, fall back to Python implementation
-                # DuckDB-specific stats computation can be added later
-                pass
-        except Exception:
-            pass
-
-    # Python fallback: compute statistics by iterating
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
 

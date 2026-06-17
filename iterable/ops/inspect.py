@@ -221,9 +221,15 @@ def sniff(filename: str) -> dict[str, Any]:
 
 
 def analyze(
-    iterable: collections.abc.Iterable[Row],
+    iterable: collections.abc.Iterable[Row] | str,
     autodoc: bool = False,
     sample_size: int = 10000,
+    *,
+    autodoc_provider: str = "openai",
+    autodoc_model: str | None = None,
+    autodoc_format: str = "json",
+    include_field_descriptions: bool = False,
+    **autodoc_kwargs: Any,
 ) -> dict[str, Any]:
     """
     Analyze dataset structure, field types, and generate metadata.
@@ -233,29 +239,39 @@ def analyze(
     - Field names and types
     - Nullability information
     - Sample values
+    - Optional AI-generated documentation when ``autodoc=True``
 
     Args:
         iterable: An iterable of row dictionaries, or a file path/stream
-        autodoc: Whether to include AI-powered documentation (requires AI dependencies)
+        autodoc: Whether to include AI-powered documentation (requires ``iterabledata[ai]``)
         sample_size: Number of rows to sample for analysis (default: 10000)
+        autodoc_provider: LLM provider passed to ``ai.doc.generate()`` when ``autodoc=True``
+        autodoc_model: Model name passed to ``ai.doc.generate()`` when ``autodoc=True``
+        autodoc_format: Output format for generated docs (default: ``json``)
+        include_field_descriptions: Generate per-field AI descriptions when ``autodoc=True``
+        **autodoc_kwargs: Additional keyword arguments forwarded to ``ai.doc.generate()``
 
     Returns:
         Dictionary containing:
         - row_count: total number of rows (if calculable)
         - fields: dictionary mapping field names to metadata
         - structure: overall structure information
+        - documentation: generated documentation text when ``autodoc=True``
+        - documentation_meta: provider, model, format, and usage metadata when ``autodoc=True``
 
     Example:
         >>> from iterable.ops import inspect
         >>> analysis = inspect.analyze("data.csv")  # doctest: +SKIP
         >>> print(f"Fields: {list(analysis['fields'].keys())}")  # doctest: +SKIP
     """
+    source_input: str | collections.abc.Iterable[Row] = iterable
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
 
     fields: dict[str, dict[str, Any]] = {}
     row_count = 0
     sample_values: dict[str, list[Any]] = {}
+    analyzed_rows: list[Row] = []
 
     # Sample rows for analysis
     for i, row in enumerate(iterable):
@@ -263,6 +279,8 @@ def analyze(
             break
 
         row_count = i + 1
+        if autodoc and not isinstance(source_input, str):
+            analyzed_rows.append(row)
 
         # Analyze each field
         for field_name, value in row.items():
@@ -295,17 +313,42 @@ def analyze(
         },
     }
 
-    # Add AI documentation if requested
     if autodoc:
-        try:
-            from ..ai import doc  # noqa: F401
+        from ..ai import doc
 
-            # Generate documentation for fields
-            # This would call ai.doc.generate() with schema information
-            # For now, we'll skip this as AI module isn't implemented yet
-            pass
-        except ImportError:
-            pass
+        doc_input: str | list[Row] = source_input if isinstance(source_input, str) else analyzed_rows
+        doc_result = doc.generate(
+            doc_input,
+            provider=autodoc_provider,
+            model=autodoc_model,
+            format=autodoc_format,
+            include_schema=False,
+            include_samples=True,
+            sample_size=min(sample_size, 10),
+            include_field_descriptions=include_field_descriptions,
+            **autodoc_kwargs,
+        )
+
+        if autodoc_format == "json" and isinstance(doc_result, dict):
+            result["documentation"] = doc_result.get("documentation", "")
+            result["documentation_meta"] = {
+                "provider": autodoc_provider,
+                "model": autodoc_model,
+                "format": autodoc_format,
+                "usage": doc_result.get("usage"),
+            }
+            field_descriptions = doc_result.get("field_descriptions") or {}
+            for field_name, description in field_descriptions.items():
+                if field_name in result["fields"]:
+                    result["fields"][field_name]["description"] = description
+        else:
+            result["documentation"] = doc_result if isinstance(doc_result, str) else str(doc_result)
+            result["documentation_meta"] = {
+                "provider": autodoc_provider,
+                "model": autodoc_model,
+                "format": autodoc_format,
+                "usage": None,
+            }
 
     return result
 

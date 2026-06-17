@@ -33,11 +33,11 @@ class NumPyIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         mode: str = "r",
-        array_name: str = None,
+        array_name: str | None = None,
         options: dict[str, Any] | None = None,
     ):
         """

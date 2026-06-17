@@ -12,6 +12,9 @@ import pytest
 # Get the tests directory
 TESTS_DIR = Path(__file__).parent.absolute()
 
+# Canonical committed fixture root (tests/testdata is a symlink to this directory)
+FIXTURES_DIR = TESTS_DIR / "fixtures"
+
 # Get the project root (parent of tests directory)
 PROJECT_ROOT = TESTS_DIR.parent
 
@@ -21,17 +24,21 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 # Change to tests directory so relative paths work
-# This ensures 'fixtures/...' paths work correctly
+# This ensures 'fixtures/...' and legacy 'testdata/...' paths work correctly
 if os.getcwd() != str(TESTS_DIR):
     os.chdir(TESTS_DIR)
 
 
+def fixture_path(name: str) -> Path:
+    """Return an absolute path under ``tests/fixtures/``."""
+    return FIXTURES_DIR / name
+
+
 @pytest.fixture(autouse=True, scope="session")
 def ensure_testdata_dir():
-    """Ensure testdata directory exists for all tests."""
-    testdata_dir = TESTS_DIR / "testdata"
-    testdata_dir.mkdir(exist_ok=True)
-    return testdata_dir
+    """Ensure the fixtures directory exists for all tests."""
+    FIXTURES_DIR.mkdir(exist_ok=True)
+    return FIXTURES_DIR
 
 
 @pytest.fixture(autouse=True)

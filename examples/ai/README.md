@@ -735,9 +735,21 @@ If you get errors about unsupported formats:
 - Verify the file is not corrupted
 - Try opening the file with `open_iterable()` first to test
 
+## Agent tool examples
+
+- `openai_function_calling.py` — OpenAI function schema export and `schemas.call_tool()`
+- `anthropic_tools.py` — Anthropic tool schema export
+- `langchain_agent.py` — LangChain `get_tools()` bundle (requires `[langchain]`)
+
+```bash
+python examples/ai/openai_function_calling.py
+python examples/ai/anthropic_tools.py
+```
+
 ## Additional Resources
 
-- **API Documentation**: See `docs/docs/api/ai.md` for complete API reference
+- **API Documentation**: See `docs/docs/api/ai.md` and `docs/docs/api/tools.md`
+- **Building Agents**: See `docs/docs/integrations/BUILDING_AGENTS.md`
 - **Integration Guides**: See `docs/integrations/` for provider-specific guides
 - **Main Documentation**: See `README.md` for general IterableData usage
 

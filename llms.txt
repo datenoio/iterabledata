@@ -1,0 +1,62 @@
+# IterableData (iterabledata)
+
+> Unified Python library for streaming read/write across 100+ data formats.
+
+## Entry points
+
+- `from iterable.helpers.detect import open_iterable` — open any supported file (auto-detect format/compression)
+- `from iterable.convert import convert` — convert between formats
+- `from iterable.ops import inspect, schema, stats, transform, filter` — high-level data operations
+- `from iterable.ai import doc` — AI-powered dataset documentation (`doc.generate()`)
+- `from iterable.catalog import describe_format, export_catalog` — format metadata for agents
+- `from iterable.tools import detect_format, read_sample, infer_schema` — JSON agent tool wrappers
+- `from iterable.tools import schemas` — OpenAI / Anthropic tool schema export
+- `from iterable.ai.context import sample_for_llm, redact_for_llm` — safe LLM prompt samples
+- `from iterable import validate, ingest` — validation and database ingestion
+
+## Agent tools and MCP
+
+- `iterable.tools` — stable tool functions (`ok` / `data` / `error` envelopes)
+- `pip install iterabledata[mcp]` then `iterable-mcp` — MCP stdio server
+- `pip install iterabledata[langchain]` — LangChain `get_tools()` bundle
+- Guide: `docs/docs/integrations/BUILDING_AGENTS.md`
+
+## Optional extras
+
+- `[ai]` — LLM documentation (`openai`, `requests`); providers: openai, openrouter, ollama, lmstudio, perplexity
+- `[db]` — database read engines and ingest backends
+- `[dev]` — pytest, ruff, mypy, pre-commit
+
+Install: `pip install iterabledata[ai]` or `pip install -e ".[dev]"` from source.
+
+## Examples
+
+- `examples/ai/generate_documentation.py` — AI documentation generation
+- `examples/convert/` — format conversion
+- `examples/pipeline/` — streaming pipelines
+- `tests/test_*.py` — usage patterns per format
+
+## Agent / contributor docs
+
+- `AGENTS.md` — setup, conventions, testing for coding agents
+- `openspec/AGENTS.md` — OpenSpec proposal workflow
+- `CONTRIBUTING.md` — human contributor onboarding
+- `.cursor/skills/` — Cursor skills (ai-integration, format-implementation, testing-patterns, openspec-workflows)
+
+## Specifications
+
+- `openspec/specs/` — capability specs (including `ai`, `ops-inspect`, `convert`)
+- `openspec/changes/LLM_READINESS_ROADMAP.md` — phased LLM readiness plan
+
+## API documentation
+
+- Published: https://datenoio.github.io/iterabledata/
+- Source: `docs/docs/api/` (ai.md, catalog.md, open-iterable.md, convert.md)
+- Catalog artifact: `dev/formats.json`
+- Integrations: `docs/integrations/` (AI_FRAMEWORKS.md, CLAUDE.md, OPENAI.md, GEMINI.md)
+
+## Conventions
+
+- Always use `with open_iterable(path) as source:` context managers
+- No CLI in this repo (library only); use Python API
+- New features with behavior changes require OpenSpec proposals under `openspec/changes/`

@@ -14,12 +14,12 @@ class DuckDBDatabaseIterable(BaseFileIterable):
 
     def __init__(
         self,
-        filename: str = None,
+        filename: str | None = None,
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         mode="r",
-        table: str = None,
-        query: str = None,
+        table: str | None = None,
+        query: str | None = None,
         options: dict[str, Any] | None = None,
     ):
         if options is None:

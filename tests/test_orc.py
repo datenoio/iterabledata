@@ -57,10 +57,10 @@ class TestORC:
         iterable.close()
 
     def test_write_read(self):
-        iterable = ORCIterable("testdata/2cols6rows.orc", mode="w", keys=["id", "name"])
+        iterable = ORCIterable("fixtures/2cols6rows_test.orc", mode="w", keys=["id", "name"])
         iterable.write_bulk(FIXTURES)
         iterable.close()
-        iterable = ORCIterable("testdata/2cols6rows.orc", mode="r")
+        iterable = ORCIterable("fixtures/2cols6rows_test.orc", mode="r")
         n = 0
         for row in iterable:
             assert row == FIXTURES[n]
