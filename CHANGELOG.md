@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.13] - 2026-06-25
+
 ### Added
 - **Block-based AI documentation**: New `ai.doc.generate_blocks()` produces structured, machine-readable documentation as independent blocks (`general`, `schema`, `quality`, `examples`, `statistics`, `codebook`) returning `{source, blocks{name:{markdown,data}}, full_document_markdown}`. Backed by a block registry (`iterable/ai/blocks.py`); `lineage` and `geo_coverage` are registered but deferred. `ai.doc.generate()` remains fully backward compatible and delegates to the block engine. See OpenSpec change `add-ai-block-documentation` and `tests/test_ai_blocks.py`.
 - **Structured LLM output**: `generate_structured()` on the provider abstraction (JSON Schema where supported, `json_object` + Pydantic validation fallback) with per-block Pydantic models in `iterable/ai/models.py`. Schema-block LLM calls are batched when columns > 100.
