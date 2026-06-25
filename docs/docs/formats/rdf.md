@@ -174,8 +174,7 @@ pip install [package-name]
 
 ## Related Formats
 
-- [Link to related format](related-format.md) - [Why it's related]
-- [Link to another format](another-format.md) - [Why it's related]
+See the [supported formats index](/formats/).
 
 ## Troubleshooting
 

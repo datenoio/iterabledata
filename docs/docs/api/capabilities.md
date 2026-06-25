@@ -90,7 +90,7 @@ The following formats load entire files into memory and may cause memory issues 
 ### Best Practices
 
 - **For large files (>100MB)**: Use streaming formats (CSV, JSONL, Parquet, XML with tagname)
-- **For small files (<10MB)**: Non-streaming formats are acceptable
+- **For small files (under 10MB)**: Non-streaming formats are acceptable
 - **For very large files (>1GB)**: Always use streaming formats or process in chunks
 - **Monitor memory usage**: Use system monitoring tools when processing large files
 

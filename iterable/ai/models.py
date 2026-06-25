@@ -36,6 +36,120 @@ def validate_documentation_result(payload: dict[str, Any]) -> DocumentationResul
     return DocumentationResult.model_validate(payload)
 
 
+# ---------------------------------------------------------------------------
+# Block-based documentation models (used by ai.doc.generate_blocks)
+# ---------------------------------------------------------------------------
+
+
+class GeneralBlock(BaseModel):
+    """Structured data for the ``general`` documentation block."""
+
+    model_config = ConfigDict(extra="allow")
+
+    title: str | None = None
+    description: str | None = None
+    topic: str | None = None
+    language: str | None = None
+    temporal_coverage: str | None = None
+    territory: str | None = None
+    tags: list[str] | None = None
+
+
+class SchemaFieldModel(BaseModel):
+    """A single field in the ``schema`` documentation block."""
+
+    model_config = ConfigDict(extra="allow")
+
+    name: str
+    type: str | None = None
+    semantic_type: str | None = None
+    description: str | None = None
+    example: str | None = None
+    nullable: bool | None = None
+
+
+class SchemaBlock(BaseModel):
+    """Structured data for the ``schema`` documentation block."""
+
+    model_config = ConfigDict(extra="allow")
+
+    fields: list[SchemaFieldModel] = Field(default_factory=list)
+
+
+class QualityObservation(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    observation: str
+    severity: str | None = None
+    field: str | None = None
+
+
+class QualityBlock(BaseModel):
+    """Structured data for the ``quality`` documentation block."""
+
+    model_config = ConfigDict(extra="allow")
+
+    overall: str | None = None
+    rationale: str | None = None
+    observations: list[QualityObservation] = Field(default_factory=list)
+
+
+class UsageExample(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    tool: str
+    language: str | None = None
+    code: str
+    description: str | None = None
+
+
+class ExamplesBlock(BaseModel):
+    """Structured data for the ``examples`` documentation block."""
+
+    model_config = ConfigDict(extra="allow")
+
+    examples: list[UsageExample] = Field(default_factory=list)
+
+
+class CodebookEntry(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    field: str
+    description: str | None = None
+    values: dict[str, str] | None = None
+    reference: str | None = None
+
+
+class CodebookBlock(BaseModel):
+    """Structured data for the ``codebook`` documentation block."""
+
+    model_config = ConfigDict(extra="allow")
+
+    entries: list[CodebookEntry] = Field(default_factory=list)
+
+
+_BLOCK_MODELS: dict[str, type[BaseModel]] = {
+    "general": GeneralBlock,
+    "schema": SchemaBlock,
+    "quality": QualityBlock,
+    "examples": ExamplesBlock,
+    "codebook": CodebookBlock,
+}
+
+
+def block_model_for(block_name: str) -> type[BaseModel] | None:
+    """Return the Pydantic model for an LLM-generated block, or None."""
+    return _BLOCK_MODELS.get(block_name)
+
+
+def block_json_schema(block_name: str) -> dict[str, Any] | None:
+    """Return the JSON Schema for a block model, or None if not modeled."""
+    model = _BLOCK_MODELS.get(block_name)
+    if model is None:
+        return None
+    return model.model_json_schema()
+
+
 class TransformOperation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

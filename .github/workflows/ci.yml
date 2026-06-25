@@ -60,6 +60,26 @@ jobs:
     - name: Code complexity with Radon (advisory)
       run: radon cc iterable --min B || true
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: docs/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./docs
+      run: npm ci
+
+    - name: Build documentation site (blocking)
+      working-directory: ./docs
+      run: npm run build
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:

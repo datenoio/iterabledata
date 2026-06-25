@@ -9,18 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Block-based AI documentation**: New `ai.doc.generate_blocks()` produces structured, machine-readable documentation as independent blocks (`general`, `schema`, `quality`, `examples`, `statistics`, `codebook`) returning `{source, blocks{name:{markdown,data}}, full_document_markdown}`. Backed by a block registry (`iterable/ai/blocks.py`); `lineage` and `geo_coverage` are registered but deferred. `ai.doc.generate()` remains fully backward compatible and delegates to the block engine. See OpenSpec change `add-ai-block-documentation` and `tests/test_ai_blocks.py`.
+- **Structured LLM output**: `generate_structured()` on the provider abstraction (JSON Schema where supported, `json_object` + Pydantic validation fallback) with per-block Pydantic models in `iterable/ai/models.py`. Schema-block LLM calls are batched when columns > 100.
+- **AI context, progress, and sampling**: `context` parameter (title, description, tags, territory, source_url, card metadata) threaded into prompts; in-process progress hooks with a `Stage` enum and `progress` callback plus per-stage structured JSON logging (`iterable/ai/progress.py`); size-based sampling tiers driven by `MAX_ROWS_SAMPLING` (`iterable/ai/sampling.py`).
+- **File metadata and multi-table docs**: File metadata helpers (size, sha256, encoding, record_count, table_count) in `iterable/ai/fileinfo.py`; XLS/XLSX multi-table documentation with `tables=` selection and per-table schema blocks.
+- **Generic OpenAI-compatible provider**: Honors `LLM_PROVIDER` / `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_DEFAULT_MODEL` environment variables.
+- **Extended column statistics**: `ops.stats.compute()` gains optional `null_fraction`, `top_values`, and `is_dictionary` (via `DICT_THRESHOLD`).
 - **Format metadata registry**: New `iterable/helpers/format_registry.py` with declarative `FormatDescriptor` entries as the single source of truth for built-in format metadata. `detect.py` now derives `DATATYPE_REGISTRY`, `READ_ONLY_FORMATS`, `TEXT_DATA_TYPES`, and `FLAT_TYPES` from the descriptor table; content-based magic-byte detection uses `match_magic_prefix()`. Lookup API: `get_descriptor()`, `iter_descriptors()`. `capabilities.py` uses descriptor-based read-only checks. See OpenSpec change `add-format-metadata-registry` and `tests/test_format_registry.py`.
 - **Ingest and codec deduplication**: Shared SQL ingest helpers (`create_text_table`, `run_batched_ingest`) in `iterable/ingest/_sql_base.py` for PostgreSQL/MySQL/SQLite backends. Shared codec stream helper `get_underlying_fileobj()` in `iterable/codecs/_stream.py` for gzip/bz2/zstd.
 - **Uncovered format tests**: New `tests/test_uncovered_formats.py` with registry, round-trip, and contract tests for the ten formats that previously had no dedicated coverage (plan item 4.1).
+- **Conformance fixture auto-discovery**: `tests/conformance_fixtures.py` discovers golden fixtures; `dev/scripts/find_missing_fixtures.py` reports text/codec and binary golden gaps (CI advisory).
+- **Format doc stubs**: `dev/scripts/generate_format_doc_stubs.py` and 23 stub pages under `docs/docs/formats/`.
+- **Per-package coverage tracking**: `dev/scripts/coverage_by_package.py` reports package-level coverage with advisory floors (`--check`).
 
 ### Changed
 - **Fixture consolidation**: All test data merged into `tests/fixtures/`; `tests/testdata` is a symlink for legacy paths; repo-root `testdata/` removed (plan item 4.3).
 - **Detect module split**: Content-based detection in `iterable/helpers/content_detection.py`; `open_iterable()` in `iterable/helpers/open_iterable.py` (plan item 3.4).
 - **Guidance and DataFrame splits**: Actionable error guidance moved to `iterable/guidance.py`; shared `to_pandas`/`to_polars`/`to_dask` logic in `iterable/dataframe_adapters.py` (plan item 3.4).
 - **Codec base split**: `BaseCodec` moved to `iterable/codec_base.py` (re-exported from `iterable.base`) (plan item 3.4).
-- **Strict mypy core (partial)**: `disallow_untyped_defs` enabled for seven core modules in `pyproject.toml` (plan item 3.5).
+- **Strict mypy core (partial)**: `disallow_untyped_defs` enabled for twelve core modules in `pyproject.toml` (plan item 3.5); blocking in CI.
 - **Placeholder formats documented**: Module docstrings for `flatbuffers` and `hudi` clarify partial/schema-dependent support; removed stale `7zcodec.py_` duplicate (plan item 3.3).
 - **ZIP wrappers on `BaseFileIterable`**: `ZIPSourceWrapper` and `ZIPXMLSource` now extend `BaseFileIterable` with proper close/reset lifecycle and `_closed` handling (plan item 3.3).
+- **Docs site build**: Docusaurus build fixed (MDX placeholders, format link cleanup, `FORMAT_PAGE_TEMPLATE.md` moved out of `docs/docs/`). CI `docs` job runs blocking `npm run build`.
+- **Pre-commit hooks**: Ruff bumped to v0.14.9; hook versions aligned with CI tooling.
+- **Install hints**: `install_extra_hint()` in `format_registry.py` drives per-format `pip install iterabledata[<extra>]` messages in `_load_symbol`.
+
+### Fixed
+- **XML `tagname`**: `iterableargs['tagname']` is no longer overwritten with `None` after `super().__init__()` in `xml.py`.
+- **Pickle `read_bulk`**: Returns `[]` at EOF instead of raising `StopIteration` in `picklef.py` (conformance contract).
 
 ## [1.0.12] - 2026-06-12
 

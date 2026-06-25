@@ -392,4 +392,4 @@ with open_iterable("data.custom") as source:
 - [Format Detection](/api/open-iterable) - How formats are detected
 - [Database Engines](/api/database-engines) - Database driver plugins
 - [Validation Hooks](/api/validate) - Validation rule plugins
-- [Base Classes](/api/base-classes) - Base classes for plugin development
+- [Base Classes](/api/base-iterable) - Base classes for plugin development

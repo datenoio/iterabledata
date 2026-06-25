@@ -508,7 +508,7 @@ All recent versions maintain backward compatibility. The changes in Phase 3 (fac
 
 If you encounter any issues:
 
-1. Check the [CHANGELOG](../CHANGELOG.md) for detailed changes
+1. Check the [CHANGELOG](https://github.com/datenoio/iterabledata/blob/main/CHANGELOG.md) for detailed changes
 2. Review [Troubleshooting Guide](troubleshooting.md) for solutions
 3. Report issues on GitHub
 
@@ -526,5 +526,5 @@ If you need help with migration:
 - [Troubleshooting Guide](troubleshooting.md) - Common issues and solutions
 - [Best Practices](best-practices.md) - Recommended patterns
 - [API Reference](/api/open-iterable) - Full API documentation
-- [CHANGELOG](../../CHANGELOG.md) - Detailed version history
+- [CHANGELOG](https://github.com/datenoio/iterabledata/blob/main/CHANGELOG.md) - Detailed version history
 

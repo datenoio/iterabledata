@@ -119,7 +119,7 @@ LTSV files can be compressed with all supported codecs:
 - [TSV](csv.md) - Tab-separated values (without labels)
 - [Apache Log](apachelog.md) - Apache web server logs
 - [GELF](gelf.md) - Structured logging format
-- [Logfmt](logfmt.md) - Key-value logging format (if implemented)
+- Logfmt — similar key-value logging style (not a separate IterableData format)
 
 ## Example Files
 

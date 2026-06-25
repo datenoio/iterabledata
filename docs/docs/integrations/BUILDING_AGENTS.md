@@ -72,5 +72,5 @@ See [MCP.md](MCP.md).
 - [API: Agent Tools](../api/tools.md)
 - [API: Catalog](../api/catalog.md)
 - [API: AI](../api/ai.md)
-- [AI Frameworks](AI_FRAMEWORKS.md) · [OpenAI](OPENAI.md) · [Claude](CLAUDE.md) · [Gemini](GEMINI.md)
+- [AI Frameworks](https://github.com/datenoio/iterabledata/blob/main/docs/integrations/AI_FRAMEWORKS.md) · [OpenAI](https://github.com/datenoio/iterabledata/blob/main/docs/integrations/OPENAI.md) · [Claude](https://github.com/datenoio/iterabledata/blob/main/docs/integrations/CLAUDE.md) · [Gemini](https://github.com/datenoio/iterabledata/blob/main/docs/integrations/GEMINI.md)
 - [llms.txt](https://github.com/datenoio/iterabledata/blob/main/llms.txt) — machine index

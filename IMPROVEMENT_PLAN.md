@@ -54,6 +54,7 @@ These unblock everything else and carry release/security risk.
 ### 2.4 Fix docs deployment
 - Resolve the org/repo mismatch: `docs/docusaurus.config.js` targets `iterabledata.github.io` while the repo is `datenoio/iterabledata`; both URLs currently 404.
 - Point config at the real Pages target, verify `deploy-docs.yml` publishes successfully, and update README/pyproject URLs to the working docs site.
+- **Status: Done.** Docusaurus config, README, and `pyproject.toml` point at `https://datenoio.github.io/iterabledata/`. `deploy-docs.yml` uses GitHub Pages OIDC. Removed `docs/docs/formats/TEMPLATE.md` (invalid YAML broke `npm run build`). CI `docs` job runs blocking Docusaurus build. See `docs/GITHUB_PAGES_SETUP.md`.
 
 ---
 
@@ -88,7 +89,7 @@ These unblock everything else and carry release/security risk.
 - Make mypy blocking in CI for core modules first (`base.py`, `types.py`, `helpers/detect.py`, `exceptions.py`), then enable `disallow_untyped_defs` package by package.
 - Standardize the new-format template: module docstring, typed `__init__`, explicit streaming behavior, `_handle_error`/`on_error` integration (currently only ~15 formats use it), read-only declared in the registry rather than implied by base-class default.
 - Stop swallowing plugin discovery errors silently in `detect.py` (`_ensure_plugins_discovered`); log at warning level with the failing entry point.
-- **Status: In progress.** Strict mypy on 12 core modules (`helpers/utils.py` added). CI lint job runs blocking mypy on them.
+- **Status: In progress.** Strict mypy on 12 core modules (`base`, `codec_base`, `guidance`, `exceptions`, `types`, `dataframe_adapters`, `async_base`, `helpers/utils`, `helpers/detect`, `helpers/open_iterable`, `helpers/content_detection`, `helpers/format_registry`). Legacy `filename: str = None` updated to `str | None` across format modules. `install_extra_hint()` drives per-format `pip install iterabledata[<extra>]` messages in `_load_symbol`. CI lint job runs blocking mypy on all 12.
 
 ---
 
@@ -110,7 +111,7 @@ These unblock everything else and carry release/security risk.
 
 ### 4.4 Raise the bar gradually
 - Once gaps are closed, raise `fail_under` from 75 toward 85; track per-package coverage so `datatypes/` weak spots are visible.
-- **Status: Started.** `dev/scripts/coverage_by_package.py` prints per-package breakdown from `.coverage`; CI runs it (advisory) on Ubuntu 3.11 after pytest. Global `fail_under` remains 75 until coverage gaps close.
+- **Status: Started.** `dev/scripts/coverage_by_package.py` prints per-package breakdown with advisory floors (`--check` for gradual hardening). Latest local baseline (~62% global): datatypes 54%, helpers 82%, codecs 65%, engines 58%, ingest 48%, convert 79%, db 69%, ops 81%, pipeline 81%. CI runs the script (advisory) on Ubuntu 3.11 after pytest. Global `fail_under` remains 75 until coverage gaps close.
 
 ---
 
@@ -120,16 +121,17 @@ These unblock everything else and carry release/security risk.
 - Merge `ci.yml` and `test.yml` (they overlap on pytest + ruff for the same branches) into one matrix workflow; keep `lint.yml` checks inside it.
 - Make checks blocking in stages: ruff format check first, then mypy on core modules, then pydocstyle on new code. Keep vulture/radon advisory.
 - Make `bandit`/`pip-audit` failures at high severity blocking (currently all `|| true` / `continue-on-error`).
-- **Status: Done (baseline).** Single `ci.yml` with lint, matrix test, and security jobs. Blocking: ruff, format, mypy (11 core modules), bandit high-severity, pip-audit. Advisory: pydocstyle, vulture, radon, fixture/coverage reports. Weekly `security.yml` retained for scheduled scans.
+- **Status: Done (baseline).** Single `ci.yml` with lint, docs build, matrix test, and security jobs. Blocking: ruff, format, mypy (12 core modules), Docusaurus build, bandit high-severity, pip-audit. Advisory: pydocstyle, vulture, radon, fixture/coverage reports. Weekly `security.yml` retained for scheduled scans.
 
 ### 5.2 Unify release pipeline
 - Pick one publish path: `release.yml` (tag-triggered, `PYPI_API_TOKEN`) vs `python-publish.yml` (release-triggered, `PYPI_ITERABLE_API_TOKEN`). Prefer one workflow using PyPI Trusted Publishing (OIDC, no token secret).
 - Release workflow should install via `pip install -e ".[dev]"` like CI, not the legacy `requirements.txt`.
 - Add `check-wheel-contents` and `twine check` to the release job (deps already present).
-- **Status: Partial.** Tag workflow uses `pip install -e ".[dev]"`, `twine check`, and `check-wheel-contents`. PyPI publish is OIDC-only via `python-publish.yml` on release published. Follow-up: remove any legacy token publish path if still referenced elsewhere.
+- **Status: Done.** Tag workflow uses `pip install -e ".[dev]"`, `twine check`, and `check-wheel-contents`. PyPI publish is OIDC-only via `python-publish.yml` on release published; no token-based publish path remains in workflows.
 
 ### 5.3 Pre-commit alignment
 - Bump pinned ruff (v0.1.6 is old) and align hook versions with CI; consider adding mypy on changed files.
+- **Status: Done (baseline).** Ruff pre-commit hook bumped to v0.14.9 (matches local/CI ruff). `pre-commit-hooks` v5.0.0, bandit 1.8.3, vulture v2.14. `CONTRIBUTING.md` documents `pre-commit install`. Follow-up: optional mypy hook on changed core modules.
 
 ---
 

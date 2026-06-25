@@ -436,7 +436,7 @@ Content-based detection is automatically used in these scenarios:
 
 - **Binary vs Text ambiguity**: Some binary formats may be misidentified if they contain text-like content
 - **Heuristic accuracy**: Text format heuristics are best-effort and may not be 100% accurate for edge cases
-- **Performance**: Content detection reads a sample of the file, adding a small overhead (typically <1ms)
+- **Performance**: Content detection reads a sample of the file, adding a small overhead (typically under 1ms)
 - **Seekable streams required**: Content detection requires seekable streams (some network streams may not support this)
 
 ### Manual Format Specification

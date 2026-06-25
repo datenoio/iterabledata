@@ -8,6 +8,7 @@ and unique value detection.
 from __future__ import annotations
 
 import collections.abc
+import os
 from collections import Counter
 from typing import Any
 
@@ -16,10 +17,30 @@ from ..helpers.utils import hashable_key, hashable_repr
 from ..types import Row
 
 
+def default_dict_threshold() -> float:
+    """Resolve the dictionary-detection threshold from the ``DICT_THRESHOLD`` env var.
+
+    Returns 0.1 when unset or invalid: a field whose unique-to-total ratio is at
+    or below this value is treated as a dictionary (lookup) field.
+    """
+    raw = os.environ.get("DICT_THRESHOLD")
+    if raw:
+        try:
+            value = float(raw)
+            if 0.0 < value <= 1.0:
+                return value
+        except ValueError:
+            pass
+    return 0.1
+
+
 def compute(
     iterable: collections.abc.Iterable[Row],
     detect_dates: bool = False,
     engine: str | None = None,
+    include_top_values: bool = False,
+    top_n: int = 10,
+    dict_threshold: float | None = None,
 ) -> dict[str, dict[str, Any]]:
     """
     Compute comprehensive statistics for all fields in an iterable dataset.
@@ -31,12 +52,20 @@ def compute(
         iterable: An iterable of row dictionaries, or a file path/stream
         detect_dates: Whether to detect date fields (default: False)
         engine: Optional engine to use ('duckdb' for optimization)
+        include_top_values: When True, include ``top_values`` (most frequent values
+            with counts) for each field (default: False)
+        top_n: Number of top values to include when ``include_top_values`` is True
+        dict_threshold: Unique-to-total ratio at/below which a field is flagged as a
+            dictionary (lookup) field. Defaults to the ``DICT_THRESHOLD`` env var or 0.1.
 
     Returns:
         Dictionary mapping field names to their statistics:
         - count: number of non-null values
         - null_count: number of null values
+        - null_fraction: fraction of values that are null (0..1)
         - unique_count: number of unique values
+        - is_dictionary: whether the field behaves as a lookup/dictionary field
+        - top_values: list of {value, count} (only when include_top_values=True)
         - min, max: minimum and maximum values (for numeric/date fields)
         - mean, median, stddev: statistical measures (for numeric fields)
 
@@ -47,6 +76,8 @@ def compute(
     """
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
+
+    threshold = dict_threshold if dict_threshold is not None else default_dict_threshold()
 
     field_stats: dict[str, dict[str, Any]] = {}
     row_count = 0
@@ -80,11 +111,24 @@ def compute(
         values = stats["values"]
         numeric_values = stats["numeric_values"]
 
+        non_null = stats["count"]
+        null_count = stats["null_count"]
+        total = non_null + null_count
+        unique_count = len({hashable_repr(v) for v in values})
+
         field_result: dict[str, Any] = {
-            "count": stats["count"],
-            "null_count": stats["null_count"],
-            "unique_count": len({hashable_repr(v) for v in values}),
+            "count": non_null,
+            "null_count": null_count,
+            "null_fraction": (null_count / total) if total else 0.0,
+            "unique_count": unique_count,
+            "is_dictionary": bool(non_null) and (unique_count / non_null) <= threshold,
         }
+
+        if include_top_values and values:
+            counter: Counter[Any] = Counter(hashable_key(v) for v in values)
+            field_result["top_values"] = [
+                {"value": value, "count": count} for value, count in counter.most_common(top_n)
+            ]
 
         # Numeric statistics
         if numeric_values:

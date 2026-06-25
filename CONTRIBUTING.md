@@ -8,10 +8,11 @@ Thank you for contributing. This project supports both human developers and AI c
 git clone https://github.com/datenoio/iterabledata.git
 cd iterabledata
 pip install -e ".[dev]"
+pre-commit install
 pytest --verbose
 ```
 
-See **[AGENTS.md](AGENTS.md)** for full setup, code style, testing, and project structure.
+See **[AGENTS.md](AGENTS.md)** for full setup, code style, testing, and project structure. Pre-commit hooks mirror CI lint/format checks (ruff) and run optional quality scans locally.
 
 ## Spec-driven changes
 

@@ -287,6 +287,21 @@ analysis = inspect.analyze("data.csv", autodoc=True, autodoc_provider="openai")
 print(analysis["documentation"])
 ```
 
+Need structured, machine-readable output? Use `generate_blocks()` to get independent documentation blocks (`general`, `schema`, `quality`, `examples`, `statistics`, `codebook`) plus the assembled markdown:
+
+```python
+from iterable.ai import doc
+
+result = doc.generate_blocks(
+    "data.csv",
+    provider="openai",
+    context={"title": "Sales 2025", "description": "Monthly sales export"},
+    progress=lambda event: print(event.stage, event.detail),
+)
+print(result["blocks"]["schema"]["data"])     # structured JSON
+print(result["full_document_markdown"])        # assembled markdown
+```
+
 Install AI support: `pip install iterabledata[ai]`. See [examples/ai/](examples/ai/) and [docs/docs/api/ai.md](docs/docs/api/ai.md).
 
 ### Format catalog (agents)

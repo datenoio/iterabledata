@@ -143,7 +143,13 @@ def convert_file(
 
 
 def generate_documentation(path: str, **kwargs: Any) -> dict[str, Any]:
-    """Generate AI documentation for a dataset."""
+    """Generate AI documentation for a dataset.
+
+    Pass ``blocks=[...]`` to use the block-based engine (returns the structured
+    result with per-block ``markdown``/``data`` and ``full_document_markdown``),
+    and ``context={...}`` to supply user/dataset-card context. Without ``blocks``
+    the legacy single-document generator is used.
+    """
     try:
         output_format = kwargs.pop("format", kwargs.pop("doc_format", "json"))
         result = ai_doc.generate(path, format=output_format, **kwargs)

@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 FORMATS_DIR = ROOT / "docs" / "docs" / "formats"
-TEMPLATE = FORMATS_DIR / "TEMPLATE.md"
+TEMPLATE = ROOT / "docs" / "FORMAT_PAGE_TEMPLATE.md"
 
 # Registry id -> doc filename when they differ
 _DOC_FILENAMES: dict[str, str] = {

@@ -95,7 +95,7 @@ except Exception as e:
 
 1. **Read-only**: JSON format does not support writing (use JSONL for writing)
 2. **⚠️ Memory usage**: 
-   - **Small files (<10MB)**: Entire JSON document is loaded into memory
+   - **Small files (under 10MB)**: Entire JSON document is loaded into memory
    - **Large files (>10MB)**: Automatically uses streaming parser (`ijson`) to avoid loading entire file
    - For very large files, prefer **JSONL** format for true line-by-line streaming
 3. **Array requirement**: Root element must be an array of objects (or object with array values via `tagname`)

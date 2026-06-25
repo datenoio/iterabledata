@@ -65,6 +65,100 @@ print(documentation)
 - String for markdown/html/yaml/text formats
 - Dictionary for JSON format (includes documentation, schema, samples, metadata, statistics, semantic_types, pii_fields, field_descriptions, usage)
 
+### `doc.generate_blocks()`
+
+Generate documentation as independent, machine-readable **blocks**, each with its own
+markdown and structured `data`, plus an assembled full document. This is the recommended API
+for building documentation services and agent workflows.
+
+```python
+from iterable.ai import doc
+
+result = doc.generate_blocks(
+    "data.csv",
+    blocks=["general", "schema", "quality", "examples", "statistics"],
+    provider="openai",
+    context={"title": "Population", "territory": "Russia", "tags": ["demography"]},
+    progress=lambda event: print(event.stage.value, event.progress),
+)
+
+print(result["full_document_markdown"])
+print(result["blocks"]["schema"]["data"]["fields"])
+```
+
+**Result shape:**
+
+```json
+{
+  "job_id": "…",
+  "created_at": "2026-06-24T…Z",
+  "source": {"type": "file", "name": "data.csv", "format": "csv", "size_bytes": 1024, "sha256": "…", "record_count": 6},
+  "blocks": {
+    "general":    {"markdown": "…", "data": {…}},
+    "schema":     {"markdown": "…", "data": {"fields": […]}},
+    "statistics": {"markdown": "…", "data": {"fields": {…}}}
+  },
+  "full_document_markdown": "# Documentation: …"
+}
+```
+
+**Available blocks:** `general`, `schema`, `quality`, `examples`, `statistics`, `codebook`.
+The `lineage` and `geo_coverage` blocks are registered but deferred (they return a
+`{"status": "not_implemented"}` marker). The `statistics` block is computed deterministically
+and does not call an LLM.
+
+**Key parameters:**
+- `blocks`: Block names to generate (default: general, schema, quality, examples, statistics)
+- `context`: User-provided context (title, description, tags, territory, source_url, card metadata) merged into prompts and the `general` block
+- `tables`: Table/sheet selection for multi-table inputs (XLS/XLSX) — produces a `schema:<table>` block per table
+- `progress`: Callback receiving `ProgressEvent` objects as each stage runs
+- `sample_size`: Override the per-tier sample row count
+- `provider`/`model`/`api_key`/`base_url`: Provider configuration (see below)
+
+#### Structured output
+
+Each LLM-backed block is generated with **structured output** constrained by a JSON Schema
+derived from Pydantic models in `iterable.ai.models`. Providers with native JSON-Schema
+support use it directly; others fall back to JSON-object mode and finally to text extraction.
+Results are validated against the block model.
+
+#### Progress hooks and stages
+
+`generate_blocks()` accepts an in-process `progress` callback. Stages follow the documentation
+lifecycle (`queued`, `parsing`, `sampling`, `generating`, `assembling`, `completed`, `failed`),
+exposed via `iterable.ai.Stage`. Each stage also emits a structured log record (with `job_id`,
+`stage`, `duration_ms`, and token usage) when structured logging is enabled.
+
+#### Size-based sampling
+
+Row sampling adapts to input size, configurable via the `MAX_ROWS_SAMPLING` environment
+variable:
+
+| Tier | Size | Rows sent to the LLM |
+| :--- | :--- | :--- |
+| Small | &lt; 1 MB | schema + first N rows |
+| Medium | 1–20 MB | schema + first N rows + N random rows |
+| Large | &gt; 20 MB | schema + statistics only (no rows) |
+
+#### Provider configuration via environment
+
+Provider selection is provider-agnostic and can be driven entirely by environment variables:
+
+```bash
+LLM_PROVIDER=openrouter
+LLM_BASE_URL=https://openrouter.ai/api/v1
+LLM_API_KEY=sk-...
+LLM_DEFAULT_MODEL=openai/gpt-4o
+```
+
+Use `provider="openai-compatible"` (with `LLM_BASE_URL`) to target any OpenAI-compatible
+endpoint (self-hosted gateways, vLLM, LiteLLM, etc.). When `provider` is omitted it resolves
+from `LLM_PROVIDER` (defaulting to `openai`).
+
+`doc.generate(..., blocks=[...])` delegates to `generate_blocks()` and returns either the
+assembled markdown (`format="markdown"`) or the full result dict (`format="json"`), keeping
+the legacy single-document behavior when `blocks` is not provided.
+
 ## Examples
 
 ### Basic Documentation Generation

@@ -26,6 +26,27 @@ inspect.analyze("data.csv", autodoc=True, autodoc_provider="openai")
 
 Install: `pip install iterabledata[ai]` or `pip install -e ".[ai]"`.
 
+## Block-based documentation (`generate_blocks`)
+
+```python
+from iterable.ai import doc
+
+result = doc.generate_blocks(
+    "data.csv",
+    blocks=["general", "schema", "quality", "examples", "statistics"],  # codebook also available
+    context={"title": "Population", "territory": "Russia"},
+    progress=lambda e: print(e.stage.value, e.progress),
+)
+result["blocks"]["schema"]["data"]["fields"]   # structured data per block
+result["full_document_markdown"]               # assembled document
+```
+
+- Each block returns `{markdown, data}`; `statistics` is computed (no LLM); `lineage`/`geo_coverage` are deferred stubs.
+- LLM blocks use structured output (`provider.generate_structured`) with Pydantic models in `iterable.ai.models`.
+- Sampling adapts to file size (`MAX_ROWS_SAMPLING`); stats support `null_fraction`, `top_values`, `is_dictionary` (`DICT_THRESHOLD`).
+- Provider config via `LLM_PROVIDER`/`LLM_BASE_URL`/`LLM_API_KEY`/`LLM_DEFAULT_MODEL`; `provider="openai-compatible"` targets any OpenAI-compatible endpoint.
+- `doc.generate(..., blocks=[...])` delegates to `generate_blocks`; without `blocks` the legacy single-document path is unchanged.
+
 ## Safe LLM sampling
 
 Always sample and redact before cloud APIs:

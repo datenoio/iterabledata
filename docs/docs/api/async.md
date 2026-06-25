@@ -233,5 +233,5 @@ The async API is **additive** - it doesn't change the synchronous API:
 ## Related Topics
 
 - [open_iterable()](/api/open-iterable) - Synchronous file opening
-- [Base Classes](/api/base-classes) - Base iterable classes
+- [Base Classes](/api/base-iterable) - Base iterable classes
 - [Database Engines](/api/database-engines) - Database sources (async support planned)

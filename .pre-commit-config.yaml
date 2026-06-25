@@ -1,12 +1,12 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.6
+    rev: v0.14.9
     hooks:
       - id: ruff
-        args: [ --fix ]
+        args: [--fix]
       - id: ruff-format
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -18,7 +18,7 @@ repos:
       - id: detect-private-key
       - id: mixed-line-ending
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.5
+    rev: 1.8.3
     hooks:
       - id: bandit
         args: ["-r", "iterable", "-f", "json", "-o", ".bandit-report.json"]
@@ -30,7 +30,7 @@ repos:
         args: ["--convention=google"]
         exclude: ^(tests/|examples/|build/|dist/)
   - repo: https://github.com/jendrikseipp/vulture
-    rev: v2.10
+    rev: v2.14
     hooks:
       - id: vulture
         args: ["--min-confidence", "80"]

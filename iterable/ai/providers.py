@@ -47,6 +47,29 @@ def _parse_fields_json(content: str, fields: list[str]) -> dict[str, str]:
     return {field: f"Field: {field}" for field in fields}
 
 
+def extract_json(content: str | None) -> dict[str, Any]:
+    """Best-effort extraction of a JSON object from an LLM response.
+
+    Tries direct parsing first, then falls back to extracting the first balanced
+    JSON object substring. Returns an empty dict if nothing parses.
+    """
+    if not content:
+        return {}
+    try:
+        parsed = json.loads(content)
+        return parsed if isinstance(parsed, dict) else {"value": parsed}
+    except Exception:
+        pass
+    match = re.search(r"\{.*\}", content, re.DOTALL)
+    if match:
+        try:
+            parsed = json.loads(match.group(0))
+            return parsed if isinstance(parsed, dict) else {"value": parsed}
+        except Exception:
+            pass
+    return {}
+
+
 class LLMProvider(ABC):
     """Base class for LLM providers."""
 
@@ -102,8 +125,136 @@ class LLMProvider(ABC):
         """
         pass
 
+    def generate_structured(
+        self,
+        prompt: str,
+        json_schema: dict[str, Any],
+        model: str | None = None,
+        temperature: float = 0.2,
+        max_tokens: int | None = None,
+        schema_name: str = "result",
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Generate a structured JSON object constrained by a JSON Schema.
 
-class OpenAIProvider(LLMProvider):
+        Default implementation embeds the schema in the prompt and parses the
+        model's textual response. Providers with native structured-output support
+        should override this for better reliability.
+
+        Args:
+            prompt: Input prompt describing what to produce
+            json_schema: JSON Schema the response should conform to
+            model: Model name (provider-specific)
+            temperature: Sampling temperature (lower is more deterministic)
+            max_tokens: Maximum tokens to generate
+            schema_name: Name for the schema (used by providers that require one)
+            **kwargs: Provider-specific options
+
+        Returns:
+            Parsed JSON object (empty dict if parsing fails)
+        """
+        augmented = (
+            f"{prompt}\n\n"
+            "Respond ONLY with a single JSON object that conforms to this JSON Schema:\n"
+            f"{json.dumps(json_schema)}\n"
+            "Do not include any text, explanation, or markdown fences outside the JSON object."
+        )
+        text = self.generate(
+            augmented,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs,
+        )
+        return extract_json(text)
+
+
+class _OpenAICompatibleStructuredMixin:
+    """Mixin adding native structured output for OpenAI-compatible clients.
+
+    Expects ``self.client`` (an OpenAI-compatible client), ``self._default_model``,
+    and ``self._usage_info`` to be present on the instance.
+    """
+
+    def generate_structured(
+        self,
+        prompt: str,
+        json_schema: dict[str, Any],
+        model: str | None = None,
+        temperature: float = 0.2,
+        max_tokens: int | None = None,
+        schema_name: str = "result",
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        model = model or self._default_model  # type: ignore[attr-defined]
+
+        def _record_usage(response: Any) -> None:
+            usage = getattr(response, "usage", None)
+            if usage is not None:
+                self._usage_info = {  # type: ignore[attr-defined]
+                    "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                    "completion_tokens": getattr(usage, "completion_tokens", None),
+                    "total_tokens": getattr(usage, "total_tokens", None),
+                }
+
+        # 1) Try native JSON-Schema constrained output.
+        try:
+            response = self.client.chat.completions.create(  # type: ignore[attr-defined]
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {"name": schema_name, "schema": json_schema, "strict": False},
+                },
+                **kwargs,
+            )
+            _record_usage(response)
+            return extract_json(response.choices[0].message.content)
+        except Exception:
+            pass
+
+        # 2) Fall back to json_object mode with the schema described in the prompt.
+        try:
+            response = self.client.chat.completions.create(  # type: ignore[attr-defined]
+                model=model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a data documentation assistant. Respond only with valid JSON.",
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"{prompt}\n\nThe JSON object must conform to this JSON Schema:\n{json.dumps(json_schema)}"
+                        ),
+                    },
+                ],
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_format={"type": "json_object"},
+                **kwargs,
+            )
+            _record_usage(response)
+            return extract_json(response.choices[0].message.content)
+        except Exception:
+            pass
+
+        # 3) Final fallback: plain text + best-effort JSON extraction.
+        return LLMProvider.generate_structured(
+            self,  # type: ignore[arg-type]
+            prompt,
+            json_schema,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            schema_name=schema_name,
+            **kwargs,
+        )
+
+
+class OpenAIProvider(_OpenAICompatibleStructuredMixin, LLMProvider):
     """OpenAI provider implementation."""
 
     def __init__(self, api_key: str | None = None, base_url: str | None = None):
@@ -187,7 +338,7 @@ class OpenAIProvider(LLMProvider):
             return {field: f"Field: {field}" for field in fields}
 
 
-class OpenRouterProvider(LLMProvider):
+class OpenRouterProvider(_OpenAICompatibleStructuredMixin, LLMProvider):
     """OpenRouter provider implementation."""
 
     def __init__(self, api_key: str | None = None):
@@ -367,7 +518,7 @@ class OllamaProvider(LLMProvider):
             return {field: f"Field: {field}" for field in fields}
 
 
-class LMStudioProvider(LLMProvider):
+class LMStudioProvider(_OpenAICompatibleStructuredMixin, LLMProvider):
     """LMStudio provider implementation (local)."""
 
     def __init__(self, base_url: str = "http://localhost:1234/v1"):
@@ -449,7 +600,7 @@ class LMStudioProvider(LLMProvider):
             return {field: f"Field: {field}" for field in fields}
 
 
-class PerplexityProvider(LLMProvider):
+class PerplexityProvider(_OpenAICompatibleStructuredMixin, LLMProvider):
     """Perplexity provider implementation."""
 
     def __init__(self, api_key: str | None = None):
@@ -658,7 +809,7 @@ class GeminiProvider(LLMProvider):
             return {field: f"Field: {field}" for field in fields}
 
 
-class AzureOpenAIProvider(LLMProvider):
+class AzureOpenAIProvider(_OpenAICompatibleStructuredMixin, LLMProvider):
     """Azure OpenAI provider implementation."""
 
     def __init__(
@@ -734,8 +885,97 @@ class AzureOpenAIProvider(LLMProvider):
             return {field: f"Field: {field}" for field in fields}
 
 
+class OpenAICompatibleProvider(_OpenAICompatibleStructuredMixin, LLMProvider):
+    """Generic OpenAI-compatible provider configured via base URL.
+
+    Targets any OpenAI-compatible endpoint (self-hosted gateways, vLLM, LiteLLM,
+    OpenRouter-like services). Configure via ``LLM_BASE_URL``/``LLM_API_KEY``/
+    ``LLM_DEFAULT_MODEL`` or explicit arguments.
+    """
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        default_model: str | None = None,
+    ):
+        try:
+            from openai import OpenAI
+        except ImportError as err:
+            raise ImportError(
+                "OpenAI client is required for the openai-compatible provider. Install with: pip install openai"
+            ) from err
+
+        resolved_base = base_url or os.environ.get("LLM_BASE_URL")
+        if not resolved_base:
+            raise ValueError("openai-compatible provider requires a base_url (set LLM_BASE_URL or pass base_url=)")
+        resolved_key = api_key or _env_api_key("LLM_API_KEY", "OPENAI_API_KEY") or "not-needed"
+        self.client = OpenAI(api_key=resolved_key, base_url=resolved_base)
+        self._usage_info: dict[str, Any] | None = None
+        self._default_model = default_model or os.environ.get("LLM_DEFAULT_MODEL", "gpt-4o-mini")
+
+    def generate(
+        self,
+        prompt: str,
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> str:
+        response = self.client.chat.completions.create(
+            model=model or self._default_model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs,
+        )
+        self._usage_info = {
+            "prompt_tokens": response.usage.prompt_tokens if response.usage else None,
+            "completion_tokens": response.usage.completion_tokens if response.usage else None,
+            "total_tokens": response.usage.total_tokens if response.usage else None,
+        }
+        return response.choices[0].message.content or ""
+
+    def get_usage_info(self) -> dict[str, Any] | None:
+        return self._usage_info
+
+    def get_fields_info(self, fields: list[str], language: str = "English") -> dict[str, str]:
+        prompt = _fields_info_prompt(fields, language)
+
+        def _make_request():
+            return self.client.chat.completions.create(
+                model=self._default_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            f"You are a data documentation assistant. Provide clear, concise descriptions "
+                            f"in {language}. Always respond with valid JSON."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.3,
+                response_format={"type": "json_object"},
+            )
+
+        try:
+            response = retry_with_backoff(_make_request)
+            return _parse_fields_json(response.choices[0].message.content or "", fields)
+        except Exception:
+            return {field: f"Field: {field}" for field in fields}
+
+
+def resolve_default_provider() -> str:
+    """Resolve the default provider name from the ``LLM_PROVIDER`` env var.
+
+    Returns ``"openai"`` when unset.
+    """
+    return (os.environ.get("LLM_PROVIDER") or "openai").lower()
+
+
 def get_provider(
-    provider: str,
+    provider: str | None = None,
     api_key: str | None = None,
     base_url: str | None = None,
 ) -> LLMProvider:
@@ -744,29 +984,42 @@ def get_provider(
 
     Args:
         provider: Provider name - "openai", "anthropic", "gemini", "azure", "openrouter",
-            "ollama", "lmstudio", "perplexity"
-        api_key: API key (if required; falls back to provider env vars)
-        base_url: Base URL (for local providers or Azure endpoint override)
+            "ollama", "lmstudio", "perplexity", or "openai-compatible". When None, resolves
+            from the ``LLM_PROVIDER`` environment variable (defaulting to "openai").
+        api_key: API key (if required; falls back to ``LLM_API_KEY`` then provider env vars)
+        base_url: Base URL (falls back to ``LLM_BASE_URL`` for compatible/local providers)
 
     Returns:
         LLMProvider instance
+
+    Environment variables:
+        ``LLM_PROVIDER``, ``LLM_BASE_URL``, ``LLM_API_KEY``, ``LLM_DEFAULT_MODEL`` provide
+        provider-agnostic configuration used as fallbacks when arguments are not supplied.
     """
-    provider = provider.lower()
-    if provider == "openai":
-        return OpenAIProvider(api_key=api_key or _env_api_key("OPENAI_API_KEY"), base_url=base_url)
+    provider = (provider or resolve_default_provider()).lower()
+    env_key = _env_api_key("LLM_API_KEY")
+    env_base = os.environ.get("LLM_BASE_URL")
+
+    if provider in ("openai-compatible", "compatible", "generic"):
+        return OpenAICompatibleProvider(api_key=api_key, base_url=base_url or env_base)
+    elif provider == "openai":
+        return OpenAIProvider(
+            api_key=api_key or env_key or _env_api_key("OPENAI_API_KEY"),
+            base_url=base_url or env_base,
+        )
     elif provider == "anthropic":
-        return AnthropicProvider(api_key=api_key)
+        return AnthropicProvider(api_key=api_key or env_key)
     elif provider in ("gemini", "google"):
-        return GeminiProvider(api_key=api_key)
+        return GeminiProvider(api_key=api_key or env_key)
     elif provider == "azure":
-        return AzureOpenAIProvider(api_key=api_key, base_url=base_url)
+        return AzureOpenAIProvider(api_key=api_key or env_key, base_url=base_url or env_base)
     elif provider == "openrouter":
-        return OpenRouterProvider(api_key=api_key or _env_api_key("OPENROUTER_API_KEY"))
+        return OpenRouterProvider(api_key=api_key or env_key or _env_api_key("OPENROUTER_API_KEY"))
     elif provider == "ollama":
-        return OllamaProvider(base_url=base_url or "http://localhost:11434")
+        return OllamaProvider(base_url=base_url or env_base or "http://localhost:11434")
     elif provider == "lmstudio":
-        return LMStudioProvider(base_url=base_url or "http://localhost:1234/v1")
+        return LMStudioProvider(base_url=base_url or env_base or "http://localhost:1234/v1")
     elif provider == "perplexity":
-        return PerplexityProvider(api_key=api_key or _env_api_key("PERPLEXITY_API_KEY"))
+        return PerplexityProvider(api_key=api_key or env_key or _env_api_key("PERPLEXITY_API_KEY"))
     else:
         raise ValueError(f"Unknown provider: {provider}")

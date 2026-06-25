@@ -54,7 +54,7 @@ Recommended batch sizes vary by format and use case:
 | Excel (XLSX) | 1,000-10,000 | 1,000-10,000 | Memory-intensive format |
 
 **Guidelines:**
-- **Small files (<1MB)**: Batch size 1,000-5,000
+- **Small files (under 1MB)**: Batch size 1,000-5,000
 - **Medium files (1MB-100MB)**: Batch size 10,000-50,000
 - **Large files (>100MB)**: Batch size 50,000-100,000
 - **Memory-constrained**: Reduce batch size to 1,000-5,000
@@ -234,10 +234,10 @@ with open_iterable('data.csv.zst') as source:  # ZStandard compression
 - ✅ Files are read multiple times
 
 **Avoid compression when:**
-- ❌ Real-time processing (<100ms latency)
+- ❌ Real-time processing (under 100ms latency)
 - ❌ CPU is bottleneck
 - ❌ Files are written once, read never
-- ❌ Very small files (<1MB)
+- ❌ Very small files (under 1MB)
 
 ## Streaming vs Batch Processing
 
@@ -304,7 +304,7 @@ The DuckDB engine provides **significant performance improvements** for certain 
 - ✅ Aggregations
 
 **Avoid DuckDB engine for:**
-- ❌ Small files (<1MB) - overhead not worth it
+- ❌ Small files (under 1MB) - overhead not worth it
 - ❌ Binary formats (Parquet, Arrow) - already optimized
 - ❌ Real-time streaming - adds latency
 
@@ -393,7 +393,7 @@ process_file('large.csv')
 1. **Don't use individual operations** (`read()`, `write()`) for large datasets
 2. **Don't load entire files** into memory unnecessarily
 3. **Don't use non-streaming formats** (Excel, JSON) for large files
-4. **Don't use tiny batch sizes** (<100) - overhead dominates
+4. **Don't use tiny batch sizes** (under 100) - overhead dominates
 5. **Don't skip compression** for large files
 6. **Don't forget to close files** - use context managers
 
@@ -415,4 +415,4 @@ Before deploying to production:
 - [Best Practices](best-practices.md) - General best practices
 - [Format Documentation](/formats/) - Format-specific performance notes
 - [Troubleshooting](troubleshooting.md) - Performance troubleshooting
-- [API Reference](/api/) - Detailed API documentation
+- [API Reference](/api/open-iterable) - Detailed API documentation

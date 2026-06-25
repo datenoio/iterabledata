@@ -5,6 +5,7 @@ Provides functions for generating dataset documentation using various LLM provid
 """
 
 from . import doc
-from .doc import generate
+from .doc import generate, generate_blocks
+from .progress import ProgressEvent, ProgressReporter, Stage
 
-__all__ = ["doc", "generate"]
+__all__ = ["doc", "generate", "generate_blocks", "ProgressEvent", "ProgressReporter", "Stage"]

@@ -43,11 +43,17 @@ summary = stats.compute(rows)
 - `iterable`: An iterable of row dictionaries, or a file path/stream
 - `detect_dates`: Whether to detect date fields (default: False)
 - `engine`: Optional engine to use ('duckdb' for optimization)
+- `include_top_values`: When True, include `top_values` (most frequent values with counts) per field (default: False)
+- `top_n`: Number of top values to include when `include_top_values` is True (default: 10)
+- `dict_threshold`: Unique-to-total ratio at/below which a field is flagged as a dictionary (lookup) field. Defaults to the `DICT_THRESHOLD` environment variable or 0.1.
 
 **Returns:** Dictionary mapping field names to their statistics:
 - `count`: Number of non-null values
 - `null_count`: Number of null values
+- `null_fraction`: Fraction of values that are null (0..1)
 - `unique_count`: Number of unique values
+- `is_dictionary`: Whether the field behaves as a dictionary/lookup field
+- `top_values`: List of `{value, count}` (only when `include_top_values=True`)
 - `min`, `max`: Minimum and maximum values (for numeric fields)
 - `mean`, `median`, `stddev`: Statistical measures (for numeric fields)
 - `min_length`, `max_length`, `avg_length`: String length statistics (for string fields)

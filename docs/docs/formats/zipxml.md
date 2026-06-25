@@ -201,5 +201,5 @@ pip install lxml
 ## Related Formats
 
 - [XML](xml.md) - Base XML format for individual files
-- [ZIP](zip.md) - General ZIP archive format
+- ZIP compression codec (`.zip` suffix on other formats) — see [supported formats](/formats/)
 - [Parquet](parquet.md) - Columnar format for bulk data

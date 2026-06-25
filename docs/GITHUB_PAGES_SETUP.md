@@ -69,3 +69,4 @@ This requires the `GITHUB_TOKEN` environment variable to be set with appropriate
 - **Environment error**: If you see an error about the `github-pages` environment, make sure GitHub Pages is enabled in your repository settings with "GitHub Actions" as the source
 - **Build failures**: Check the GitHub Actions logs for specific error messages
 - **404 errors**: Verify the `baseUrl` in `docusaurus.config.js` matches your repository structure
+- **Build failures**: Do not place `TEMPLATE.md` with placeholder YAML under `docs/docs/`; use `docs/FORMAT_PAGE_TEMPLATE.md` instead. CI runs `npm run build` in the `docs` job.

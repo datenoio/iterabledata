@@ -240,8 +240,8 @@ convert(
 ```
 
 **Note**: Database write support (converting to databases) is planned for future releases. Currently, only database → file conversion is supported.
-)
 
+```python
 # Access metrics
 print(f"Converted {result.rows_in} rows to {result.rows_out} rows")
 print(f"Time: {result.elapsed_seconds:.2f} seconds")
@@ -445,9 +445,9 @@ Output directory path where converted files will be written. The directory will 
 #### `pattern` (str, optional)
 
 Filename pattern for output files (e.g., `'{name}.parquet'`). Supports placeholders:
-- `{name}` - Full filename with extension (e.g., `data.csv.gz`)
-- `{stem}` - Filename without any extensions (e.g., `data`)
-- `{ext}` - All extensions as one string (e.g., `csv.gz`)
+- `` `{name}` `` - Full filename with extension (e.g., `data.csv.gz`)
+- `` `{stem}` `` - Filename without any extensions (e.g., `data`)
+- `` `{ext}` `` - All extensions as one string (e.g., `csv.gz`)
 
 If `None`, uses `to_ext` or keeps original name.
 
