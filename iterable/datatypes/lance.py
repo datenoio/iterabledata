@@ -18,6 +18,29 @@ from ..types import Row
 
 DEFAULT_BATCH_SIZE = 1024
 
+# The real Lance columnar library is published as ``pylance`` but imports as
+# ``lance``. An unrelated PyPI package named ``lance`` (a codegen helper) shadows
+# it on import. Detect that the genuine API is present so we can fail fast with
+# an actionable message instead of a cryptic AttributeError at read/write time.
+_LANCE_HAS_API = HAS_LANCE and hasattr(lance, "write_dataset") and hasattr(lance, "dataset")
+
+
+def _require_lance() -> None:
+    """Ensure the genuine Lance library (``pylance``) is importable."""
+    if not HAS_LANCE:
+        raise ImportError(
+            "Lance format support requires the 'pylance' package. "
+            "Install with: pip install pylance"
+        )
+    if not _LANCE_HAS_API:
+        installed = getattr(lance, "__file__", "<unknown>")
+        raise ImportError(
+            "The imported 'lance' module is not the Lance columnar format library "
+            "(missing 'write_dataset'/'dataset'). A different PyPI package named 'lance' "
+            f"is shadowing it (loaded from: {installed}). Uninstall it and install the real "
+            "library: pip uninstall -y lance && pip install pylance"
+        )
+
 
 class LanceIterable(BaseFileIterable):
     datamode = "binary"
@@ -34,8 +57,7 @@ class LanceIterable(BaseFileIterable):
     ):
         if options is None:
             options = {}
-        if not HAS_LANCE:
-            raise ImportError("Lance format support requires 'lance' package. Install with: pip install lance")
+        _require_lance()
         self.batch_size = batch_size
         self.write_mode = write_mode  # 'create', 'overwrite', or 'append'
         self.__buffer = []

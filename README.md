@@ -51,7 +51,7 @@ This library simplifies data processing and conversion between formats while pre
 - **UBJSON** - Universal Binary JSON
 - **SMILE** - Binary JSON variant
 - **Bencode** - BitTorrent encoding format
-- **Avro** - Apache Avro binary format
+- **Avro** - Apache Avro binary format (read & write)
 - **Pickle** - Python pickle format
 
 ### Columnar & Analytics Formats

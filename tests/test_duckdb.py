@@ -534,6 +534,25 @@ class TestDuckDBRefactoredEngine:
         assert exc_info.value.format_id == "csv"
         assert "Failed to execute query" in exc_info.value.message
 
+    def test_default_table_name_from_filename(self, tmp_path):
+        """Writing without an explicit table defaults the table name from the file."""
+        from iterable.datatypes.duckdb import DuckDBDatabaseIterable, _default_table_name
+
+        assert _default_table_name("/a/b/reestrpo_final.ddb") == "reestrpo_final"
+        assert _default_table_name("/a/b/123data.duckdb") == "_123data"
+        assert _default_table_name("/a/b/weird name!.ddb") == "weird_name_"
+
+        target = tmp_path / "reestrpo_final.ddb"
+        writer = DuckDBDatabaseIterable(str(target), mode="w")
+        assert writer.table == "reestrpo_final"
+        writer.write_bulk([{"name": "A", "age": 1}, {"name": "B", "age": 2}])
+        writer.close()
+
+        reader = DuckDBDatabaseIterable(str(target), mode="r")
+        rows = list(reader)
+        reader.close()
+        assert rows == [{"name": "A", "age": 1}, {"name": "B", "age": 2}]
+
     def test_dataframe_conversion_fallback(self):
         """Test that DataFrame conversion falls back gracefully"""
         from iterable.engines import DuckDBIterable

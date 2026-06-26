@@ -193,6 +193,33 @@ def test_sqlite_query():
             os.unlink(tmp_path)
 
 
+def test_sqlite_default_table_name():
+    """Writing without an explicit table defaults the table name from the file."""
+    from iterable.datatypes.sqlite import _default_table_name
+
+    assert _default_table_name("/a/b/reestrpo_final.sqlite") == "reestrpo_final"
+    assert _default_table_name("/a/b/123data.db") == "_123data"
+    assert _default_table_name("/a/b/weird name!.sqlite") == "weird_name_"
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".sqlite") as tmp:
+        tmp_path = tmp.name
+    os.unlink(tmp_path)
+    expected_table = _default_table_name(tmp_path)
+    try:
+        writer = SQLiteIterable(tmp_path, mode="w")
+        assert writer.table == expected_table
+        writer.write_bulk([{"name": "Alice", "age": "30"}, {"name": "Bob", "age": "25"}])
+        writer.close()
+
+        reader = SQLiteIterable(tmp_path, mode="r", table=expected_table)
+        results = list(reader)
+        reader.close()
+        assert results == [{"name": "Alice", "age": "30"}, {"name": "Bob", "age": "25"}]
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
 def test_sqlite_id():
     """Test SQLite ID"""
     assert SQLiteIterable.id() == "sqlite"

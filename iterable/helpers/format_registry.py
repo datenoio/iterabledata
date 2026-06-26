@@ -182,7 +182,7 @@ def _enrich_descriptor(desc: FormatDescriptor) -> FormatDescriptor:
 
 
 _RAW_FORMAT_DESCRIPTORS: tuple[FormatDescriptor, ...] = (
-    _fmt(id="avro", module="iterable.datatypes.avro", cls="AVROIterable", writable=False),
+    _fmt(id="avro", module="iterable.datatypes.avro", cls="AVROIterable", flat=True),
     _fmt(id="bson", module="iterable.datatypes.bsonf", cls="BSONIterable"),
     _fmt(id="csv", module="iterable.datatypes.csv", cls="CSVIterable", aliases=("tsv",), text=True, flat=True),
     _fmt(id="dbf", module="iterable.datatypes.dbf", cls="DBFIterable", flat=True, writable=False),
@@ -508,7 +508,6 @@ _READONLY_MEMBERS: frozenset[str] = frozenset(
     {
         "arff",
         "atom",
-        "avro",
         "bam",
         "cdf",
         "dbf",

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import re
 import sqlite3
 import typing
 from typing import Any
@@ -7,6 +9,25 @@ from typing import Any
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
 from ..exceptions import ReadError, WriteError
 from ..types import Row
+
+
+def _default_table_name(filename: str | None) -> str:
+    """Derive a safe SQL table name from the output filename.
+
+    Used when writing to a database file without an explicit ``table`` so that
+    conversions like ``convert(... , "data.sqlite")`` work out of the box,
+    creating a table named after the file (e.g. ``data.sqlite`` -> ``data``).
+    """
+    if not filename:
+        return "data"
+    base = os.path.basename(str(filename))
+    stem = base.rsplit(".", 1)[0] if "." in base else base
+    sanitized = re.sub(r"\W", "_", stem)
+    if not sanitized:
+        return "data"
+    if sanitized[0].isdigit():
+        sanitized = "_" + sanitized
+    return sanitized
 
 
 class SQLiteIterable(BaseFileIterable):
@@ -62,6 +83,10 @@ class SQLiteIterable(BaseFileIterable):
             # Table will be created on first write if needed
             self.cursor = None
             self.keys = None
+            # Default the table name from the filename so generic conversions
+            # (which don't supply a table) work without extra configuration.
+            if self.table is None:
+                self.table = _default_table_name(self.filename)
         else:
             # Read mode
             if self.query:

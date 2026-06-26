@@ -68,18 +68,45 @@ class ORCIterable(BaseFileIterable):
         if self.mode == "r":
             self.reader = pyorc.Reader(self.fobj, struct_repr=pyorc.StructRepr.DICT)
         self.writer = None
+        # When writing without an explicit schema or field list, defer writer
+        # creation until the first record is written and infer the field names
+        # from it. This mirrors columnar writers (e.g. Parquet) that derive the
+        # schema from the data and avoids requiring callers to pass ``keys``.
+        self._writer_pending = False
         if self.mode == "w":
-            if self.schema is not None:
-                struct_schema = self.schema
+            if self.schema is not None or self.keys is not None:
+                self._create_writer()
             else:
-                struct_schema = fields_to_pyorc_schema(self.keys)
-            self.writer = pyorc.Writer(
-                self.fobj,
-                "struct<{}>".format(",".join(struct_schema)),
-                struct_repr=pyorc.StructRepr.DICT,
-                compression=self.compression,
-                compression_strategy=1,
-            )
+                self._writer_pending = True
+
+    def _create_writer(self) -> None:
+        """Create the underlying pyorc writer from the configured schema/keys.
+
+        When the field list is used (the common/inferred case), the schema is
+        built programmatically via :class:`pyorc.Struct` instead of a
+        ``struct<...>`` string. Building from a string is fragile because pyorc
+        rejects field names that contain spaces, commas, colons, are empty, or
+        contain non-ASCII characters. ``pyorc.Struct(**fields)`` accepts any
+        field name and therefore handles real-world headers safely.
+        """
+        if self.schema is not None:
+            schema = "struct<{}>".format(",".join(self.schema))
+        else:
+            schema = pyorc.Struct(**{str(field): pyorc.String() for field in self.keys})
+        self.writer = pyorc.Writer(
+            self.fobj,
+            schema,
+            struct_repr=pyorc.StructRepr.DICT,
+            compression=self.compression,
+            compression_strategy=1,
+        )
+        self._writer_pending = False
+
+    def _ensure_writer(self, record: Row) -> None:
+        """Lazily create the writer, inferring field names from the first record."""
+        if self._writer_pending:
+            self.keys = list(record.keys())
+            self._create_writer()
 
     @staticmethod
     def id() -> str:
@@ -130,8 +157,12 @@ class ORCIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single record"""
+        self._ensure_writer(record)
         self.writer.write(record)
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk records"""
+        if not records:
+            return
+        self._ensure_writer(records[0])
         self.writer.writerows(records)
