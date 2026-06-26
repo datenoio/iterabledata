@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.14] - 2026-06-26
+
+### Added
+- **Avro write support**: `AVROIterable` is now writable (previously read-only). Adds `write()`, `write_bulk()`, and `read_bulk()`, with lazy schema inference from the first record when no explicit `schema`/`keys` are supplied (mirroring the ORC writer). Values are coerced to an all-nullable-string schema (`["null", "string"]`) so heterogeneous and missing values round-trip, field names are validated against Avro naming rules with an actionable error, and the Avro codec is configurable via `compression`/`codec` (defaulting to the dependency-free `deflate`). New `fields_to_avro_schema()` helper. The `avro` format descriptor is now marked writable in `format_registry.py`. See `tests/test_avro.py`.
+
+### Changed
+- **ORC robust schema inference**: The ORC writer now defers writer creation until the first record and infers field names from it when no `schema`/`keys` are given. Inferred schemas are built via `pyorc.Struct(**fields)` instead of a `struct<...>` string, so columns whose names contain spaces, commas, colons, or non-ASCII characters are written correctly. `write_bulk([])` is a no-op. See `tests/test_orc.py`.
+- **DuckDB/SQLite default table naming**: When writing to a `.ddb`/`.duckdb` or `.sqlite`/`.db` file without an explicit `table`, the target table name is now derived (and SQL-sanitized) from the output filename. Generic conversions such as `convert(src, "data.ddb")` / `convert(src, "data.sqlite")` work without extra configuration. See `tests/test_duckdb.py` and `tests/test_sqlite.py`.
+- **Lance import diagnostics**: Lance read/write now fails fast with an actionable error (`_require_lance()`) when the genuine `pylance` library is missing or when the unrelated PyPI package named `lance` shadows it on import, instead of surfacing a cryptic `AttributeError` later.
+
 ## [1.0.13] - 2026-06-25
 
 ### Added
