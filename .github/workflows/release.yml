@@ -36,7 +36,7 @@ jobs:
           echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
         else
           # Fallback for workflow_dispatch
-          VERSION=$(python -c "import iterable; print(iterable.__version__)")
+          VERSION=$(python -c "import ast, pathlib; tree = ast.parse(pathlib.Path('iterable/__init__.py').read_text()); print(next(node.value.value for node in tree.body if isinstance(node, ast.Assign) and any(getattr(target, 'id', None) == '__version__' for target in node.targets)))")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
         fi
@@ -45,7 +45,7 @@ jobs:
     
     - name: Verify version matches tag
       run: |
-        PYTHON_VERSION=$(python -c "import iterable; print(iterable.__version__)")
+        PYTHON_VERSION=$(python -c "import ast, pathlib; tree = ast.parse(pathlib.Path('iterable/__init__.py').read_text()); print(next(node.value.value for node in tree.body if isinstance(node, ast.Assign) and any(getattr(target, 'id', None) == '__version__' for target in node.targets)))")
         EXPECTED_VERSION="${{ steps.tag_version.outputs.version }}"
         if [ "$PYTHON_VERSION" != "$EXPECTED_VERSION" ]; then
           echo "ERROR: Version mismatch!"
