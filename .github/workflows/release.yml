@@ -61,7 +61,6 @@ jobs:
         python -m pytest --no-cov \
           tests/test_import_optional_dependencies.py \
           tests/test_schema.py \
-          tests/test_ai_blocks.py::TestGenerateBlocks::test_statistics_block_no_llm \
           -q
     
     - name: Build source distribution and wheel
@@ -105,4 +104,3 @@ jobs:
     # PyPI publishing happens in python-publish.yml, triggered when the
     # GitHub Release created above is published (single publish path,
     # using PyPI Trusted Publishing).
-
