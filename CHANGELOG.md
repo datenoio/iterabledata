@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.15] - 2026-07-04
+
+### Fixed
+- **Bare install importability**: `import iterable` no longer requires optional `bson` or `pydantic` dependencies. BSON schema type handling is now optional, and AI block Pydantic models are loaded only when structured AI block output is used. Fixes [#13](https://github.com/datenoio/iterabledata/issues/13).
+
 ## [1.0.14] - 2026-06-26
 
 ### Added

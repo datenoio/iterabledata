@@ -1,8 +1,14 @@
 import datetime
 import logging
 from copy import copy
+from typing import Any
 
-import bson
+try:
+    from bson.int64 import Int64 as BSONInt64
+    from bson.objectid import ObjectId as BSONObjectId
+except ImportError:
+    BSONInt64 = None
+    BSONObjectId = None
 
 from .utils import get_dict_value_deep
 
@@ -14,10 +20,24 @@ OTYPES_MAP = [
     [bool, "boolean"],
     [float, "float"],
     [str, "string"],
-    [bson.int64.Int64, "integer"],
-    [bson.objectid.ObjectId, "string"],
     [type([]), "array"],
 ]
+
+if BSONInt64 is not None and BSONObjectId is not None:
+    OTYPES_MAP.extend(
+        [
+            [BSONInt64, "integer"],
+            [BSONObjectId, "string"],
+        ]
+    )
+
+
+def _bson_type_name(value: Any) -> str | None:
+    if BSONInt64 is not None and isinstance(value, BSONInt64):
+        return "integer"
+    if BSONObjectId is not None and isinstance(value, BSONObjectId):
+        return "string"
+    return None
 
 
 def merge_schemes(alist, novalue=True):
@@ -77,10 +97,8 @@ def get_schema(obj: dict, novalue=True):
             result[k] = {"type": "float", "value": 1}
         elif isinstance(obj[k], int):
             result[k] = {"type": "integer", "value": 1}
-        elif isinstance(obj[k], bson.int64.Int64):
-            result[k] = {"type": "integer", "value": 1}
-        elif isinstance(obj[k], bson.objectid.ObjectId):
-            result[k] = {"type": "string", "value": 1}
+        elif (bson_type := _bson_type_name(obj[k])) is not None:
+            result[k] = {"type": bson_type, "value": 1}
         elif isinstance(obj[k], dict):
             result[k] = {"type": "dict", "value": 1, "schema": get_schema(obj[k])}
         elif isinstance(obj[k], list):

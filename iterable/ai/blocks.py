@@ -17,7 +17,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import models
 from .providers import LLMProvider
 
 logger = logging.getLogger("iterable.ai.blocks")
@@ -356,6 +355,13 @@ def _structured(ctx: BlockContext, prompt: str, block_name: str) -> dict[str, An
     """Run a structured-output request for a block and validate it."""
     if ctx.provider is None:
         return {}
+    try:
+        from . import models
+    except ImportError as exc:
+        raise ImportError(
+            "Pydantic is required for AI block structured output. Install it with: pip install iterabledata[pydantic]"
+        ) from exc
+
     schema = models.block_json_schema(block_name)
     if schema is None:
         return {}
