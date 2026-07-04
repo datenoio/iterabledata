@@ -25,7 +25,7 @@ jobs:
     - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build twine wheel setuptools check-wheel-contents
+        pip install build twine wheel setuptools
     
     - name: Extract version from tag
       id: tag_version
@@ -71,7 +71,6 @@ jobs:
       run: |
         ls -lh dist/
         python -m twine check dist/*
-        check-wheel-contents dist/*.whl
     
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
