@@ -3,6 +3,12 @@ name: Upload Python Package
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Git tag to publish (e.g. v1.0.16)
+        required: true
+        default: v1.0.16
 
 permissions:
   contents: read
@@ -10,28 +16,49 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: release
     permissions:
-      id-token: write  # IMPORTANT: mandatory for trusted publishing
+      id-token: write
 
     steps:
     - uses: actions/checkout@v4
-    
+      with:
+        ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.x'
-        
+        python-version: "3.x"
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build
-        
+        pip install build twine
+
+    - name: Verify package version matches tag
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          TAG="${{ inputs.tag }}"
+        else
+          TAG="${GITHUB_REF#refs/tags/}"
+        fi
+        VERSION="${TAG#v}"
+        PYTHON_VERSION=$(python -c "import ast, pathlib; tree = ast.parse(pathlib.Path('iterable/__init__.py').read_text()); print(next(node.value.value for node in tree.body if isinstance(node, ast.Assign) and any(getattr(target, 'id', None) == '__version__' for target in node.targets)))")
+        if [ "$PYTHON_VERSION" != "$VERSION" ]; then
+          echo "ERROR: package version $PYTHON_VERSION != tag version $VERSION"
+          exit 1
+        fi
+        echo "Version verification passed: $PYTHON_VERSION"
+
     - name: Build package
       run: python -m build
-      
+
+    - name: Check distribution files
+      run: python -m twine check dist/*
+
     - name: Publish package
-      # Uses PyPI Trusted Publishing (OIDC via id-token permission above).
-      # Configure the publisher for this repo/workflow at:
-      # https://pypi.org/manage/project/iterabledata/settings/publishing/
+      # Token auth: trusted publishing (OIDC) is not configured on PyPI yet.
+      # Configure at https://pypi.org/manage/project/iterabledata/settings/publishing/
+      # then remove the password line to switch back to OIDC-only.
       uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}

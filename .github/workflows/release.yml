@@ -71,7 +71,12 @@ jobs:
       run: |
         ls -lh dist/
         python -m twine check dist/*
-    
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}
+
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
@@ -100,6 +105,5 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    # PyPI publishing happens in python-publish.yml, triggered when the
-    # GitHub Release created above is published (single publish path,
-    # using PyPI Trusted Publishing).
+    # PyPI publish runs in this workflow (same run as the tag push) because
+    # releases created via GITHUB_TOKEN do not trigger other workflows.
