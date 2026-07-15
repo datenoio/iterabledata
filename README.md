@@ -23,7 +23,10 @@ This library simplifies data processing and conversion between formats while pre
 - **Atomic Writes**: Production-safe file writing with temporary files and atomic renames
 - **Bulk File Conversion**: Convert multiple files at once using glob patterns or directories
 - **Progress Tracking and Metrics**: Built-in progress bars, callbacks, and structured metrics objects
-- **Error Handling Controls**: Configurable error policies and structured error logging
+- **Error Handling Controls**: Configurable error policies and structured error logging; malformed input raises typed errors by default instead of reading as empty datasets
+- **Security Hardening**: XXE-safe XML parsing, AST-whitelisted filter expressions, and explicit pickle trust acknowledgement
+- **Performance Regression Gate**: CI-enforced baselines for representative read/convert workloads
+- **Container Formats**: Stream records from TAR archives without extracting members to disk
 - **Type Hints and Type Safety**: Complete type annotations with typed helper functions for dataclasses and Pydantic models
 
 ## Supported File Types
@@ -52,7 +55,7 @@ This library simplifies data processing and conversion between formats while pre
 - **SMILE** - Binary JSON variant
 - **Bencode** - BitTorrent encoding format
 - **Avro** - Apache Avro binary format (read & write)
-- **Pickle** - Python pickle format
+- **Pickle** - Python pickle format (untrusted input is unsafe; pass `trust=True` to acknowledge)
 
 ### Columnar & Analytics Formats
 
@@ -91,6 +94,7 @@ This library simplifies data processing and conversion between formats while pre
 ### Geospatial Formats
 
 - **GeoJSON** - Geographic JSON format
+- **GeoJSON Text Sequence** - RFC 8142 line-delimited GeoJSON Features (`.geojsonl`, `.geojsons`); streaming-friendly
 - **GeoPackage** - OGC GeoPackage format
 - **GML** - Geography Markup Language
 - **KML** - Keyhole Markup Language
@@ -167,6 +171,7 @@ This library simplifies data processing and conversion between formats while pre
 - **FASTQ** - Sequence with quality format
 - **SAM** - Sequence Alignment/Map (text)
 - **BAM** - Binary SAM format
+- **Genomic VCF/BCF** - Variant Call Format for genomic data (distinct from vCard `.vcf`; requires `bio` extra)
 
 ### Streaming & Big Data Formats
 
@@ -190,7 +195,8 @@ This library simplifies data processing and conversion between formats while pre
 
 ### Other Formats
 
-- **VCF** - Variant Call Format (genomics)
+- **TAR** - Multi-file archive container (read-only; streams members without extracting to disk)
+- **vCard (VCF)** - Electronic business cards (RFC 6350); not genomic Variant Call Format
 - **iCal** - iCalendar format
 - **LDIF** - LDAP Data Interchange Format
 - **TXT** - Plain text files
@@ -204,10 +210,9 @@ This library simplifies data processing and conversion between formats while pre
 - **ZIP** (.zip)
 - **Brotli** (.br)
 - **ZStandard** (.zst, .zstd)
-- **Snappy** (.snappy, .sz)
-- **LZO** (.lzo, .lzop)
-- **SZIP** (.sz)
-- **7z** (.7z)
+- **Snappy** (.snappy, .sz) — streaming decompression for framed files
+- **LZO** (.lzo, .lzop) — streaming decompression with legacy blob fallback
+- **7z** (.7z; requires `py7zr` via `iterabledata[compression]`)
 
 ## Requirements
 
@@ -250,6 +255,20 @@ pip install iterabledata[graph]
 # Alignment formats (BAM, SAM)
 pip install iterabledata[alignment]
 
+# Genomic formats (VCF/BCF via pysam)
+pip install iterabledata[bio]
+
+# Lakehouse table formats (Delta Lake, Apache Iceberg, Lance, Apache Hudi)
+pip install iterabledata[lakehouse]
+
+# Individual format extras (one per format family), for example:
+pip install iterabledata[avro]     # Apache Avro
+pip install iterabledata[npy]      # NumPy .npy/.npz
+pip install iterabledata[ods]      # OpenDocument spreadsheets
+pip install iterabledata[rdata]    # R RData/RDS
+pip install iterabledata[ics]      # iCalendar
+# Also available: ubj, vcf, capnp, thrift, fbs, edn, hocon, der, bencode, ldif
+
 # All optional dependencies
 pip install iterabledata[all]
 ```
@@ -260,6 +279,8 @@ pip install iterabledata[all]
 
 - `[db-sql]`: SQL databases only (PostgreSQL, ClickHouse, MySQL, MSSQL)
 - `[db-nosql]`: NoSQL databases only (MongoDB, Elasticsearch)
+
+**Genomic formats** (`[bio]`): Enables genomic VCF/BCF reading via `pysam`.
 
 See the [API documentation](https://datenoio.github.io/iterabledata/) for details on these features.
 
@@ -402,6 +423,21 @@ xlsx_file = open_iterable('data.xlsx')
 for row in xlsx_file:
     print(row)
 xlsx_file.close()
+
+# Read GeoJSON Text Sequence (streaming, one feature per line)
+with open_iterable('features.geojsonl') as source:
+    for feature in source:
+        print(feature['properties'], feature['geometry'])
+
+# Stream records from a TAR archive (members detected by filename)
+with open_iterable('dataset.tar.gz', iterableargs={'members': '*.csv'}) as source:
+    for row in source:
+        print(row['_member'], row)
+
+# Read genomic VCF (requires pip install iterabledata[bio])
+with open_iterable('variants.vcf') as source:
+    for variant in source:
+        print(variant['chrom'], variant['pos'], variant['ref'], variant['alt'])
 ```
 
 ### Reading from Databases
@@ -503,7 +539,9 @@ from iterable.exceptions import (
     FormatDetectionError,
     FormatNotSupportedError,
     FormatParseError,
-    CodecError
+    ReadError,
+    CodecError,
+    IterableDataError,
 )
 
 # Basic exception handling
@@ -521,6 +559,10 @@ except FormatParseError as e:
     print(f"Failed to parse {e.format_id} format")
     if e.position:
         print(f"Error at position: {e.position}")
+except ReadError as e:
+    print(f"Read failed: {e}")
+except IterableDataError as e:
+    print(f"Library error: {e}")
 except CodecError as e:
     print(f"Compression error with {e.codec_name}: {e.message}")
     # Check file integrity or try different codec
@@ -550,6 +592,16 @@ with open_iterable(
 # Default: raise exceptions immediately (existing behavior)
 with open_iterable('data.csv', iterableargs={'on_error': 'raise'}) as src:
     for row in src:
+        process(row)
+```
+
+**No silent empty reads**: Under the default policy (`on_error='raise'`), a malformed non-empty file raises `FormatParseError` rather than yielding zero records. Use `on_error='skip'` or `'warn'` to tolerate bad records explicitly.
+
+**Pickle safety**: Unpickling executes arbitrary code. Reading pickle files emits a warning unless you pass `trust=True`:
+
+```python
+with open_iterable('data.pickle', iterableargs={'trust': True}) as source:
+    for row in source:
         process(row)
 ```
 
@@ -1260,6 +1312,20 @@ See the [examples](examples/) directory for more complete examples:
 
 See the [tests](tests/) directory for comprehensive usage examples and test cases.
 
+**Contributors**: run the full suite with `pytest --verbose`. The performance regression gate is opt-in:
+
+```bash
+pytest tests/test_performance_regression.py -m performance --no-cov
+```
+
+Regenerate baselines intentionally after legitimate performance changes:
+
+```bash
+pytest tests/test_performance_regression.py -m performance --no-cov --update-baselines
+```
+
+See [AGENTS.md](AGENTS.md) for development conventions.
+
 ## AI Integration Guides
 
 IterableData can be integrated with AI platforms and frameworks for intelligent data processing:
@@ -1304,50 +1370,15 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
-### Version 1.0.11 (2026-01-25)
+### Version 1.0.16 (2026-07-15)
 
-- **Atomic Writes**: Production-safe file writing with temporary files and atomic renames
-- **Bulk File Conversion**: Convert multiple files at once using glob patterns, directories, or file lists
-- **Observability Features**: Progress tracking, metrics objects, and progress bars for conversions and pipelines
-- **Cloud Storage Support**: Direct access to S3, GCS, and Azure Blob Storage via URI schemes
-- **DuckDB Engine Pushdown Optimizations**: Column projection, filter pushdown, and direct SQL query support
-- **Error Handling Controls**: Configurable error policies (`on_error`) and structured error logging (`error_log`)
-- **Type Hints and Typed Helpers**: Complete type annotations with `as_dataclasses()` and `as_pydantic()` helper functions
-- **Vortex Format Support**: Added support for reading and writing Vortex columnar data files
+- **New formats**: GeoJSON Text Sequence (`geojsonseq`), TAR container (`tar`), genomic VCF/BCF (`genomic_vcf`, `bio` extra)
+- **Security**: XXE-safe XML parsing, AST-whitelisted filter expressions, pickle `trust=True` acknowledgement
+- **Streaming**: Snappy/LZO streaming codecs; lazy/batch readers for Shapefile, Arrow, Lance, Delta, Iceberg
+- **Error policy**: Malformed input raises typed errors by default; `open_iterable()` surfaces `IterableDataError` subclasses
+- **Quality**: Performance regression gate in CI; refactored core entry points; expanded test resilience
 
-### Version 1.0.11 (2026-01-25)
+### Version 1.0.15 (2026-07-04)
 
-- **Enhanced Format Detection**: Added content-based format detection using magic numbers and heuristics for files without extensions, streams, and files with incorrect extensions
-- **Exception Hierarchy**: Added comprehensive exception hierarchy (`IterableDataError`, `FormatError`, `CodecError`, etc.) for better error handling
-- **Format Capability Reporting**: Added programmatic API to query format capabilities (`get_format_capabilities()`, `list_all_capabilities()`, `get_capability()`)
-- **Table Listing Support**: Added `list_tables()` and `has_tables()` methods for discovering tables, sheets, and datasets in multi-table formats
-
-### Version 1.0.8 (2026-01-05)
-
-- **AI Integration Guides**: Added comprehensive guides for LangChain, CrewAI, AutoGen, and Google Gemini AI
-- **Documentation**: Added capability matrix and enhanced API documentation
-- **Development Tools**: Added benchmarking and utility scripts
-- **Code Improvements**: Enhanced format detection, codecs, and data type handlers
-- **Examples**: Added ZIP XML processing example
-
-### Version 1.0.7 (2024-12-15)
-
-- **Major Format Expansion**: Added support for 50+ new data formats across multiple categories
-- **Enhanced Compression**: Added LZO, Snappy, and SZIP codec support
-- **CI/CD**: Added GitHub Actions workflows for automated testing and deployment
-- **Documentation**: Complete documentation site with Docusaurus
-- **Testing**: Comprehensive test suite for all formats
-
-### Version 1.0.6
-
-- Comprehensive documentation enhancements
-- GitHub Actions release workflow
-- Improved examples and use cases
-
-### Version 1.0.5
-
-- DuckDB engine support
-- Enhanced format detection
-- Pipeline processing framework
-- Bulk operations support
+- **Bare install importability**: `import iterable` no longer requires optional BSON or Pydantic dependencies
 

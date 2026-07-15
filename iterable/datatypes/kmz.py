@@ -11,10 +11,11 @@ from ..base import BaseFileIterable
 from ..types import Row
 
 try:
-    import lxml.etree as etree
+    import lxml.etree as etree  # noqa: F401 - dependency availability probe
 except ImportError as e:
     raise ImportError("KMZ support requires lxml. Install with: pip install iterabledata[xml]") from e
 
+from ..helpers.xmlsec import safe_parse
 from .kml import kml_to_geojson
 
 
@@ -102,7 +103,7 @@ class KMZIterable(BaseFileIterable):
             return
 
         buf = io.BytesIO(kml_bytes)
-        tree = etree.parse(buf)
+        tree = safe_parse(buf)
         root = tree.getroot()
         ns = {"kml": "http://www.opengis.net/kml/2.2"}
         placemarks = root.findall(".//kml:Placemark", ns)

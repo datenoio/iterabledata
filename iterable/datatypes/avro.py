@@ -120,6 +120,10 @@ class AVROIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return True
 
+    def is_streaming(self) -> bool:
+        """Records are decoded incrementally; the file is not fully loaded."""
+        return True
+
     def close(self):
         """Close iterable"""
         if self.writer is not None:

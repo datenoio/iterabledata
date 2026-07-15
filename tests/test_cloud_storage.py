@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from iterable.exceptions import ReadError
 from iterable.helpers.detect import open_iterable
 
 
@@ -337,5 +338,5 @@ class TestCloudStorageErrorHandling:
             return real_import(name, *args, **kwargs)
 
         with patch("builtins.__import__", side_effect=mock_import):
-            with pytest.raises(RuntimeError, match="Authentication failed"):
+            with pytest.raises(ReadError, match="Authentication failed"):
                 open_iterable("s3://bucket/data.csv")

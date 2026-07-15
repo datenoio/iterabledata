@@ -1,0 +1,13 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total Depth">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+##contig=<ID=1,length=249250621>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
+1	14370	rs6054257	G	A	29.0	PASS	DP=14;AF=0.5	GT:DP	0|0:13
+1	17330	.	T	A	3.0	PASS	DP=11;AF=0.017	GT:DP	0|0:10
+1	1110696	rs6040355	A	G	67.0	PASS	DP=10;AF=0.333	GT:DP	1|2:8
+1	1230237	.	T	.	47.0	PASS	DP=13	GT:DP	0|0:12
+1	1234567	microsat1	GTC	G	50.0	PASS	DP=9	GT:DP	0|1:6

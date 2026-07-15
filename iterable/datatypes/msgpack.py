@@ -51,6 +51,10 @@ class MessagePackIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return False
 
+    def is_streaming(self) -> bool:
+        """Records are decoded incrementally; the file is not fully loaded."""
+        return True
+
     def read(self, skip_empty: bool = True) -> dict:
         """Read single MessagePack record"""
         try:

@@ -33,7 +33,7 @@ class SZipCodec(BaseCodec):
     def open(self):
         if not HAS_PY7ZR or py7zr is None:
             raise ImportError(
-                "7z/SZip support requires py7zr. Install with: pip install iterabledata[szip] or pip install py7zr"
+                "7z support requires py7zr. Install with: pip install iterabledata[compression] or pip install py7zr"
             )
         self._archiveobj = py7zr.SevenZipFile(self.filename, mode=self.mode)
         fnames = self._archiveobj.getnames()

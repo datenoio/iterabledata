@@ -3,8 +3,10 @@ import io
 import pytest
 from fixdata import FIXTURES
 
-from iterable.datatypes import DBFIterable
-from iterable.exceptions import ReadError
+pytest.importorskip("dbfread", reason="dbfread is required for DBF support")
+
+from iterable.datatypes import DBFIterable  # noqa: E402
+from iterable.exceptions import ReadError  # noqa: E402
 
 
 class TestDBF:

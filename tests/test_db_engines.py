@@ -666,6 +666,7 @@ class TestConvertIntegration:
     @pytest.mark.skipif(ClickHouseDriver is None, reason="clickhouse-connect not installed")
     def test_convert_from_clickhouse_to_parquet(self):
         """Test convert() from ClickHouse source to Parquet."""
+        pytest.importorskip("pyarrow", reason="pyarrow is required for Parquet support")
         with patch("iterable.helpers.detect.get_driver") as mock_get_driver:
             with patch("iterable.helpers.detect.ClickHouseDriver") as mock_clickhouse_driver_class:
                 mock_driver = MagicMock()

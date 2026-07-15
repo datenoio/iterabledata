@@ -24,6 +24,12 @@ from ..types import Row
 
 
 class TOMLIterable(BaseFileIterable):
+    """TOML documents reader/writer.
+
+    Memory behavior: the whole file is parsed and materialized in memory on
+    open; this format does not stream records incrementally.
+    """
+
     def __init__(
         self,
         filename: str | None = None,
@@ -85,6 +91,10 @@ class TOMLIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return False
 
+    def is_streaming(self) -> bool:
+        """Memory behavior: the whole file/table is materialized on open."""
+        return False
+
     def read(self, skip_empty: bool = True) -> dict:
         """Read single TOML record"""
         row = next(self.iterator)
@@ -123,10 +133,22 @@ class TOMLIterable(BaseFileIterable):
         )
 
     def write_bulk(self, records: list[Row]) -> None:
-        """Write bulk TOML records"""
-        # Convert records to TOML format
+        """Write bulk TOML records.
+
+        TOML has no top-level array, so records are written as arrays of
+        tables (``[[table]]`` blocks). The ``_table`` key that ``read()``
+        attaches selects the table name; records without it are written under
+        ``item``, matching the reader's array-of-tables convention. Repeated
+        ``[[table]]`` blocks across multiple calls legally append to the same
+        array, so incremental writes stay valid TOML.
+        """
+        grouped: dict[str, list[dict]] = {}
+        for record in records:
+            item = dict(record)
+            table = str(item.pop("_table", "item"))
+            grouped.setdefault(table, []).append(item)
         if HAS_TOMLI:
-            toml_str = tomli_w.dumps(records)
+            toml_str = tomli_w.dumps(grouped)
         else:
-            toml_str = toml.dumps(records)
+            toml_str = toml.dumps(grouped)
         self.fobj.write(toml_str)

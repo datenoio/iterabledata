@@ -5,6 +5,7 @@ import typing
 try:
     import pyarrow
     import pyarrow.feather
+    import pyarrow.ipc
 
     HAS_PYARROW = True
 except ImportError:
@@ -19,6 +20,14 @@ DEFAULT_BATCH_SIZE = 1024
 
 
 class ArrowIterable(BaseFileIterable):
+    """Apache Arrow/Feather reader.
+
+    Memory behavior: Arrow IPC / Feather v2 files are read batch by batch via
+    ``pyarrow.ipc.open_file`` (record batches are loaded on demand, not the
+    whole table). Legacy Feather v1 files have no batch reader and fall back
+    to a full ``read_table()`` load.
+    """
+
     datamode = "binary"
 
     def __init__(
@@ -46,16 +55,32 @@ class ArrowIterable(BaseFileIterable):
         super().reset()
         self.pos = 0
         self.reader = None
+        self.table = None
+        self._ipc_reader = None
         if self.mode == "r":
-            self.table = pyarrow.feather.read_table(self.fobj)
+            try:
+                # Arrow IPC / Feather v2: batches are loaded lazily on demand.
+                self._ipc_reader = pyarrow.ipc.open_file(self.fobj)
+            except pyarrow.lib.ArrowInvalid:
+                # Legacy Feather v1 has no batch reader; full load is the
+                # only option the library offers.
+                self.fobj.seek(0)
+                self.table = pyarrow.feather.read_table(self.fobj)
             self.iterator = self.__iterator()
-            # Initialize batch iterator for optimized bulk reads (ensure iterator, not list)
-            batches = self.table.to_batches(max_chunksize=self.batch_size)
-            self._batch_iterator = iter(batches) if not hasattr(batches, "__next__") else batches
+            # Independent batch iterator for optimized bulk reads
+            self._batch_iterator = self._batches()
             self._cached_batch = []  # Cache for remaining rows from a batch
         self.writer = None
         if self.mode == "w":
             self.writer = None  # Will be created on first write
+
+    def _batches(self):
+        """Yield record batches lazily (IPC path) or from the loaded table."""
+        if self._ipc_reader is not None:
+            for i in range(self._ipc_reader.num_record_batches):
+                yield self._ipc_reader.get_batch(i)
+        else:
+            yield from self.table.to_batches(max_chunksize=self.batch_size)
 
     @staticmethod
     def id() -> str:
@@ -65,6 +90,10 @@ class ArrowIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return True
 
+    def is_streaming(self) -> bool:
+        """Streams batch by batch for Arrow IPC files; Feather v1 is full-load."""
+        return self._ipc_reader is not None
+
     @staticmethod
     def has_totals() -> bool:
         """Has totals indicator"""
@@ -73,6 +102,9 @@ class ArrowIterable(BaseFileIterable):
     def totals(self):
         """Returns file totals"""
         if self.mode == "r":
+            if self._ipc_reader is not None:
+                reader = self._ipc_reader
+                return sum(reader.get_batch(i).num_rows for i in range(reader.num_record_batches))
             return len(self.table)
         return 0
 
@@ -80,10 +112,10 @@ class ArrowIterable(BaseFileIterable):
         """Flush all data"""
         if len(self.__buffer) > 0:
             batch = pyarrow.RecordBatch.from_pylist(self.__buffer)
-            table = pyarrow.Table.from_batches([batch])
-            # For writing, we need to write to the file object
-            # Feather format requires a file path or file-like object
-            pyarrow.feather.write_feather(table, self.fobj)
+            # Arrow IPC file format (= Feather v2); replaces the deprecated
+            # pyarrow.feather.write_feather and is batch-readable on reread.
+            with pyarrow.ipc.new_file(self.fobj, batch.schema) as writer:
+                writer.write_batch(batch)
             self.__buffer = []
 
     def close(self):
@@ -94,7 +126,7 @@ class ArrowIterable(BaseFileIterable):
 
     def __iterator(self):
         """Iterator for reading records"""
-        for batch in self.table.to_batches(max_chunksize=self.batch_size):
+        for batch in self._batches():
             yield from batch.to_pylist()
 
     def read(self, skip_empty: bool = True) -> dict:

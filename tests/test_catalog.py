@@ -28,6 +28,11 @@ class TestDescribeFormat:
         assert info["description"] is not None
         assert "csv.md" in (info["doc_url"] or "")
 
+    def test_all_formats_have_descriptions(self):
+        for fmt_id in list_formats():
+            info = describe_format(fmt_id, include_capabilities=False)
+            assert info["description"], f"Missing description for {fmt_id!r}"
+
     def test_describe_by_alias(self):
         info = describe_format("tsv", include_capabilities=False)
         assert info["id"] == "csv"
@@ -40,6 +45,12 @@ class TestDescribeFormat:
     def test_describe_unknown_raises(self):
         with pytest.raises(ValueError, match="Unknown format"):
             describe_format("not-a-real-format")
+
+    def test_partial_formats_have_limitations(self):
+        partial_ids = ("fbs", "hudi", "lance", "capnp", "thrift", "iceberg", "delta")
+        for fmt_id in partial_ids:
+            info = describe_format(fmt_id, include_capabilities=False)
+            assert info["limitations"], f"Expected limitations for {fmt_id!r}"
 
 
 class TestExportCatalog:

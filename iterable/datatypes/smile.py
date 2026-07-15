@@ -34,36 +34,31 @@ class SMILEIterable(BaseFileIterable):
         self.reset()
         pass
 
+    _UNPARSED = object()
+
     def reset(self):
         """Reset iterable"""
         super().reset()
         self.pos = 0
         if self.mode == "r":
-            # SMILE format can contain multiple documents
             content = self.fobj.read()
-            try:
-                # Try to decode as single document
-                data = smile.loads(content)
-                if isinstance(data, list):
-                    self.items = data
-                elif isinstance(data, dict):
-                    self.items = [data]
-                else:
-                    self.items = [{"value": data}]
-            except Exception:
-                # If single document fails, try to parse as array
-                # SMILE format supports multiple documents concatenated
-                self.items = []
+            self.items = []
+            if content:
+                data = self._UNPARSED
                 try:
-                    # Try parsing as JSON array first (SMILE is binary JSON)
                     data = smile.loads(content)
+                except Exception as e:
+                    # Under on_error="raise" (default) this raises
+                    # FormatParseError; "skip"/"warn" tolerate the failure
+                    # and yield zero records explicitly.
+                    self._handle_parse_failure("Failed to decode SMILE content", e)
+                if data is not self._UNPARSED:
                     if isinstance(data, list):
                         self.items = data
+                    elif isinstance(data, dict):
+                        self.items = [data]
                     else:
                         self.items = [{"value": data}]
-                except Exception:
-                    # If all parsing fails, create empty list
-                    self.items = []
 
             self.iterator = iter(self.items)
         else:

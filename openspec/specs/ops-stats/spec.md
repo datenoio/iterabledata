@@ -4,7 +4,10 @@
 TBD - created by archiving change add-high-level-operations. Update Purpose after archive.
 ## Requirements
 ### Requirement: Comprehensive Statistics Computation
-The system SHALL provide a function to compute comprehensive statistics for all fields in an iterable dataset, with optional DuckDB engine support for performance.
+The system SHALL provide a function to compute comprehensive statistics for all fields in an
+iterable dataset, with optional DuckDB engine support for performance, and SHALL optionally
+report the null fraction, the most frequent values, and whether a field behaves as a
+dictionary (lookup) field.
 
 #### Scenario: Compute statistics with DuckDB
 - **WHEN** `stats.compute()` is called on a CSV, JSONL, or JSON file with DuckDB engine available
@@ -23,6 +26,15 @@ The system SHALL provide a function to compute comprehensive statistics for all 
 - **THEN** the function attempts to detect date fields
 - **AND** date fields receive appropriate statistics (min, max, range)
 - **AND** date parsing errors are handled gracefully
+
+#### Scenario: Null fraction reporting
+- **WHEN** `stats.compute()` is called
+- **THEN** each field's statistics include a `null_fraction` between 0 and 1
+
+#### Scenario: Top values and dictionary detection
+- **WHEN** `stats.compute()` is called with `include_top_values=True`
+- **THEN** each field's statistics include `top_values` with the most frequent values and their counts
+- **AND** each field is flagged with `is_dictionary` based on the unique-to-total ratio compared to `dict_threshold`
 
 ### Requirement: Value Frequency Analysis
 The system SHALL provide a function to compute frequency distributions for specified fields.

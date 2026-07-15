@@ -48,7 +48,8 @@ class XLSXIterable(BaseFileIterable):
 
     def reset(self):
         super().reset()
-        self.workbook = load_workbook(self.filename)
+        # read_only avoids loading the whole workbook into memory.
+        self.workbook = load_workbook(self.filename, read_only=True)
         self.sheet = self.workbook[self.workbook.sheetnames[self.page]]
         self.pos = self.start_line
         self.cursor = self.sheet.iter_rows()
@@ -145,3 +146,10 @@ class XLSXIterable(BaseFileIterable):
             chunk.append(result)
             self.pos += 1
         return chunk
+
+    def close(self):
+        """Close the read-only workbook and the underlying file."""
+        if getattr(self, "workbook", None) is not None:
+            self.workbook.close()
+            self.workbook = None
+        super().close()

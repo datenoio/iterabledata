@@ -1,0 +1,17 @@
+{
+  "_meta": {
+    "cpu_count": 14,
+    "description": "Normalized performance baselines: workload wall time divided by a pure-Python calibration workload timed on the same machine. Regenerate with: pytest tests/test_performance_regression.py -m performance --no-cov --update-baselines",
+    "generated_at": "2026-07-14T15:00:25.445577+00:00",
+    "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "python": "3.13.7",
+    "rows": 10000
+  },
+  "workloads": {
+    "csv_bulk_read_10k": 0.1757,
+    "csv_bulk_write_10k": 0.1519,
+    "csv_read_10k": 0.1931,
+    "jsonl_gz_to_parquet_convert_10k": 0.4125,
+    "jsonl_read_10k": 0.2434
+  }
+}

@@ -28,6 +28,35 @@ if str(PROJECT_ROOT) not in sys.path:
 if os.getcwd() != str(TESTS_DIR):
     os.chdir(TESTS_DIR)
 
+# Legacy fixture path: many tests reference 'testdata/...'. The committed
+# 'tests/testdata' is a symlink to 'tests/fixtures'. On checkouts made with
+# core.symlinks=false (or when copied without symlink preservation) it can
+# materialize as a regular file, which produces a large number of misleading
+# FileExistsError/NotADirectoryError failures. Fail fast with an actionable
+# message instead.
+_TESTDATA_LINK = TESTS_DIR / "testdata"
+
+
+def _verify_testdata_symlink() -> None:
+    if _TESTDATA_LINK.is_symlink():
+        return
+    if not _TESTDATA_LINK.exists():
+        # Best effort: recreate the expected symlink.
+        try:
+            _TESTDATA_LINK.symlink_to("fixtures")
+            return
+        except OSError:
+            pass
+    raise RuntimeError(
+        f"'{_TESTDATA_LINK}' must be a symlink to 'tests/fixtures'. "
+        "Your checkout materialized it as a regular file (common with "
+        "core.symlinks=false). Restore it with: "
+        "rm tests/testdata && ln -s fixtures tests/testdata"
+    )
+
+
+_verify_testdata_symlink()
+
 
 def fixture_path(name: str) -> Path:
     """Return an absolute path under ``tests/fixtures/``."""

@@ -20,6 +20,14 @@ from ..types import Row
 
 
 class IcebergIterable(BaseFileIterable):
+    """Apache Iceberg table reader.
+
+    Memory behavior: records are read batch by batch via the scan's
+    ``to_arrow_batch_reader()`` (PyIceberg >= 0.6). On older PyIceberg
+    versions without that API the scan falls back to a full
+    ``to_arrow().to_pylist()`` load.
+    """
+
     datamode = "binary"
 
     def __init__(
@@ -80,10 +88,19 @@ class IcebergIterable(BaseFileIterable):
         if self.mode == "r":
             # Scan table
             self.scan_result = self.table.scan()
-            # Convert to iterator of dicts
-            self.iterator = iter(self.scan_result.to_arrow().to_pylist())
+            self.iterator = self.__iterator(self.scan_result)
         else:
             raise WriteNotSupportedError("iceberg", "Iceberg writing is not yet implemented")
+
+    @staticmethod
+    def __iterator(scan):
+        """Iterate scan results batch by batch where PyIceberg allows."""
+        if hasattr(scan, "to_arrow_batch_reader"):
+            for batch in scan.to_arrow_batch_reader():
+                yield from batch.to_pylist()
+        else:
+            # Residual full-load path: old PyIceberg has no batch reader.
+            yield from scan.to_arrow().to_pylist()
 
     @staticmethod
     def has_totals() -> bool:
@@ -94,9 +111,11 @@ class IcebergIterable(BaseFileIterable):
         """Returns table totals"""
         if self.table is None:
             return 0
-        # Count rows in table
-        scan_result = self.table.scan()
-        return len(scan_result.to_arrow())
+        # Count rows batch by batch to avoid materializing the table
+        scan = self.table.scan()
+        if hasattr(scan, "to_arrow_batch_reader"):
+            return sum(batch.num_rows for batch in scan.to_arrow_batch_reader())
+        return len(scan.to_arrow())
 
     @staticmethod
     def id() -> str:
@@ -105,6 +124,10 @@ class IcebergIterable(BaseFileIterable):
     @staticmethod
     def is_flatonly() -> bool:
         return True
+
+    def is_streaming(self) -> bool:
+        """Streams via scan batch reader when PyIceberg provides one."""
+        return hasattr(self.scan_result, "to_arrow_batch_reader")
 
     @staticmethod
     def has_tables() -> bool:

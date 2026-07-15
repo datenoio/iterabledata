@@ -352,3 +352,63 @@ def make_flat(item: dict[str, Any]) -> dict[str, Any]:
         else:
             result[k] = v
     return result
+
+
+_EXTENDED_JSON_SCALAR_KEYS = frozenset(
+    {
+        "$oid",
+        "$numberLong",
+        "$numberInt",
+        "$numberDouble",
+        "$numberDecimal",
+        "$date",
+        "$timestamp",
+        "$binary",
+        "$regex",
+        "$undefined",
+        "$minKey",
+        "$maxKey",
+    }
+)
+
+
+def normalize_extended_json(value: Any) -> Any:
+    """Convert MongoDB extended JSON wrappers to native Python values.
+
+    Recursively unwraps common ``$type`` wrappers (for example
+    ``{"$numberLong": "123"}`` or ``{"$oid": "..."}``) so columnar writers
+    such as Parquet do not infer mixed struct/scalar types for the same field.
+    """
+    if isinstance(value, dict):
+        if len(value) == 1:
+            key, inner = next(iter(value.items()))
+            if key in _EXTENDED_JSON_SCALAR_KEYS:
+                if key == "$numberLong":
+                    return int(inner)
+                if key == "$numberInt":
+                    return int(inner)
+                if key in ("$numberDouble", "$numberDecimal"):
+                    return float(inner)
+                if key == "$oid":
+                    return str(inner)
+                if key == "$date":
+                    if isinstance(inner, dict):
+                        return normalize_extended_json(inner)
+                    return inner
+                if key == "$timestamp":
+                    if isinstance(inner, dict) and "$numberLong" in inner:
+                        return int(inner["$numberLong"])
+                    return inner
+                if key == "$binary":
+                    if isinstance(inner, dict) and "base64" in inner:
+                        return inner["base64"]
+                    return inner
+                if key == "$regex":
+                    if isinstance(inner, dict):
+                        return inner.get("pattern", inner)
+                    return inner
+                return inner
+        return {k: normalize_extended_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [normalize_extended_json(v) for v in value]
+    return value

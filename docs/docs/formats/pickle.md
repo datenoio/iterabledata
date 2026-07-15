@@ -65,6 +65,18 @@ No specific parameters required.
 
 ⚠️ **Important**: Pickle files can execute arbitrary Python code when deserialized. Only load pickle files from trusted sources. Never load pickle files from untrusted or unknown sources.
 
+Opening a pickle source for reading emits a `UserWarning` unless you explicitly acknowledge the risk by passing `trust=True`:
+
+```python
+from iterable.helpers.detect import open_iterable
+
+# Emits a UserWarning about untrusted pickle data
+source = open_iterable("data.pickle")
+
+# Explicit acknowledgement suppresses the warning
+source = open_iterable("data.pickle", iterableargs={"trust": True})
+```
+
 ## Compression Support
 
 Pickle files can be compressed with all supported codecs:

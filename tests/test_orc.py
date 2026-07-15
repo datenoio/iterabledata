@@ -1,6 +1,9 @@
+import pytest
 from fixdata import FIXTURES
 
-from iterable.datatypes import ORCIterable
+pytest.importorskip("pyorc", reason="pyorc is required for ORC support")
+
+from iterable.datatypes import ORCIterable  # noqa: E402
 
 
 class TestORC:

@@ -4,10 +4,9 @@ import typing
 from collections import defaultdict
 from typing import Any
 
-import lxml.etree as etree
-
 from ..base import BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
+from ..helpers.xmlsec import safe_iterparse
 
 PREFIX_STRIP = False
 PREFIX = ""
@@ -63,7 +62,7 @@ class XMLIterable(BaseFileIterable):
 
     def reset(self):
         super().reset()
-        self.reader = etree.iterparse(self.fobj, recover=True)
+        self.reader = safe_iterparse(self.fobj)
         self.pos = 0
         # Track position for error context
         self._current_element_number = 0
@@ -108,7 +107,7 @@ class XMLIterable(BaseFileIterable):
                     self.fobj.seek(0)
                     # Parse to get tag names
                     tag_names = set()
-                    for _event, elem in etree.iterparse(self.fobj, events=("start",), recover=True):
+                    for _event, elem in safe_iterparse(self.fobj, events=("start",)):
                         if elem.tag:
                             # Strip namespace if prefix_strip is True
                             shorttag = elem.tag.rsplit("}", 1)[-1]
@@ -123,7 +122,7 @@ class XMLIterable(BaseFileIterable):
         tag_names = set()
         try:
             with open(target_filename, "rb") as f:
-                for _event, elem in etree.iterparse(f, events=("start",), recover=True):
+                for _event, elem in safe_iterparse(f, events=("start",)):
                     if elem.tag:
                         # Strip namespace if prefix_strip is True (default behavior)
                         shorttag = elem.tag.rsplit("}", 1)[-1]

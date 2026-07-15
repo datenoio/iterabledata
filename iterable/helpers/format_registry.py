@@ -6,6 +6,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from typing import Any
 
+from .format_descriptions import description_for, doc_url_for
+
 
 @dataclass(frozen=True)
 class FormatDescriptor:
@@ -95,7 +97,7 @@ _LLM_METADATA: dict[str, dict[str, Any]] = {
     "avro": {
         "description": "Apache Avro binary row format with embedded schema.",
         "doc_url": f"{_DOCS_BASE}/avro.md",
-        "limitations": ("Read-only",),
+        "limitations": ("Requires avro package",),
     },
     "orc": {
         "description": "Optimized Row Columnar format for Hive/Spark workloads.",
@@ -162,22 +164,70 @@ _LLM_METADATA: dict[str, dict[str, Any]] = {
         "example_args": {"tagname": "item"},
         "limitations": ("Read-only", "Requires tagname"),
     },
+    "fbs": {
+        "description": "FlatBuffers binary serialization; schema-dependent.",
+        "doc_url": f"{_DOCS_BASE}/flatbuffers.md",
+        "example_args": {"schema_file": "schema.fbs", "root_type": "MyTable"},
+        "limitations": ("Partial support", "Requires schema_file and root_type"),
+    },
+    "hudi": {
+        "description": "Apache Hudi data lake tables; table-path dependent.",
+        "doc_url": f"{_DOCS_BASE}/hudi.md",
+        "example_args": {"table_path": "/path/to/hudi/table"},
+        "limitations": ("Partial support", "Requires table_path"),
+    },
+    "lance": {
+        "description": "Lance columnar format for ML workloads.",
+        "doc_url": f"{_DOCS_BASE}/lance.md",
+        "limitations": ("Partial support", "Requires pylance package (not PyPI lance)"),
+    },
+    "capnp": {
+        "description": "Cap'n Proto binary messages; schema-dependent.",
+        "doc_url": f"{_DOCS_BASE}/capnp.md",
+        "example_args": {"schema_file": "schema.capnp", "schema_name": "MyMessage"},
+        "limitations": ("Requires schema_file and schema_name",),
+    },
+    "thrift": {
+        "description": "Apache Thrift binary messages; schema-dependent.",
+        "doc_url": f"{_DOCS_BASE}/thrift.md",
+        "limitations": ("Schema-dependent", "Requires generated Thrift types"),
+    },
+    "ubj": {
+        "description": "UBJSON (Universal Binary JSON) format.",
+        "doc_url": f"{_DOCS_BASE}/ubjson.md",
+        "limitations": ("Optional dependency py-ubjson",),
+    },
 }
 
 
 def _enrich_descriptor(desc: FormatDescriptor) -> FormatDescriptor:
     meta = _LLM_METADATA.get(desc.id)
-    if meta is None:
-        return desc
-    limitations = meta.get("limitations", ())
-    if isinstance(limitations, list):
-        limitations = tuple(limitations)
+    description = desc.description
+    example_args = desc.example_args
+    limitations = desc.limitations
+    doc_url = desc.doc_url
+
+    if meta is not None:
+        description = meta.get("description", description)
+        example_args = meta.get("example_args", example_args)
+        meta_limitations = meta.get("limitations", ())
+        if isinstance(meta_limitations, list):
+            meta_limitations = tuple(meta_limitations)
+        if meta_limitations:
+            limitations = meta_limitations
+        doc_url = meta.get("doc_url", doc_url)
+
+    if description is None:
+        description = description_for(desc.id)
+    if doc_url is None:
+        doc_url = doc_url_for(desc.id)
+
     return replace(
         desc,
-        description=meta.get("description", desc.description),
-        example_args=meta.get("example_args", desc.example_args),
-        limitations=limitations or desc.limitations,
-        doc_url=meta.get("doc_url", desc.doc_url),
+        description=description,
+        example_args=example_args,
+        limitations=limitations,
+        doc_url=doc_url,
     )
 
 
@@ -210,7 +260,15 @@ _RAW_FORMAT_DESCRIPTORS: tuple[FormatDescriptor, ...] = (
     _fmt(id="ion", module="iterable.datatypes.ion", cls="IonIterable"),
     _fmt(id="h5", module="iterable.datatypes.hdf5", cls="HDF5Iterable", aliases=("hdf5",), flat=True, writable=False),
     _fmt(id="geojson", module="iterable.datatypes.geojson", cls="GeoJSONIterable", text=True),
+    _fmt(
+        id="geojsonseq",
+        module="iterable.datatypes.geojsonseq",
+        cls="GeoJSONSeqIterable",
+        aliases=("geojsonl", "geojsons"),
+        text=True,
+    ),
     _fmt(id="toml", module="iterable.datatypes.toml", cls="TOMLIterable", text=True),
+    _fmt(id="tar", module="iterable.datatypes.tar", cls="TARIterable", aliases=("tgz",), writable=False),
     _fmt(id="delta", module="iterable.datatypes.delta", cls="DeltaIterable", flat=True, writable=False),
     _fmt(id="cbor", module="iterable.datatypes.cbor", cls="CBORIterable", aliases=("cbors",)),
     _fmt(id="cdf", module="iterable.datatypes.cdf", cls="CDFIterable", writable=False),
@@ -278,6 +336,15 @@ _RAW_FORMAT_DESCRIPTORS: tuple[FormatDescriptor, ...] = (
     _fmt(id="smile", module="iterable.datatypes.smile", cls="SMILEIterable"),
     _fmt(id="bencode", module="iterable.datatypes.bencode", cls="BencodeIterable", aliases=("torrent",)),
     _fmt(id="vcf", module="iterable.datatypes.vcf", cls="VCFIterable", aliases=("vcard",), text=True),
+    _fmt(
+        id="genomic_vcf",
+        module="iterable.datatypes.genomic_vcf",
+        cls="GenomicVCFIterable",
+        aliases=("bcf",),
+        text=True,
+        extra="bio",
+        writable=False,
+    ),
     _fmt(id="ics", module="iterable.datatypes.ical", cls="ICALIterable", aliases=("ical",), text=True),
     _fmt(id="eml", module="iterable.datatypes.eml", cls="EMLIterable", text=True),
     _fmt(
@@ -523,6 +590,8 @@ _READONLY_MEMBERS: frozenset[str] = frozenset(
         "flatbuffers",
         "fna",
         "fq",
+        "bcf",
+        "genomic_vcf",
         "gexf",
         "gpx",
         "graphml",
@@ -551,6 +620,8 @@ _READONLY_MEMBERS: frozenset[str] = frozenset(
         "sav",
         "spss",
         "stata",
+        "tar",
+        "tgz",
         "trig",
         "trix",
         "xls",
@@ -635,9 +706,28 @@ _MODULE_INSTALL_EXTRAS: dict[str, str] = {
     "iterable.datatypes.dot": "graph",
     "iterable.datatypes.bam": "alignment",
     "iterable.datatypes.sam": "alignment",
-    "iterable.datatypes.lance": "parquet",
-    "iterable.datatypes.delta": "parquet",
-    "iterable.datatypes.iceberg": "parquet",
+    "iterable.datatypes.genomic_vcf": "bio",
+    "iterable.datatypes.lance": "lakehouse",
+    "iterable.datatypes.delta": "lakehouse",
+    "iterable.datatypes.iceberg": "lakehouse",
+    "iterable.datatypes.hudi": "lakehouse",
+    "iterable.datatypes.avro": "avro",
+    "iterable.datatypes.numpy": "npy",
+    "iterable.datatypes.ubjson": "ubj",
+    "iterable.datatypes.vcf": "vcf",
+    "iterable.datatypes.ods": "ods",
+    "iterable.datatypes.rdata": "rdata",
+    "iterable.datatypes.rds": "rdata",
+    "iterable.datatypes.capnp": "capnp",
+    "iterable.datatypes.thrift": "thrift",
+    "iterable.datatypes.flatbuffers": "fbs",
+    "iterable.datatypes.edn": "edn",
+    "iterable.datatypes.hocon": "hocon",
+    "iterable.datatypes.asn1": "der",
+    "iterable.datatypes.bencode": "bencode",
+    "iterable.datatypes.gpx": "xml",
+    "iterable.datatypes.ical": "ics",
+    "iterable.datatypes.ldif": "ldif",
     "iterable.codecs.lz4codec": "compression",
     "iterable.codecs.snappycodec": "compression",
     "iterable.codecs.lzocodec": "compression",

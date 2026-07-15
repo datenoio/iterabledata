@@ -1,7 +1,9 @@
 import pytest
 from fixdata import FIXTURES_TYPES
 
-from iterable.engines import DuckDBIterable
+pytest.importorskip("duckdb", reason="duckdb is required for the DuckDB engine")
+
+from iterable.engines import DuckDBIterable  # noqa: E402
 
 
 class TestParquet:

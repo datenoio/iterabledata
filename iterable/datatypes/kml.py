@@ -7,6 +7,7 @@ from typing import Any
 import lxml.etree as etree
 
 from ..base import BaseCodec, BaseFileIterable
+from ..helpers.xmlsec import safe_parse
 from ..types import Row
 
 
@@ -131,7 +132,7 @@ class KMLIterable(BaseFileIterable):
         if self.mode == "r":
             # Parse KML document
             try:
-                tree = etree.parse(self.fobj)
+                tree = safe_parse(self.fobj)
                 root = tree.getroot()
 
                 # Find all Placemark elements (main feature container in KML)

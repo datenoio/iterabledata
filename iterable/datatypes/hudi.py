@@ -7,6 +7,8 @@ installed library's API; write support is not implemented. Pass ``table_path``
 
 from __future__ import annotations
 
+import logging
+import os
 import typing
 
 try:
@@ -31,6 +33,14 @@ from ..types import Row
 
 
 class HudiIterable(BaseFileIterable):
+    """Apache Hudi table reader.
+
+    Memory behavior: the whole table is materialized in memory on open;
+    this format does not stream records incrementally. This is a residual
+    full-load path: the available Python bindings (``pyhudi``) only expose
+    ``to_pandas()`` and offer no record-batch iteration API.
+    """
+
     datamode = "binary"
 
     def __init__(
@@ -75,19 +85,18 @@ class HudiIterable(BaseFileIterable):
         self.pos = 0
 
         if self.mode == "r":
-            # Load Hudi table
-            # This is a simplified implementation - actual usage would depend on Hudi API
             if HAS_PYHUDI:
-                # pyhudi API
                 catalog = HudiCatalog()
                 self.table = catalog.load_table(self.table_path)
-                # Read table data
                 df = self.table.to_pandas()
                 self.iterator = iter(df.to_dict("records"))
             else:
-                # hudi API (if different)
-                # Placeholder - would need actual Hudi API documentation
-                self.iterator = iter([])
+                # The 'hudi' package exposes a different API that is not yet
+                # supported; failing is better than silently reading empty.
+                raise ImportError(
+                    "Reading Hudi tables via the 'hudi' package is not implemented. "
+                    "Install 'pyhudi' instead: pip install pyhudi"
+                )
         else:
             raise WriteNotSupportedError("hudi", "Hudi writing is not yet implemented")
 
@@ -113,6 +122,10 @@ class HudiIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return True
 
+    def is_streaming(self) -> bool:
+        """Memory behavior: the whole file/table is materialized on open."""
+        return False
+
     @staticmethod
     def has_tables() -> bool:
         """Indicates if this format supports multiple tables."""
@@ -130,35 +143,41 @@ class HudiIterable(BaseFileIterable):
 
         Returns:
             list[str]: List of table names, or empty list if no tables. Returns None if single table path.
+
+        Raises:
+            ImportError: If no Hudi library is installed.
+            ReadError: If the target path does not exist or the catalog cannot be read.
         """
         if not HAS_PYHUDI and not HAS_HUDI:
-            return None
+            raise ImportError("Apache Hudi support requires 'pyhudi' or 'hudi' package")
 
-        # Determine table path or catalog path
         target_path = filename if filename is not None else (self.table_path if hasattr(self, "table_path") else None)
         if target_path is None:
             return None
 
+        if not os.path.exists(target_path):
+            raise ReadError(
+                f"Hudi table or catalog path does not exist: '{target_path}'",
+                filename=str(target_path),
+                error_code="PATH_NOT_FOUND",
+            )
+
+        if not HAS_PYHUDI:
+            # The 'hudi' package does not expose catalog listing.
+            return None
+
+        catalog = HudiCatalog()
+        if not hasattr(catalog, "list_tables"):
+            # Catalog cannot enumerate tables; treat the path as a single table.
+            return None
         try:
-            if HAS_PYHUDI:
-                # Try to use catalog to list tables
-                catalog = HudiCatalog()
-                # Check if path is a catalog or single table
-                # If it's a catalog, try to list tables
-                if hasattr(catalog, "list_tables"):
-                    try:
-                        tables = catalog.list_tables(target_path)
-                        return [str(t) for t in tables] if tables else []
-                    except Exception:
-                        # If listing fails, might be a single table path
-                        return None
-                else:
-                    # Catalog doesn't support listing, might be single table
-                    return None
-            else:
-                # hudi package - similar approach
-                return None
-        except Exception:
+            tables = catalog.list_tables(target_path)
+            return [str(t) for t in tables] if tables else []
+        except Exception as e:
+            # Listing fails for single-table paths; that interpretation is
+            # part of this method's contract (None == single table), but the
+            # underlying cause is logged so genuine catalog errors are visible.
+            logging.debug(f"Hudi catalog listing failed for '{target_path}' (treating as single table): {e}")
             return None
 
     def read(self, skip_empty: bool = True) -> dict:

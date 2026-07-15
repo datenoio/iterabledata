@@ -6,28 +6,85 @@ Provides functions for filtering rows using expressions, regex patterns, and que
 
 from __future__ import annotations
 
+import ast
 import collections.abc
-import operator
 import re
 from collections.abc import Iterator
 
 from ..helpers.detect import open_iterable
 from ..types import Row
 
-# Safe operators for expression evaluation
-_SAFE_OPERATORS = {
-    "==": operator.eq,
-    "!=": operator.ne,
-    "<": operator.lt,
-    "<=": operator.le,
-    ">": operator.gt,
-    ">=": operator.ge,
-    "and": lambda a, b: a and b,
-    "or": lambda a, b: a or b,
-    "not": operator.not_,
-    "in": lambda a, b: a in b,
-    "not in": lambda a, b: a not in b,
-}
+# AST node types permitted in filter expressions. Anything else (attribute
+# access, subscripts, comprehensions, lambdas, f-strings, imports, ...) is
+# rejected before evaluation, so hostile expressions cannot escape the
+# comparison/boolean subset that filter_expr documents.
+_ALLOWED_AST_NODES: tuple[type[ast.AST], ...] = (
+    ast.Expression,
+    ast.BoolOp,
+    ast.And,
+    ast.Or,
+    ast.UnaryOp,
+    ast.Not,
+    ast.USub,
+    ast.UAdd,
+    ast.Compare,
+    ast.Eq,
+    ast.NotEq,
+    ast.Lt,
+    ast.LtE,
+    ast.Gt,
+    ast.GtE,
+    ast.In,
+    ast.NotIn,
+    ast.Is,
+    ast.IsNot,
+    ast.BinOp,
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.Mod,
+    ast.Constant,
+    ast.Name,
+    ast.Load,
+    ast.Call,
+    ast.Attribute,
+    ast.List,
+    ast.Tuple,
+    ast.Set,
+)
+
+
+def _check_filter_ast(processed_expr: str) -> ast.Expression:
+    """Parse a processed filter expression and enforce the AST whitelist.
+
+    Only ``row.get(...)`` calls, string-literal placeholders, constants,
+    comparisons, boolean logic, and basic arithmetic are permitted.
+
+    Raises:
+        ValueError: If the expression contains disallowed syntax.
+    """
+    try:
+        tree = ast.parse(processed_expr, mode="eval")
+    except SyntaxError as e:
+        raise ValueError(f"Invalid filter expression syntax: {e}") from e
+
+    for node in ast.walk(tree):
+        if not isinstance(node, _ALLOWED_AST_NODES):
+            raise ValueError(f"Disallowed syntax in filter expression: {type(node).__name__}")
+        if isinstance(node, ast.Attribute):
+            if not (node.attr == "get" and isinstance(node.value, ast.Name) and node.value.id == "row"):
+                raise ValueError("Attribute access is not allowed in filter expressions")
+        elif isinstance(node, ast.Call):
+            func = node.func
+            if not (isinstance(func, ast.Attribute) and func.attr == "get"):
+                raise ValueError("Only field access is allowed in filter expressions (no function calls)")
+            if node.keywords:
+                raise ValueError("Keyword arguments are not allowed in filter expressions")
+        elif isinstance(node, ast.Name):
+            if node.id != "row" and not node.id.startswith("__STRING_"):
+                raise ValueError(f"Unknown name {node.id!r} in filter expression (use backticks for fields)")
+    return tree
 
 
 def _process_expr(expr: str) -> tuple[str, list[str]]:
@@ -68,8 +125,8 @@ def _validate_expr(expr: str) -> None:
     """
     processed_expr, _ = _process_expr(expr)
     try:
-        compile(processed_expr, "<filter_expr>", "eval")
-    except SyntaxError as e:
+        _check_filter_ast(processed_expr)
+    except ValueError as e:
         raise ValueError(f"Invalid filter expression: {expr!r}. Error: {e}") from e
 
 
@@ -96,25 +153,24 @@ def _safe_eval_expr(expr: str, row: Row) -> bool:
     """
     processed_expr, string_literals = _process_expr(expr)
 
+    # Enforce the AST whitelist before evaluation: only row.get() calls,
+    # constants, comparisons, boolean logic, and basic arithmetic survive.
+    tree = _check_filter_ast(processed_expr)
+
     # Build a safe evaluation context
     safe_dict = {
-        "__builtins__": {},
         "row": row,
-        "True": True,
-        "False": False,
-        "None": None,
     }
 
     # Add string literals back
     for i, literal in enumerate(string_literals):
         safe_dict[f"__STRING_{i}__"] = literal
 
-    # Add safe operators
-    safe_dict.update(_SAFE_OPERATORS)
-
     try:
-        # Use eval with restricted globals and locals
-        result = eval(processed_expr, {"__builtins__": {}}, safe_dict)
+        code = compile(tree, "<filter_expr>", "eval")
+        # Safe: the AST was validated against a strict whitelist above and
+        # builtins are stripped from the evaluation namespace.
+        result = eval(code, {"__builtins__": {}}, safe_dict)  # noqa: S307 # nosec B307
         return bool(result)
     except Exception as e:
         raise ValueError(f"Invalid filter expression: {expr}. Error: {e}") from e

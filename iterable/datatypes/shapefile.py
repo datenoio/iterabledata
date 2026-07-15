@@ -18,7 +18,9 @@ from ..types import Row
 
 def shape_to_geojson(shape_record, shape_obj):
     """Convert shapefile record to GeoJSON-like feature"""
-    feature = {"type": "Feature", "properties": dict(shape_record.record), "geometry": None}
+    record = shape_record.record
+    properties = record.as_dict() if hasattr(record, "as_dict") else dict(record)
+    feature = {"type": "Feature", "properties": properties, "geometry": None}
 
     # Convert shape geometry to GeoJSON
     if shape_obj.shapeType == shapefile.POINT:
@@ -47,6 +49,13 @@ def shape_to_geojson(shape_record, shape_obj):
 
 
 class ShapefileIterable(BaseFileIterable):
+    """Esri Shapefile reader.
+
+    Memory behavior: features are read lazily one at a time via
+    ``shapefile.Reader.iterShapeRecords()``; the file is never fully
+    materialized in memory.
+    """
+
     datamode = "binary"
 
     def __init__(
@@ -79,7 +88,6 @@ class ShapefileIterable(BaseFileIterable):
 
     def reset(self):
         super().reset()
-        self.features = []
         self.pos = 0
 
         if self.mode == "r":
@@ -90,24 +98,20 @@ class ShapefileIterable(BaseFileIterable):
                     error_code="RESOURCE_REQUIREMENT_NOT_MET",
                 )
             try:
-                # Open shapefile
                 self.reader = shapefile.Reader(self.filename)
-                self.shapes = self.reader.shapes()
-                self.records = self.reader.records()
-
-                # Convert all features
-                for _i, (shape_obj, record) in enumerate(zip(self.shapes, self.records, strict=False)):
-                    feature = shape_to_geojson(shapefile._ShapeRecord(shape_obj, record), shape_obj)
-                    self.features.append(feature)
-
-                self.iterator = iter(self.features)
+                self.iterator = self.__iterator()
             except Exception:
-                self.features = []
-                self.iterator = iter(self.features)
+                self.reader = None
+                self.iterator = iter([])
         elif self.mode in ["w", "wr"]:
             # Initialize writer
             self.writer = None
             self.writer_initialized = False
+
+    def __iterator(self):
+        """Lazily convert shape records to GeoJSON-like features."""
+        for shape_record in self.reader.iterShapeRecords():
+            yield shape_to_geojson(shape_record, shape_record.shape)
 
     @staticmethod
     def id() -> str:
@@ -117,6 +121,10 @@ class ShapefileIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return False
 
+    def is_streaming(self) -> bool:
+        """Features are read incrementally from the shapefile reader."""
+        return True
+
     @staticmethod
     def has_totals() -> bool:
         """Has totals indicator"""
@@ -124,8 +132,8 @@ class ShapefileIterable(BaseFileIterable):
 
     def totals(self):
         """Returns file totals"""
-        if hasattr(self, "features"):
-            return len(self.features)
+        if getattr(self, "reader", None) is not None:
+            return len(self.reader)
         return 0
 
     def read(self, skip_empty: bool = True) -> dict:

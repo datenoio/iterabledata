@@ -1,28 +1,43 @@
+import importlib
+
 import pytest
 
 from iterable.datatypes import (
     CSVIterable,
-    DBFIterable,
     JSONIterable,
     JSONLinesIterable,
-    ORCIterable,
-    ParquetIterable,
     XLSIterable,
     XLSXIterable,
 )
 
 
+def _optional_param(class_name, dep, path, kwargs, header_may_affect_totals):
+    """Build a parametrize entry that skips when the optional dependency is absent.
+
+    The datatype class is resolved lazily so that a missing optional dependency
+    skips the single parameter instead of erroring at collection time.
+    """
+    cls = None
+    marks = ()
+    if importlib.util.find_spec(dep) is not None:
+        cls = getattr(importlib.import_module("iterable.datatypes"), class_name, None)
+    if cls is None:
+        marks = (pytest.mark.skip(reason=f"{dep} is required for {class_name}"),)
+        cls = class_name  # placeholder; test body is skipped before use
+    return pytest.param(cls, path, kwargs, header_may_affect_totals, marks=marks)
+
+
 @pytest.mark.parametrize(
     "iterable_cls, path, kwargs, header_may_affect_totals",
     [
-        (CSVIterable, "fixtures/2cols6rows.csv", {}, True),
-        (JSONIterable, "fixtures/2cols6rows_tag.json", {"tagname": "persons"}, True),
-        (JSONLinesIterable, "fixtures/2cols6rows_flat.jsonl", {}, True),
-        (XLSIterable, "fixtures/2cols6rows.xls", {}, True),
-        (XLSXIterable, "fixtures/2cols6rows.xlsx", {}, True),
-        (ORCIterable, "fixtures/2cols6rows.orc", {}, True),
-        (ParquetIterable, "fixtures/2cols6rows.parquet", {}, True),
-        (DBFIterable, "fixtures/2cols6rows.dbf", {}, False),
+        pytest.param(CSVIterable, "fixtures/2cols6rows.csv", {}, True),
+        pytest.param(JSONIterable, "fixtures/2cols6rows_tag.json", {"tagname": "persons"}, True),
+        pytest.param(JSONLinesIterable, "fixtures/2cols6rows_flat.jsonl", {}, True),
+        pytest.param(XLSIterable, "fixtures/2cols6rows.xls", {}, True),
+        pytest.param(XLSXIterable, "fixtures/2cols6rows.xlsx", {}, True),
+        _optional_param("ORCIterable", "pyorc", "fixtures/2cols6rows.orc", {}, True),
+        _optional_param("ParquetIterable", "pyarrow", "fixtures/2cols6rows.parquet", {}, True),
+        _optional_param("DBFIterable", "dbfread", "fixtures/2cols6rows.dbf", {}, False),
     ],
 )
 def test_totals_match_record_count(iterable_cls, path, kwargs, header_may_affect_totals):

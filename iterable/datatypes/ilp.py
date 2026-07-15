@@ -329,6 +329,10 @@ class ILPIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return False
 
+    def is_streaming(self) -> bool:
+        """Records are decoded incrementally; the file is not fully loaded."""
+        return True
+
     @staticmethod
     def has_totals() -> bool:
         """Has totals indicator"""

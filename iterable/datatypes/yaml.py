@@ -16,6 +16,12 @@ from ..types import Row
 
 
 class YAMLIterable(BaseFileIterable):
+    """YAML documents reader/writer.
+
+    Memory behavior: the whole file is parsed and materialized in memory on
+    open; this format does not stream records incrementally.
+    """
+
     def __init__(
         self,
         filename: str | None = None,
@@ -62,6 +68,10 @@ class YAMLIterable(BaseFileIterable):
 
     @staticmethod
     def is_flatonly() -> bool:
+        return False
+
+    def is_streaming(self) -> bool:
+        """Memory behavior: the whole file/table is materialized on open."""
         return False
 
     def read(self, skip_empty: bool = True) -> dict:

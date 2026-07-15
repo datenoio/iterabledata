@@ -16,6 +16,7 @@ import os
 import pytest
 from conformance_fixtures import canonical_fixture_formats
 
+from iterable.exceptions import IterableDataError
 from iterable.helpers.detect import (
     DATATYPE_REGISTRY,
     READ_ONLY_FORMATS,
@@ -72,6 +73,76 @@ class TestRegistryIntegrity:
         assert not unknown, f"READ_ONLY_FORMATS contains unregistered formats: {sorted(unknown)}"
 
 
+# Reviewed streaming behavior allowlist (2026-07 performance review, updated
+# after refactor-full-load-readers-to-streaming).
+# "conditional" means streaming depends on instance state (e.g. file variant
+# or library version); such declarations reference `self`.
+STREAMING_DECLARATIONS: dict[str, bool | str] = {
+    # Genuinely incremental readers
+    "csv": True,
+    "jsonl": True,
+    "xml": True,
+    "parquet": True,
+    "orc": True,
+    "avro": True,
+    "bson": True,
+    "msgpack": True,
+    "pcap": True,
+    "sqlite": True,
+    "ltsv": True,
+    "apachelog": True,
+    "cdx": True,
+    "cef": True,
+    "gelf": True,
+    "ilp": True,
+    "nt": True,
+    "nq": True,
+    # Converted to batch/lazy iteration
+    "lance": True,
+    "delta": True,
+    "shp": True,
+    # Conditional (ijson streaming for large inputs)
+    "json": "conditional",
+    "geojson": "conditional",
+    "topojson": "conditional",
+    # Conditional (streams unless the file/library variant lacks a batch API)
+    "arrow": "conditional",
+    "iceberg": "conditional",
+    # Full-load formats: whole file/table materialized on open
+    "hudi": False,
+    "cbor": False,
+    "yaml": False,
+    "toml": False,
+}
+
+
+class TestStreamingDeclarations:
+    @staticmethod
+    def _declared_streaming(cls):
+        """Return the class's explicit is_streaming declaration, or None."""
+        for klass in cls.__mro__:
+            if "is_streaming" not in klass.__dict__:
+                continue
+            if klass.__name__ in ("BaseIterable", "BaseFileIterable"):
+                return None
+            try:
+                return bool(klass.__dict__["is_streaming"](None))
+            except Exception:
+                return "conditional"
+        return None
+
+    @pytest.mark.parametrize("format_key", sorted(STREAMING_DECLARATIONS))
+    def test_is_streaming_matches_reviewed_allowlist(self, format_key):
+        """Each reviewed format declares is_streaming() and matches the audit."""
+        if format_key not in DATATYPE_REGISTRY:
+            pytest.skip(f"{format_key} not registered")
+        cls = _load_class_or_skip(format_key)
+        declared = self._declared_streaming(cls)
+        expected = STREAMING_DECLARATIONS[format_key]
+        assert declared is not None, f"{cls.__name__} must explicitly declare is_streaming()"
+        assert declared == expected, f"{cls.__name__}: declared {declared!r}, review says {expected!r}"
+
+
 def _open_or_skip(format_key: str):
     path, iterableargs = FIXTURE_FORMATS[format_key]
     if not os.path.exists(path):
@@ -80,7 +151,7 @@ def _open_or_skip(format_key: str):
         return open_iterable(path, iterableargs=dict(iterableargs) if iterableargs else None)
     except ImportError as e:
         pytest.skip(f"Optional dependency missing for {format_key}: {e}")
-    except RuntimeError as e:
+    except (RuntimeError, IterableDataError) as e:
         if isinstance(e.__cause__, ImportError) or "requires" in str(e):
             pytest.skip(f"Optional dependency missing for {format_key}: {e}")
         raise
@@ -159,13 +230,13 @@ class TestWriteRoundTrip:
         try:
             with open_iterable(str(out_path), mode="w", iterableargs=args) as dest:
                 dest.write_bulk(rows)
-        except (ImportError, NotImplementedError, ValueError, RuntimeError) as e:
+        except (ImportError, NotImplementedError, ValueError, RuntimeError, IterableDataError) as e:
             pytest.skip(f"{format_key}: write not available: {e}")
 
         try:
             with open_iterable(str(out_path), iterableargs=args) as reread:
                 roundtrip = reread.read_bulk(len(rows) + 10)
-        except (ImportError, RuntimeError) as e:
+        except (ImportError, RuntimeError, IterableDataError) as e:
             pytest.skip(f"{format_key}: reread after write failed: {e}")
 
         assert len(roundtrip) == len(rows), f"{format_key}: row count mismatch after write"

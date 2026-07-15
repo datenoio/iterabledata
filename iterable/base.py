@@ -769,6 +769,47 @@ class BaseFileIterable(BaseIterable):
                 pass
             self._error_log_file = None
 
+    def _handle_parse_failure(
+        self,
+        message: str,
+        cause: Exception | None = None,
+        row_number: int | None = None,
+        byte_offset: int | None = None,
+        original_line: str | None = None,
+    ) -> None:
+        """Wrap a parse failure in ``FormatParseError`` and apply the error policy.
+
+        Convenience helper for datatype implementations: builds a
+        ``FormatParseError`` carrying this iterable's filename and format id,
+        then routes it through :meth:`_handle_error` so ``on_error`` values
+        ``"raise" | "skip" | "warn"`` behave consistently across formats.
+        Returns ``None`` when the configured policy tolerates the failure.
+
+        Args:
+            message: Human-readable description of the parse failure
+            cause: Optional underlying exception (chained via ``__cause__``)
+            row_number: Optional row number where the failure occurred
+            byte_offset: Optional byte offset where the failure occurred
+            original_line: Optional original content that failed to parse
+        """
+        from .exceptions import FormatParseError
+
+        try:
+            format_id = self.id()
+        except Exception:
+            format_id = "unknown"
+        error = FormatParseError(
+            format_id=format_id,
+            message=f"{message}: {cause}" if cause is not None else message,
+            filename=getattr(self, "filename", None),
+            row_number=row_number,
+            byte_offset=byte_offset,
+            original_line=original_line,
+        )
+        if cause is not None:
+            error.__cause__ = cause
+        self._handle_error(error, row_number=row_number, byte_offset=byte_offset, original_line=original_line)
+
     def _handle_error(
         self,
         error: Exception,
@@ -777,6 +818,19 @@ class BaseFileIterable(BaseIterable):
         original_line: str | None = None,
     ) -> None:
         """Handle error according to configured error policy.
+
+        Error-policy contract for datatype implementations:
+
+        * Parse or dependency failures MUST NOT be converted into empty
+          result sets. A malformed non-empty input read under the default
+          policy (``on_error="raise"``) must raise ``FormatParseError`` (or
+          another ``IterableDataError`` subclass), never yield zero records
+          silently.
+        * Implementations that perform per-record parsing SHOULD route
+          record-level failures through this method (or the
+          :meth:`_handle_parse_failure` convenience wrapper) so that
+          ``on_error="raise"|"skip"|"warn"`` and error logging behave
+          consistently across formats.
 
         Args:
             error: The exception that occurred

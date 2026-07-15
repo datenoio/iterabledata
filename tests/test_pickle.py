@@ -1,3 +1,6 @@
+import warnings
+
+import pytest
 from fixdata import FIXTURES
 
 from iterable.datatypes import PickleIterable
@@ -56,6 +59,24 @@ class TestPickle:
         for row in iterable:
             assert row == FIXTURES[n]
             n += 1
+        iterable.close()
+
+    def test_read_warns_without_trust(self):
+        with pytest.warns(UserWarning, match="trust=True"):
+            iterable = PickleIterable("fixtures/2cols6rows_flat.pickle")
+        iterable.close()
+
+    def test_trust_option_suppresses_warning(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            iterable = PickleIterable("fixtures/2cols6rows_flat.pickle", options={"trust": True})
+        assert iterable.read() == FIXTURES[0]
+        iterable.close()
+
+    def test_write_mode_does_not_warn(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            iterable = PickleIterable("testdata/trust_check.pickle", mode="w")
         iterable.close()
 
     def test_write_read(self):

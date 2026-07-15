@@ -78,6 +78,13 @@ Instructions for AI coding agents working on the IterableData project.
 - Tests should pass for Python 3.10, 3.11, and 3.12
 - Always run tests before committing: `pytest --verbose`
 - Some format tests may be skipped if optional dependencies are missing (this is expected)
+- Performance regression gate: `pytest tests/test_performance_regression.py -m performance --no-cov`
+  compares representative workloads against committed baselines in `tests/performance_baselines.json`.
+  If a change legitimately alters performance, regenerate baselines intentionally with
+  `pytest tests/test_performance_regression.py -m performance --no-cov --update-baselines`
+  and commit the updated JSON (note the reference environment in `_meta`).
+- `tests/testdata` must be a symlink to `tests/fixtures`. Check out the repo with symlinks enabled (`git config core.symlinks true`); if it materialized as a plain file, restore it with `rm tests/testdata && ln -s fixtures tests/testdata`
+- Stress/slow/benchmark/integration tests are excluded from the default run; opt in with e.g. `pytest -m stress`
 
 ## Import patterns
 

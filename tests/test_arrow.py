@@ -1,8 +1,11 @@
 import os
 
+import pytest
 from fixdata import FIXTURES, FIXTURES_TYPES
 
-from iterable.datatypes import ArrowIterable
+pytest.importorskip("pyarrow", reason="pyarrow is required for Arrow support")
+
+from iterable.datatypes import ArrowIterable  # noqa: E402
 
 # Create fixture file if it doesn't exist
 FIXTURE_FILE = "fixtures/2cols6rows.arrow"
@@ -96,3 +99,50 @@ class TestArrow:
         total = iterable.totals()
         assert total == len(FIXTURES_TYPES)
         iterable.close()
+
+
+class TestArrowStreaming:
+    """Arrow IPC files must be read batch by batch in bounded memory."""
+
+    ROWS = 200_000
+
+    def _write_large(self, path):
+        import pyarrow
+        import pyarrow.ipc
+
+        schema = pyarrow.schema([("id", pyarrow.int64()), ("name", pyarrow.string())])
+        with pyarrow.ipc.new_file(path, schema) as writer:
+            for start in range(0, self.ROWS, 10_000):
+                batch = pyarrow.RecordBatch.from_pylist(
+                    [{"id": i, "name": f"name-{i}-{'x' * 100}"} for i in range(start, start + 10_000)],
+                    schema=schema,
+                )
+                writer.write_batch(batch)
+
+    def test_is_streaming_for_ipc_files(self, tmp_path):
+        path = str(tmp_path / "large.arrow")
+        self._write_large(path)
+        iterable = ArrowIterable(path)
+        assert iterable.is_streaming()
+        iterable.close()
+
+    def test_large_read_bounded_memory(self, tmp_path):
+        import tracemalloc
+
+        path = str(tmp_path / "large.arrow")
+        self._write_large(path)
+        uncompressed_size = self.ROWS * 110
+
+        iterable = ArrowIterable(path)
+        tracemalloc.start()
+        n = 0
+        for row in iterable:
+            assert row["id"] == n
+            n += 1
+        _current, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        iterable.close()
+
+        assert n == self.ROWS
+        # Batch-wise reading keeps peak allocation far below the full payload.
+        assert peak < uncompressed_size / 2, f"peak {peak} suggests full-table load"

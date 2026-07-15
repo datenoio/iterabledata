@@ -1,7 +1,9 @@
 import pytest
 
-from iterable.datatypes import HTMLIterable
-from iterable.helpers.detect import open_iterable
+pytest.importorskip("bs4", reason="beautifulsoup4 is required for HTML support")
+
+from iterable.datatypes import HTMLIterable  # noqa: E402
+from iterable.helpers.detect import open_iterable  # noqa: E402
 
 
 class TestHTML:

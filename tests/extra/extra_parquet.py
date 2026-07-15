@@ -1,6 +1,10 @@
 from pathlib import Path
 
-from iterable.datatypes import ParquetIterable
+import pytest
+
+pytest.importorskip("pyarrow", reason="pyarrow is required for Parquet support")
+
+from iterable.datatypes import ParquetIterable  # noqa: E402
 
 FIXTURES = [
     {"id": "1", "name": "John"},

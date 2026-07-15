@@ -8,6 +8,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.16] - 2026-07-15
+
+### Added
+- **GeoJSON Text Sequence (`geojsonseq`)**: RFC 8142 streaming geospatial format with `.geojsonl` and `.geojsons` extensions; content detection for line-delimited GeoJSON Features; read and write with bounded memory.
+- **TAR container format (`tar`)**: Read-only multi-file container that streams archive members in order, detects each member's format, and tags records with `_member`; path-traversal members are skipped; supports `.tar`, `.tgz`, and compressed tar variants.
+- **Genomic VCF/BCF (`genomic_vcf`)**: Streaming variant call format reader via `pysam` (`bio` extra); content-based disambiguation separates genomic VCF from vCard `.vcf` files.
+- **Performance regression gate**: Committed normalized baselines in `tests/performance_baselines.json`; `@pytest.mark.performance` tests compare representative workloads (CSV/JSONL read, bulk read/write, gzipped JSONL→Parquet convert) with explicit tolerances; dedicated blocking CI job (`performance-gate`).
+- **Centralized error-policy helper**: `BaseFileIterable._handle_parse_failure()` wraps parse failures in `FormatParseError` and routes them through `on_error` consistently.
+- **Pickle trust acknowledgement**: Reading pickle sources emits a `UserWarning` unless `trust=True` is passed in `iterableargs`.
+- **XXE-hardened XML parsing**: Shared `iterable/helpers/xmlsec.py` parser factory (`resolve_entities=False`, `no_network=True`) applied across XML-based formats.
+- **Optional dependency install hints**: Format registry maps modules to `pyproject.toml` extras; clearer `ImportError` messages with `pip install iterabledata[<extra>]`.
+- **Entry-point unit tests**: `tests/test_entry_point_helpers.py` covers extracted stages of `open_iterable()`, `convert()`, and `bulk_convert()`.
+- **Error-policy tests**: `tests/test_error_policy.py` validates raise/skip/warn behavior and typed API-boundary errors.
+
+### Changed
+- **Core entry-point refactoring**: `open_iterable()`, `convert()`, `bulk_convert()`, and `Pipeline.run()` decomposed into single-responsibility helpers; cyclomatic complexity reduced to grade B across all refactored functions.
+- **Streaming codecs**: Snappy and LZO codecs use block-framed streaming decompression with legacy one-shot blob fallback; memory-bounded read tests added.
+- **Streaming readers**: Shapefile, Arrow IPC, Lance, Delta Lake, and Iceberg now iterate lazily or batch-by-batch; `is_streaming()` declarations updated to match actual behavior.
+- **Error policy migration (breaking behavior)**: SMILE, vCard VCF, and Parquet no longer convert parse failures into silently empty datasets under the default `on_error="raise"` policy; malformed non-empty input raises `FormatParseError` or `WriteError`.
+- **Hudi read path**: Non-`pyhudi` backends raise `ImportError` instead of substituting an empty iterator; `list_tables()` distinguishes missing dependencies and non-existent paths.
+- **API boundary errors**: `open_iterable()` raises `IterableDataError` subclasses (`ReadError`, `FormatDetectionError`) instead of bare `RuntimeError` for open/detection failures.
+- **Stream format detection**: When content-based detection fails and no explicit `format` is given, a warning names the assumed CSV fallback instead of silently defaulting.
+- **Parquet writes**: Schema-alignment failures between batches surface as `WriteError` immediately instead of being buffered silently.
+- **Test suite resilience**: Optional-dependency tests use `pytest.importorskip`; `tests/testdata` symlink integrity guard; `@pytest.mark.benchmark` and `@pytest.mark.performance` excluded from the default pytest run; dedicated advisory benchmarks CI job.
+- **Filter expressions**: `ops/filter.py` evaluates expressions through an AST node whitelist, blocking injection via attribute access or imports.
+- **Validation type resolution**: `validation.py` replaces `eval()` with an explicit type-name map.
+
+### Fixed
+- **Shapefile GeoJSON conversion**: `shape_to_geojson()` uses `record.as_dict()` for proper field mapping with `pyshp` records.
+- **Genomic VCF streams**: `GenomicVCFIterable` raises `ValueError` when opened without a filename (pysam requires a path).
+- **TAR non-seekable streams**: Member streams are buffered when needed so format readers receive seekable input.
+
+### Security
+- **Untrusted input hardening**: XXE protection for XML parsers; AST-whitelisted filter expressions; pickle untrusted-input documentation and `trust=True` opt-in warning; security regression tests in `tests/test_security_hardening.py`.
+
+### Documentation
+- Format docs for `genomic_vcf`, `geojsonseq`, and `tar`; pickle security warning documents `trust=True`; performance baseline regeneration procedure in `AGENTS.md`.
+
 ## [1.0.15] - 2026-07-04
 
 ### Fixed

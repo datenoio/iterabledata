@@ -18,6 +18,13 @@ from ..types import Row
 
 
 class DeltaIterable(BaseFileIterable):
+    """Delta Lake table reader.
+
+    Memory behavior: records are read batch by batch via
+    ``DeltaTable.to_pyarrow_dataset().to_batches()``; the table is never
+    fully materialized.
+    """
+
     datamode = "binary"
 
     def __init__(
@@ -44,8 +51,8 @@ class DeltaIterable(BaseFileIterable):
             # Delta Lake requires a path to the delta table directory
             if self.filename:
                 self.delta_table = deltalake.DeltaTable(self.filename)
-                # Convert to PyArrow table and iterate
-                self.pyarrow_table = self.delta_table.to_pyarrow_table()
+                # Lazy dataset: batches are pulled on demand, not materialized.
+                self.dataset = self.delta_table.to_pyarrow_dataset()
                 self.iterator = self.__iterator()
             else:
                 raise ReadError(
@@ -57,9 +64,8 @@ class DeltaIterable(BaseFileIterable):
             raise WriteNotSupportedError("delta", "Delta Lake writing is not yet implemented")
 
     def __iterator(self):
-        """Iterator for reading Delta table records"""
-        # Convert PyArrow table to list of dicts
-        for batch in self.pyarrow_table.to_batches():
+        """Iterator for reading Delta table records batch by batch"""
+        for batch in self.dataset.to_batches():
             yield from batch.to_pylist()
 
     @staticmethod
@@ -68,6 +74,10 @@ class DeltaIterable(BaseFileIterable):
 
     @staticmethod
     def is_flatonly() -> bool:
+        return True
+
+    def is_streaming(self) -> bool:
+        """Records are read incrementally from dataset batches."""
         return True
 
     @staticmethod
@@ -125,8 +135,8 @@ class DeltaIterable(BaseFileIterable):
 
     def totals(self):
         """Returns file totals"""
-        if hasattr(self, "pyarrow_table"):
-            return len(self.pyarrow_table)
+        if hasattr(self, "dataset") and self.dataset is not None:
+            return self.dataset.count_rows()
         return 0
 
     def read(self, skip_empty: bool = True) -> dict:

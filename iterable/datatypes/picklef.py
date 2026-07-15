@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 import pickle
 import typing
+import warnings
 from typing import Any
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
@@ -14,6 +15,21 @@ def date_handler(obj):
 
 
 class PickleIterable(BaseFileIterable):
+    """Python pickle reader/writer.
+
+    .. warning:: **Never open pickle files from untrusted sources.**
+       Unpickling executes arbitrary code embedded in the file
+       (``pickle.load`` is inherently unsafe by design; see the ``pickle``
+       module documentation). Only use this format for data you produced
+       yourself or received from a fully trusted party. For untrusted data
+       interchange prefer JSON Lines, CSV, or Parquet.
+
+    Pass ``trust=True`` in options to acknowledge this risk explicitly and
+    suppress the warning emitted when opening a pickle source for reading::
+
+        open_iterable("data.pickle", iterableargs={"trust": True})
+    """
+
     datamode = "binary"
 
     def __init__(
@@ -26,7 +42,16 @@ class PickleIterable(BaseFileIterable):
     ):
         if options is None:
             options = {}
+        trusted = bool(options.pop("trust", False))
         super().__init__(filename, stream, codec=codec, binary=True, mode=mode, options=options)
+        if mode == "r" and not trusted:
+            warnings.warn(
+                "Loading pickle data executes arbitrary code embedded in the file; "
+                "only open pickle sources you fully trust. Pass trust=True in "
+                "iterableargs to acknowledge this and silence the warning.",
+                UserWarning,
+                stacklevel=2,
+            )
         self.pos = 0
         pass
 
@@ -41,7 +66,9 @@ class PickleIterable(BaseFileIterable):
     def read(self, skip_empty: bool = True) -> dict:
         """Read single record"""
         try:
-            return pickle.load(self.fobj)
+            # Documented trust requirement: see class docstring. Pickle is
+            # only safe for data produced by a trusted party.
+            return pickle.load(self.fobj)  # nosec B301
         except EOFError:
             raise StopIteration from None
 
@@ -50,7 +77,7 @@ class PickleIterable(BaseFileIterable):
         chunk: list[dict] = []
         for _ in range(num):
             try:
-                chunk.append(pickle.load(self.fobj))
+                chunk.append(pickle.load(self.fobj))  # nosec B301
             except EOFError:
                 break
         return chunk

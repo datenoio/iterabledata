@@ -22,7 +22,8 @@ The VCF implementation:
 
 ### Writing
 
-Writing is not currently supported for VCF format.
+Writing is supported: `write()` and `write_bulk()` serialize record dictionaries
+back to vCard entries (requires the `vobject` package).
 
 ### Key Features
 
@@ -50,10 +51,9 @@ source.close()
 
 ## Limitations
 
-1. **Read-only**: VCF format does not support writing
-2. **Dependency**: Requires `vobject` or `vcard` package
-3. **Contact focus**: Designed for contact data, not general data
-4. **Format complexity**: Complex vCard structures may require manual handling
+1. **Dependency**: Requires `vobject` or `vcard` package (install with `pip install iterabledata[vcf]`)
+2. **Contact focus**: Designed for contact data, not general data
+3. **Format complexity**: Complex vCard structures may require manual handling
 
 ## Compression Support
 

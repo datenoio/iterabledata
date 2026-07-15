@@ -28,10 +28,7 @@ _LANCE_HAS_API = HAS_LANCE and hasattr(lance, "write_dataset") and hasattr(lance
 def _require_lance() -> None:
     """Ensure the genuine Lance library (``pylance``) is importable."""
     if not HAS_LANCE:
-        raise ImportError(
-            "Lance format support requires the 'pylance' package. "
-            "Install with: pip install pylance"
-        )
+        raise ImportError("Lance format support requires the 'pylance' package. Install with: pip install pylance")
     if not _LANCE_HAS_API:
         installed = getattr(lance, "__file__", "<unknown>")
         raise ImportError(
@@ -43,6 +40,12 @@ def _require_lance() -> None:
 
 
 class LanceIterable(BaseFileIterable):
+    """Lance columnar dataset reader.
+
+    Memory behavior: records are read batch by batch via
+    ``scanner.to_batches()``; the dataset is never fully materialized.
+    """
+
     datamode = "binary"
 
     def __init__(
@@ -103,6 +106,10 @@ class LanceIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return True
 
+    def is_streaming(self) -> bool:
+        """Records are read incrementally from scanner batches."""
+        return True
+
     @staticmethod
     def has_totals() -> bool:
         """Has totals indicator"""
@@ -136,9 +143,8 @@ class LanceIterable(BaseFileIterable):
         super().close()
 
     def __iterator(self, scanner):
-        """Iterator for reading records"""
-        table = scanner.to_table()
-        for batch in table.to_batches(max_chunksize=self.batch_size):
+        """Iterator for reading records batch by batch (no full-table load)."""
+        for batch in scanner.to_batches():
             yield from batch.to_pylist()
 
     def read(self, skip_empty: bool = True) -> dict:

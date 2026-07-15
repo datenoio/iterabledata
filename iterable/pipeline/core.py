@@ -108,6 +108,200 @@ class Pipeline:
         self.atomic = atomic
         self._original_destination_filename: str | None = None
         self._temp_file: str | None = None
+        self._batch: list[Row] = []
+        self._can_bulk_write: bool = False
+
+    # -- run stages -------------------------------------------------------
+
+    def _log_start(self, perf_debug: bool) -> None:
+        """Log pipeline configuration when performance debugging is on."""
+        if not perf_debug:
+            return
+        performance_logger.debug("Starting pipeline execution")
+        dest_name = type(self.destination).__name__ if self.destination else None
+        performance_logger.debug(f"Source: {type(self.source).__name__}, Destination: {dest_name}")
+        performance_logger.debug(f"Batch size: {self.batch_size}, Reset iterables: {self.reset_iterables}")
+
+    def _destination_atomic_filename(self) -> str | None:
+        """Return the destination filename if it supports atomic file writes."""
+        dest = self.destination
+        if dest is None or not isinstance(dest, BaseFileIterable):
+            return None
+        # Only plain files (not streams/codecs) can be atomically replaced.
+        if getattr(dest, "stype", None) != 20:  # ITERABLE_TYPE_FILE
+            return None
+        return getattr(dest, "filename", None) or None
+
+    def _setup_atomic_destination(self) -> None:
+        """Redirect the file destination to a temp file for atomic writes."""
+        if not self.atomic:
+            return
+        filename = self._destination_atomic_filename()
+        if filename is None:
+            return
+        self._original_destination_filename = filename
+        self._temp_file = os.path.join(
+            os.path.dirname(filename) or ".",
+            os.path.basename(filename) + ".tmp",
+        )
+        if os.path.exists(self._temp_file):
+            try:
+                os.remove(self._temp_file)
+            except Exception as e:
+                logger.warning(f"Failed to remove existing temporary file '{self._temp_file}': {e}")
+        self.destination.filename = self._temp_file
+        # Reopen with the new filename if the destination is already open.
+        if getattr(self.destination, "fobj", None) is not None:
+            try:
+                self.destination.close()
+            except Exception:
+                pass
+            self.destination.open()
+
+    def _reset_iterables(self) -> None:
+        """Reset source and destination, tolerating sources that cannot."""
+        try:
+            self.source.reset()
+        except NotImplementedError:
+            logger.debug("Source does not support reset (likely a database source)")
+        if self.destination is not None:
+            try:
+                self.destination.reset()
+            except NotImplementedError:
+                logger.debug("Destination does not support reset (likely a database destination)")
+
+    def _flush_batch(self) -> None:
+        """Write any buffered records to the destination."""
+        batch = self._batch
+        self._batch = []
+        if self.destination is None or not batch:
+            return
+        if self._can_bulk_write:
+            try:
+                self.destination.write_bulk(batch)
+                return
+            except Exception:
+                # Fallback to per-record writes if destination's bulk path errors.
+                pass
+        for item in batch:
+            self.destination.write(item)
+
+    def _invoke_progress(self, stats: dict[str, Any], time_start: float) -> None:
+        """Invoke the user progress callback, if provided."""
+        if self.progress is None:
+            return
+        elapsed = time.time() - time_start
+        throughput = stats["rec_count"] / elapsed if elapsed > 0 else None
+        try:
+            self.progress(
+                {
+                    "rows_processed": stats["rec_count"],
+                    "elapsed": elapsed,
+                    "throughput": throughput,
+                    "rec_count": stats["rec_count"],
+                    "exceptions": stats["exceptions"],
+                    "nulls": stats["nulls"],
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Error in progress callback: {e}")
+
+    def _write_result(self, result: Row | None, stats: dict[str, Any]) -> None:
+        """Route one processed result to the destination (or drop nulls)."""
+        if result is None:
+            if not self.skip_nulls:
+                stats["nulls"] += 1
+                if self.destination is not None:
+                    # Preserve existing behavior (even though many destinations expect dicts).
+                    self._flush_batch()
+                    self.destination.write(result)
+            return
+        if self.destination is None:
+            return
+        if self._can_bulk_write:
+            self._batch.append(result)
+            if len(self._batch) >= self.batch_size:
+                self._flush_batch()
+        else:
+            self.destination.write(result)
+
+    def _process_record(self, record: Row, state: dict[str, Any], stats: dict[str, Any], debug: bool) -> None:
+        """Process a single record, counting (or re-raising) failures."""
+        try:
+            result = self.process_func(record, state)
+            self._write_result(result, stats)
+        except Exception as e:
+            logger.error(f"Error processing record #{stats['rec_count'] + 1}: {e}", exc_info=debug)
+            stats["exceptions"] += 1
+            # In atomic mode the write is all-or-nothing: a processing error
+            # must abort the run so the original file is preserved and the
+            # temporary file is cleaned up. In non-atomic mode errors are
+            # tolerated and counted.
+            if debug or self.atomic:
+                raise
+
+    def _maybe_trigger(self, stats: dict[str, Any], state: dict[str, Any], debug: bool) -> None:
+        """Invoke the trigger function when the record count hits trigger_on."""
+        if stats["rec_count"] % self.trigger_on != 0 or self.trigger_func is None:
+            return
+        try:
+            self._flush_batch()
+            self.trigger_func(stats, state)
+        except Exception as e:
+            logger.error(f"Error in trigger function at record #{stats['rec_count']}: {e}", exc_info=debug)
+            if debug:
+                raise
+
+    def _cleanup_temp_file(self) -> None:
+        """Remove the atomic temp file if it exists, tolerating failures."""
+        if self._temp_file is None or not os.path.exists(self._temp_file):
+            return
+        try:
+            os.remove(self._temp_file)
+        except Exception as cleanup_error:
+            logger.warning(f"Failed to clean up temporary file '{self._temp_file}': {cleanup_error}")
+
+    def _finalize_atomic(self) -> None:
+        """Atomically move the temp file to the real destination on success."""
+        if not self.atomic or self._temp_file is None or self._original_destination_filename is None:
+            return
+        try:
+            if os.path.exists(self._temp_file):
+                from ..convert.core import _atomic_write
+
+                _atomic_write(self._original_destination_filename, self._temp_file)
+        except Exception as e:
+            logger.error(f"Failed to atomically rename temporary file: {e}")
+            self._cleanup_temp_file()
+            raise
+
+    def _log_completion(self, stats: dict[str, Any], perf_debug: bool) -> None:
+        """Log pipeline throughput when performance debugging is on."""
+        if not perf_debug:
+            return
+        throughput = stats["rec_count"] / stats["duration"] if stats["duration"] > 0 else 0
+        performance_logger.debug(
+            f"Pipeline completed: {stats['rec_count']} records in "
+            f"{stats['duration']:.2f}s (throughput: {throughput:.2f} rec/s, "
+            f"exceptions: {stats['exceptions']}, nulls: {stats['nulls']})"
+        )
+
+    def _run_records(self, state: dict[str, Any], stats: dict[str, Any], time_start: float, debug: bool) -> None:
+        """Drive the main record loop, cleaning up the temp file on failure."""
+        try:
+            for record in self.source:
+                self._process_record(record, state, stats, debug)
+                stats["rec_count"] += 1
+                if stats["rec_count"] % self.progress_interval == 0:
+                    self._invoke_progress(stats, time_start)
+                self._maybe_trigger(stats, state, debug)
+        except Exception:
+            if self.atomic:
+                self._cleanup_temp_file()
+            raise
+        finally:
+            self._flush_batch()
+            self._invoke_progress(stats, time_start)
 
     def run(self, debug: bool = False) -> PipelineResult:
         """Execute pipeline"""
@@ -116,188 +310,31 @@ class Pipeline:
         state = self.start_state
 
         perf_debug = debug or is_debug_enabled()
-        if perf_debug:
-            performance_logger.debug("Starting pipeline execution")
-            dest_name = type(self.destination).__name__ if self.destination else None
-            performance_logger.debug(f"Source: {type(self.source).__name__}, Destination: {dest_name}")
-            performance_logger.debug(f"Batch size: {self.batch_size}, Reset iterables: {self.reset_iterables}")
-
-        # Setup atomic writes if enabled and destination is a file
-        if self.atomic and self.destination is not None:
-            if isinstance(self.destination, BaseFileIterable) and hasattr(self.destination, "stype"):
-                # Check if destination is a file (not a stream or codec)
-                if self.destination.stype == 20:  # ITERABLE_TYPE_FILE
-                    if hasattr(self.destination, "filename") and self.destination.filename:
-                        self._original_destination_filename = self.destination.filename
-                        # Generate temporary filename
-                        self._temp_file = os.path.join(
-                            os.path.dirname(self._original_destination_filename) or ".",
-                            os.path.basename(self._original_destination_filename) + ".tmp",
-                        )
-                        # Clean up any existing temp file
-                        if os.path.exists(self._temp_file):
-                            try:
-                                os.remove(self._temp_file)
-                            except Exception as e:
-                                logger.warning(f"Failed to remove existing temporary file '{self._temp_file}': {e}")
-                        # Update destination filename to temp file
-                        self.destination.filename = self._temp_file
-                        # Reopen with new filename if already opened
-                        if hasattr(self.destination, "fobj") and self.destination.fobj is not None:
-                            try:
-                                self.destination.close()
-                            except Exception:
-                                pass
-                            self.destination.open()
-
+        self._log_start(perf_debug)
+        self._setup_atomic_destination()
         if self.reset_iterables:
-            # Reset source (database sources don't support reset - handle gracefully)
-            try:
-                self.source.reset()
-            except NotImplementedError:
-                # Database sources don't support reset - this is expected
-                logger.debug("Source does not support reset (likely a database source)")
-            if self.destination is not None:
-                try:
-                    self.destination.reset()
-                except NotImplementedError:
-                    # Database destinations don't support reset - this is expected
-                    logger.debug("Destination does not support reset (likely a database destination)")
+            self._reset_iterables()
 
-        batch: list[Row] = []
-        can_bulk_write = (
+        self._batch = []
+        self._can_bulk_write = bool(
             self.destination is not None
             and hasattr(self.destination, "write_bulk")
             and self.batch_size
             and self.batch_size > 1
         )
 
-        def flush_batch():
-            nonlocal batch
-            if self.destination is None or not batch:
-                batch = []
-                return
-            if can_bulk_write:
-                try:
-                    self.destination.write_bulk(batch)
-                except Exception:
-                    # Fallback to per-record writes if destination's bulk path errors.
-                    for item in batch:
-                        self.destination.write(item)
-            else:
-                for item in batch:
-                    self.destination.write(item)
-            batch = []
-
-        def invoke_progress_callback():
-            """Invoke progress callback if provided."""
-            if self.progress is not None:
-                elapsed = time.time() - time_start
-                throughput = stats["rec_count"] / elapsed if elapsed > 0 else None
-                try:
-                    self.progress(
-                        {
-                            "rows_processed": stats["rec_count"],
-                            "elapsed": elapsed,
-                            "throughput": throughput,
-                            "rec_count": stats["rec_count"],
-                            "exceptions": stats["exceptions"],
-                            "nulls": stats["nulls"],
-                        }
-                    )
-                except Exception as e:
-                    logger.warning(f"Error in progress callback: {e}")
-
-        try:
-            for record in self.source:
-                try:
-                    result = self.process_func(record, state)
-                    if result is None:
-                        if not self.skip_nulls:
-                            stats["nulls"] += 1
-                            if self.destination is not None:
-                                # Preserve existing behavior (even though many destinations expect dicts).
-                                flush_batch()
-                                self.destination.write(result)
-                    else:
-                        if self.destination is not None:
-                            if can_bulk_write:
-                                batch.append(result)
-                                if len(batch) >= self.batch_size:
-                                    flush_batch()
-                            else:
-                                self.destination.write(result)
-                except Exception as e:
-                    logger.error(f"Error processing record #{stats['rec_count'] + 1}: {e}", exc_info=debug)
-                    stats["exceptions"] += 1
-                    # In atomic mode the write is all-or-nothing: a processing error
-                    # must abort the run so the original file is preserved and the
-                    # temporary file is cleaned up. In non-atomic mode errors are
-                    # tolerated and counted.
-                    if debug or self.atomic:
-                        raise
-                stats["rec_count"] += 1
-
-                # Invoke progress callback periodically
-                if stats["rec_count"] % self.progress_interval == 0:
-                    invoke_progress_callback()
-
-                if stats["rec_count"] % self.trigger_on == 0 and self.trigger_func is not None:
-                    try:
-                        flush_batch()
-                        self.trigger_func(stats, state)
-                    except Exception as e:
-                        logger.error(f"Error in trigger function at record #{stats['rec_count']}: {e}", exc_info=debug)
-                        if debug:
-                            raise
-        except Exception:
-            # Clean up temporary file on error if atomic writes are enabled
-            if self.atomic and self._temp_file is not None and os.path.exists(self._temp_file):
-                try:
-                    os.remove(self._temp_file)
-                except Exception as cleanup_error:
-                    logger.warning(f"Failed to clean up temporary file '{self._temp_file}': {cleanup_error}")
-            raise
-        finally:
-            flush_batch()
-
-            # Final progress callback
-            invoke_progress_callback()
+        self._run_records(state, stats, time_start, debug)
 
         time_end = time.time()
         stats["time_end"] = time_end
         stats["duration"] = time_end - time_start
 
-        if perf_debug:
-            throughput = stats["rec_count"] / stats["duration"] if stats["duration"] > 0 else 0
-            performance_logger.debug(
-                f"Pipeline completed: {stats['rec_count']} records in "
-                f"{stats['duration']:.2f}s (throughput: {throughput:.2f} rec/s, "
-                f"exceptions: {stats['exceptions']}, nulls: {stats['nulls']})"
-            )
-
-        # Perform atomic rename if atomic writes are enabled (only on success)
-        if self.atomic and self._temp_file is not None and self._original_destination_filename is not None:
-            try:
-                if os.path.exists(self._temp_file):
-                    # Import atomic write helper from convert module
-                    from ..convert.core import _atomic_write
-
-                    _atomic_write(self._original_destination_filename, self._temp_file)
-            except Exception as e:
-                logger.error(f"Failed to atomically rename temporary file: {e}")
-                # Clean up temp file on error
-                try:
-                    if os.path.exists(self._temp_file):
-                        os.remove(self._temp_file)
-                except Exception as cleanup_error:
-                    logger.warning(f"Failed to clean up temporary file '{self._temp_file}': {cleanup_error}")
-                raise
+        self._log_completion(stats, perf_debug)
+        self._finalize_atomic()
 
         if self.final_func is not None:
             self.final_func(stats, state)
 
-        # Return PipelineResult for structured access, but maintain dict compatibility
         return PipelineResult(
             rows_processed=stats["rec_count"],
             elapsed_seconds=stats["duration"],

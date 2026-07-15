@@ -1,5 +1,9 @@
 """Tests for the declarative format metadata registry."""
 
+from pathlib import Path
+
+import tomllib
+
 from iterable.helpers.detect import (
     DATATYPE_REGISTRY,
     FLAT_TYPES,
@@ -7,7 +11,9 @@ from iterable.helpers.detect import (
     TEXT_DATA_TYPES,
 )
 from iterable.helpers.format_registry import (
+    _BASENAME_INSTALL_EXTRAS,
     _EXTRA_READ_ONLY,
+    _MODULE_INSTALL_EXTRAS,
     _READONLY_MEMBERS,
     _TEXT_ORPHANS,
     FORMAT_DESCRIPTORS,
@@ -75,6 +81,10 @@ class TestLookupAPI:
         assert csv.description is not None
         assert csv.doc_url is not None
 
+    def test_all_formats_have_descriptions(self):
+        for desc in iter_descriptors():
+            assert desc.description, f"Missing description for {desc.id!r}"
+
     def test_llm_example_args_on_xml(self):
         xml = get_descriptor("xml")
         assert xml is not None
@@ -85,6 +95,25 @@ class TestLookupAPI:
         assert "csv" in ids
         assert "tsv" not in ids
         assert len(ids) == len(FORMAT_DESCRIPTORS)
+
+    def test_registry_classes_exported_in_datatypes(self):
+        import importlib
+
+        import iterable.datatypes as dt
+
+        for desc in iter_descriptors():
+            # The class name must always be advertised in __all__, regardless of
+            # whether its optional dependency is installed.
+            assert desc.cls in dt.__all__, desc.id
+
+            # The class attribute is only present when the module imports
+            # successfully; skip the attribute check when the optional
+            # dependency is missing (ImportError swallowed in datatypes/__init__).
+            try:
+                importlib.import_module(desc.module)
+            except ImportError:
+                continue
+            assert hasattr(dt, desc.cls), desc.id
 
 
 class TestMagicPrefixMatching:
@@ -123,3 +152,32 @@ class TestInstallHints:
 
     def test_install_extra_hint_unknown_module(self):
         assert install_extra_hint("iterable.datatypes.csv") is None
+
+    def test_llm_metadata_readonly_matches_writable_flag(self):
+        """No format may be described as Read-only while its descriptor says writable."""
+        from iterable.helpers.format_registry import _LLM_METADATA
+
+        offenders = []
+        for format_id, meta in _LLM_METADATA.items():
+            desc = get_descriptor(format_id)
+            if desc is None or not desc.writable:
+                continue
+            limitations = meta.get("limitations", ())
+            if any("read-only" in str(item).lower() for item in limitations):
+                offenders.append(format_id)
+        assert not offenders, f"Writable formats with Read-only LLM metadata: {offenders}"
+
+    def test_all_hints_map_to_pyproject_extras(self):
+        pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+        extras = set(tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["optional-dependencies"])
+        hints: set[str] = set()
+        hints.update(_MODULE_INSTALL_EXTRAS.values())
+        hints.update(_BASENAME_INSTALL_EXTRAS.values())
+        for desc in iter_descriptors():
+            if desc.extra:
+                hints.add(desc.extra)
+            hint = install_extra_hint(desc.module)
+            if hint:
+                hints.add(hint)
+        missing = sorted(h for h in hints if h not in extras)
+        assert not missing, f"Install hints not in pyproject.toml extras: {missing}"

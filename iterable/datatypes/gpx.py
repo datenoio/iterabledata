@@ -6,10 +6,11 @@ import typing
 from typing import Any
 
 from ..base import BaseFileIterable
+from ..helpers.xmlsec import safe_parse
 from ..types import Row
 
 try:
-    import lxml.etree as etree
+    import lxml.etree as etree  # noqa: F401 - dependency availability probe
 except ImportError as e:
     raise ImportError("GPX support requires lxml. Install with: pip install iterabledata[xml]") from e
 
@@ -131,7 +132,7 @@ class GPXIterable(BaseFileIterable):
         try:
             if self.fobj is not None and getattr(self.fobj, "seekable", lambda: False)():
                 self.fobj.seek(0)
-            tree = etree.parse(self.fobj)
+            tree = safe_parse(self.fobj)
             root = tree.getroot()
             self.records = _collect_points(root)
         except Exception:

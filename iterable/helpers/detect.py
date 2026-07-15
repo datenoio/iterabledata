@@ -207,6 +207,23 @@ def is_flat(filename: str | None = None, filetype: str | None = None) -> bool:
     return False
 
 
+# Extensions that map to more than one unrelated format; content decides.
+_AMBIGUOUS_EXTENSIONS: frozenset[str] = frozenset({"vcf"})
+
+
+def _extension_is_ambiguous(filename: str) -> bool:
+    """Return True if the filename's extension maps to multiple formats."""
+    parts = filename.lower().rsplit(".", 2)
+    if len(parts) < 2:
+        return False
+    ext = parts[-1]
+    # An extension followed by a codec (e.g. foo.vcf.gz) keeps the format ext
+    # in the penultimate position.
+    if ext in _get_codec_registry() and len(parts) > 2:
+        ext = parts[-2]
+    return ext in _AMBIGUOUS_EXTENSIONS
+
+
 def detect_file_type(filename: str, fileobj: IO[bytes] | None = None, debug: bool = False) -> FileTypeResult:
     """Detects file type and compression codec from filename and/or content
 
@@ -275,6 +292,19 @@ def detect_file_type(filename: str, fileobj: IO[bytes] | None = None, debug: boo
                 format_detection_logger.debug(
                     f"Detected format from extension: {parts[-1]} (confidence: 1.0, method: filename)"
                 )
+
+    # Some extensions are shared by unrelated formats (e.g. .vcf is both
+    # genomic Variant Call Format and vCard). When the extension is ambiguous
+    # and we have content to inspect, let content detection pick between them.
+    if result["success"] and fileobj is not None and _extension_is_ambiguous(filename):
+        detection_result = detect_file_type_from_content(fileobj)
+        if detection_result:
+            detected_format, confidence, method = detection_result
+            format_registry = _get_format_registry()
+            if detected_format and detected_format in format_registry:
+                result["datatype"] = _datatype_class(detected_format)
+                result["confidence"] = confidence
+                result["detection_method"] = method
 
     # If filename detection failed and we have a file object, try content-based detection
     if not result["success"] and fileobj is not None:

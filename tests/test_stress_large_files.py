@@ -219,6 +219,7 @@ class TestLargeFileStreaming:
         assert count > 0
 
     @pytest.mark.slow
+    @pytest.mark.timeout(3600)
     def test_csv_10gb_streaming_read(self, large_csv_10gb):
         """Test streaming read of 10GB CSV file"""
         count = 0
@@ -258,6 +259,7 @@ class TestLargeFileStreaming:
         assert count > 0
 
     @pytest.mark.slow
+    @pytest.mark.timeout(3600)
     def test_jsonl_10gb_streaming_read(self, large_jsonl_10gb):
         """Test streaming read of 10GB JSONL file"""
         count = 0
@@ -304,6 +306,7 @@ class TestLargeFileBulkOperations:
         assert total_count > 0
 
     @pytest.mark.slow
+    @pytest.mark.timeout(3600)
     def test_csv_10gb_bulk_read(self, large_csv_10gb):
         """Test bulk read of 10GB CSV file"""
         total_count = 0

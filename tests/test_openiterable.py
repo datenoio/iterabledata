@@ -1,3 +1,4 @@
+import pytest
 from fixdata import FIXTURES, FIXTURES_TYPES
 
 from iterable.helpers.detect import open_iterable
@@ -85,6 +86,7 @@ class TestOpenIterable:
         iterable.close()
 
     def test_iterate_plain_dbf(self):
+        pytest.importorskip("dbfread", reason="dbfread is required for DBF support")
         iterable = open_iterable("fixtures/2cols6rows.dbf")
         n = 0
         for row in iterable:
@@ -95,6 +97,7 @@ class TestOpenIterable:
         iterable.close()
 
     def test_iterate_plain_parquet(self):
+        pytest.importorskip("pyarrow", reason="pyarrow is required for Parquet support")
         iterable = open_iterable("fixtures/2cols6rows.parquet")
         n = 0
         for row in iterable:
@@ -103,6 +106,7 @@ class TestOpenIterable:
         iterable.close()
 
     def test_iterate_plain_orc(self):
+        pytest.importorskip("pyorc", reason="pyorc is required for ORC support")
         iterable = open_iterable("fixtures/2cols6rows.orc")
         n = 0
         for row in iterable:

@@ -151,63 +151,68 @@ def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, bool | N
 
     # Check for streaming support
     try:
-        # is_streaming() is an instance method, so we need to check it on an instance
-        # However, creating an instance might fail if dependencies are missing or if
-        # the format requires a filename. We'll try a best-effort approach.
+        # Prefer an explicit is_streaming() declaration made by the format
+        # class itself (anywhere below the BaseIterable default in the MRO)
+        # over heuristics: formats now declare their memory behavior directly.
+        explicit_streaming: bool | None = None
+        for klass in getattr(format_class, "__mro__", ()):
+            if "is_streaming" not in klass.__dict__:
+                continue
+            if klass.__name__ in ("BaseIterable", "BaseFileIterable"):
+                break  # only the base default; fall through to heuristics
+            try:
+                # Declarations are constant (`return True/False`) so the
+                # instance argument is unused.
+                explicit_streaming = bool(klass.__dict__["is_streaming"](None))
+            except Exception:
+                # Instance-dependent declaration (e.g. `return self._streaming`
+                # in JSON/GeoJSON): the format supports streaming for large
+                # files even if small files are loaded eagerly.
+                explicit_streaming = True
+            break
 
-        # Known non-streaming formats (from memory audit)
-        # These formats load entire files into memory
-        KNOWN_NON_STREAMING_FORMATS = {
-            "feed",
-            "rss",
-            "atom",  # Feed formats
-            "arff",  # ARFF format
-            "html",
-            "htm",  # HTML format
-            "toml",  # TOML format
-            "hocon",  # HOCON format
-            "edn",  # EDN format
-            "bencode",  # Bencode format
-            "asn1",  # ASN.1 format
-            "ical",
-            "ics",  # iCal format
-            "turtle",
-            "ttl",  # Turtle RDF format
-            "vcf",  # VCF format
-            "mhtml",  # MHTML format
-            "flexbuffers",  # FlexBuffers format
-            "px",  # PC-Axis format
-            "mvt",  # MVT (Mapbox Vector Tile) - single tile per file
-        }
-
-        # Check if format ID is in known non-streaming list
-        # Try to get format ID from static method
-        format_id = None
-        try:
-            if hasattr(format_class, "id") and callable(getattr(format_class, "id", None)):
-                format_id = format_class.id()
-        except (AttributeError, TypeError):
-            pass
-
-        if format_id and format_id.lower() in KNOWN_NON_STREAMING_FORMATS:
-            caps["streaming"] = False
+        if explicit_streaming is not None:
+            caps["streaming"] = explicit_streaming
         else:
-            # Try to determine streaming capability by checking if is_streaming() exists
-            # and if the format has a _should_use_streaming method (indicates conditional streaming)
-            has_streaming_method = hasattr(format_class, "is_streaming") and callable(
-                getattr(format_class, "is_streaming", None)
-            )
-            has_conditional_streaming = hasattr(format_class, "_should_use_streaming") and callable(
-                getattr(format_class, "_should_use_streaming", None)
-            )
+            # Known non-streaming formats (from memory audit)
+            # These formats load entire files into memory
+            KNOWN_NON_STREAMING_FORMATS = {
+                "feed",
+                "rss",
+                "atom",  # Feed formats
+                "arff",  # ARFF format
+                "html",
+                "htm",  # HTML format
+                "hocon",  # HOCON format
+                "edn",  # EDN format
+                "bencode",  # Bencode format
+                "asn1",  # ASN.1 format
+                "ical",
+                "ics",  # iCal format
+                "turtle",
+                "ttl",  # Turtle RDF format
+                "vcf",  # VCF format
+                "mhtml",  # MHTML format
+                "flexbuffers",  # FlexBuffers format
+                "px",  # PC-Axis format
+                "mvt",  # MVT (Mapbox Vector Tile) - single tile per file
+            }
 
-            # Formats with conditional streaming (like JSON, GeoJSON, TopoJSON) support streaming
-            # for large files but may load small files entirely
-            if has_conditional_streaming:
-                caps["streaming"] = True  # Supports streaming for large files
-            elif has_streaming_method:
-                # Has is_streaming() method - likely supports streaming
-                # Default to True, but this may vary by instance
+            # Check if format ID is in known non-streaming list
+            # Try to get format ID from static method
+            format_id = None
+            try:
+                if hasattr(format_class, "id") and callable(getattr(format_class, "id", None)):
+                    format_id = format_class.id()
+            except (AttributeError, TypeError):
+                pass
+
+            if format_id and format_id.lower() in KNOWN_NON_STREAMING_FORMATS:
+                caps["streaming"] = False
+            elif hasattr(format_class, "_should_use_streaming") and callable(
+                getattr(format_class, "_should_use_streaming", None)
+            ):
+                # Conditional streaming (large files stream, small files load)
                 caps["streaming"] = True
             else:
                 # Default: assume streaming for most formats (library emphasizes streaming)

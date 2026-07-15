@@ -11,6 +11,7 @@ from iterable.helpers.utils import (
     get_iterable_keys,
     guess_int_size,
     make_flat,
+    normalize_extended_json,
     rowincount,
     strip_dict_fields,
 )
@@ -607,3 +608,26 @@ class TestUtils:
             assert keys == []
         finally:
             os.unlink(temp_file)
+
+
+def test_normalize_extended_json_number_long():
+    assert normalize_extended_json({"$numberLong": "654"}) == 654
+
+
+def test_normalize_extended_json_oid():
+    assert normalize_extended_json({"$oid": "4bdaa13d9d55821a51000000"}) == "4bdaa13d9d55821a51000000"
+
+
+def test_normalize_extended_json_nested_record():
+    record = {
+        "text": "Эльмира",
+        "count": {"$numberLong": "654"},
+        "_id": {"$oid": "abc"},
+        "ethnic": ["tur"],
+    }
+    assert normalize_extended_json(record) == {
+        "text": "Эльмира",
+        "count": 654,
+        "_id": "abc",
+        "ethnic": ["tur"],
+    }

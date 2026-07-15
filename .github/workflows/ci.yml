@@ -118,6 +118,74 @@ jobs:
         fail_ci_if_error: false
         flags: unittests
 
+  # Base environment: dev tooling only, no optional format extras.
+  # Guards against collection errors from top-level optional imports in tests
+  # (missing extras must skip, never error).
+  test-base-env:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: 'pip'
+
+    - name: Install dev tooling only (no format extras)
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Run suite without extras (zero collection errors required)
+      run: pytest --verbose --no-cov
+
+  # Single-leg performance regression gate: compares representative workloads
+  # against committed normalized baselines (tests/performance_baselines.json).
+  # Runs on one OS/Python only; timings are normalized by an in-session
+  # calibration workload so the committed baselines stay portable.
+  performance-gate:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+        pip install pyarrow
+
+    - name: Run performance regression gate (blocking)
+      run: pytest tests/test_performance_regression.py -m performance --no-cov --verbose
+
+  # Dedicated benchmark job: @pytest.mark.benchmark tests are excluded from the
+  # default matrix (see addopts) and only run here, advisory-only, so timing
+  # noise never gates ordinary changes.
+  benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Run benchmarks (advisory)
+      run: pytest -m benchmark --no-cov --verbose || true
+
   security:
     runs-on: ubuntu-latest
     steps:

@@ -40,51 +40,53 @@ class VCFIterable(BaseFileIterable):
         self.reset()
         pass
 
+    def _parse_entry(self, part: str, row_number: int) -> dict | None:
+        """Parse one vCard block, routing failures through the error policy."""
+        try:
+            vcard_str = "BEGIN:VCARD\n" + part
+            if HAS_VOBJECT:
+                if not vcard_str.endswith("\nEND:VCARD"):
+                    vcard_str += "\nEND:VCARD"
+                vcard_obj = vobject.readOne(vcard_str)
+            else:
+                vcard_obj = vcard.read_vcard(vcard_str)
+            return self._vcard_to_dict(vcard_obj)
+        except Exception as e:
+            entry = self._parse_vcard_manual(part)
+            if entry:
+                return entry
+            # Manual fallback also failed: apply on_error policy
+            # ("raise" raises FormatParseError; "skip"/"warn" drop the entry).
+            self._handle_parse_failure(
+                "Failed to parse vCard entry",
+                e,
+                row_number=row_number,
+                original_line=part[:200],
+            )
+            return None
+
     def reset(self):
         """Reset iterable"""
         super().reset()
         self.pos = 0
         if self.mode == "r":
             content = self.fobj.read()
+            self.entries = []
+            parts = content.split("BEGIN:VCARD")
+            row_number = 0
+            for part in parts:
+                part = part.strip()
+                if not part:
+                    continue
+                row_number += 1
+                entry = self._parse_entry(part, row_number)
+                if entry is not None:
+                    self.entries.append(entry)
 
-            if HAS_VOBJECT:
-                # vobject library
-                self.entries = []
-                # Split by BEGIN:VCARD
-                parts = content.split("BEGIN:VCARD")
-                for part in parts:
-                    part = part.strip()
-                    if not part:
-                        continue
-                    try:
-                        vcard_str = "BEGIN:VCARD\n" + part
-                        if not vcard_str.endswith("\nEND:VCARD"):
-                            vcard_str += "\nEND:VCARD"
-                        vcard_obj = vobject.readOne(vcard_str)
-                        entry = self._vcard_to_dict(vcard_obj)
-                        self.entries.append(entry)
-                    except Exception:
-                        # Try to parse manually
-                        entry = self._parse_vcard_manual(part)
-                        if entry:
-                            self.entries.append(entry)
-            else:
-                # vcard library
-                self.entries = []
-                parts = content.split("BEGIN:VCARD")
-                for part in parts:
-                    part = part.strip()
-                    if not part:
-                        continue
-                    try:
-                        vcard_str = "BEGIN:VCARD\n" + part
-                        vcard_obj = vcard.read_vcard(vcard_str)
-                        entry = self._vcard_to_dict(vcard_obj)
-                        self.entries.append(entry)
-                    except Exception:
-                        entry = self._parse_vcard_manual(part)
-                        if entry:
-                            self.entries.append(entry)
+            if content.strip() and not self.entries and self._on_error == "raise":
+                # Non-empty input that produced zero entries must not read as
+                # a valid empty dataset under the default policy.
+                self._handle_parse_failure("No parseable vCard entries found in non-empty input")
 
             self.iterator = iter(self.entries)
         else:

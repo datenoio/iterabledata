@@ -146,6 +146,8 @@ class TestDetectors:
         assert result["codec"] is None
 
     def test_filetype_orc(self):
+        if ORCIterable is None:
+            pytest.skip("pyorc is required for ORC support")
         result = detect_file_type("fixtures/2cols6rows.orc")
         assert result["success"]
         assert result["datatype"] == ORCIterable
@@ -192,6 +194,8 @@ class TestDetectors:
         assert result["codec"] == GZIPCodec
 
     def test_filetype_plain_parquet(self):
+        if ParquetIterable is None:
+            pytest.skip("pyarrow is required for Parquet support")
         result = detect_file_type("fixtures/2cols6rows.parquet")
         assert result["success"]
         assert result["datatype"] == ParquetIterable
@@ -210,6 +214,8 @@ class TestDetectors:
         assert result["codec"] is None
 
     def test_filetype_plain_dbf(self):
+        if DBFIterable is None:
+            pytest.skip("dbfread is required for DBF support")
         result = detect_file_type("fixtures/2cols6rows.dbf")
         assert result["success"]
         assert result["datatype"] == DBFIterable
@@ -219,7 +225,7 @@ class TestDetectors:
         """Test DuckDB format detection"""
         import tempfile
 
-        import duckdb
+        duckdb = pytest.importorskip("duckdb", reason="duckdb is required for DuckDB detection")
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".duckdb") as tmp:
             tmp_path = tmp.name
@@ -252,7 +258,7 @@ class TestDetectors:
         """Test DuckDB format detection with .ddb extension"""
         import tempfile
 
-        import duckdb
+        duckdb = pytest.importorskip("duckdb", reason="duckdb is required for DuckDB detection")
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".ddb") as tmp:
             tmp_path = tmp.name
@@ -558,6 +564,7 @@ class TestConfidenceScores:
 
     def test_magic_number_confidence(self, tmp_path):
         """Test that magic number detection has high confidence."""
+        pytest.importorskip("pyarrow", reason="pyarrow is required to resolve the Parquet class")
         from iterable.helpers.detect import detect_file_type
 
         parquet_file = tmp_path / "data"

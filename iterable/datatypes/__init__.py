@@ -4,6 +4,7 @@ from .apachelog import ApacheLogIterable
 from .csv import CSVIterable
 from .csvw import CSVWIterable
 from .fwf import FixedWidthIterable
+from .geojsonseq import GeoJSONSeqIterable
 from .json import JSONIterable
 from .jsonl import JSONLinesIterable
 from .jsonld import JSONLDIterable
@@ -11,11 +12,17 @@ from .libsvm import LIBSVMIterable
 from .ltsv import LTSVIterable
 from .mysqldump import MySQLDumpIterable
 from .psv import PSVIterable, SSVIterable
+from .tar import TARIterable
 from .txt import TxtIterable
 
 # Optional formats - import conditionally
 try:
     from .arff import ARFFIterable
+except ImportError:
+    pass
+
+try:
+    from .dot import DOTIterable
 except ImportError:
     pass
 
@@ -42,6 +49,16 @@ except ImportError:
 
 try:
     from .avro import AVROIterable
+except ImportError:
+    pass
+
+try:
+    from .bam import BAMIterable
+except ImportError:
+    pass
+
+try:
+    from .genomic_vcf import GenomicVCFIterable
 except ImportError:
     pass
 
@@ -117,6 +134,16 @@ except ImportError:
 
 try:
     from .flink import FlinkIterable
+except ImportError:
+    pass
+
+try:
+    from .fasta import FASTAIterable
+except ImportError:
+    pass
+
+try:
+    from .fastq import FASTQIterable
 except ImportError:
     pass
 
@@ -211,6 +238,16 @@ except ImportError:
     pass
 
 try:
+    from .gexf import GEXFIterable
+except ImportError:
+    pass
+
+try:
+    from .graphml import GraphMLIterable
+except ImportError:
+    pass
+
+try:
     from .gpx import GPXIterable
 except ImportError:
     pass
@@ -246,6 +283,11 @@ except ImportError:
     pass
 
 try:
+    from .n3 import N3Iterable
+except ImportError:
+    pass
+
+try:
     from .nquads import NQuadsIterable
 except ImportError:
     pass
@@ -272,6 +314,11 @@ except ImportError:
 
 try:
     from .parquet import ParquetIterable
+except ImportError:
+    pass
+
+try:
+    from .pcap import PCAPIterable
 except ImportError:
     pass
 
@@ -317,6 +364,11 @@ except ImportError:
 
 try:
     from .recordio import RecordIOIterable
+except ImportError:
+    pass
+
+try:
+    from .sam import SAMIterable
 except ImportError:
     pass
 
@@ -376,6 +428,16 @@ except ImportError:
     pass
 
 try:
+    from .trig import TriGIterable
+except ImportError:
+    pass
+
+try:
+    from .trix import TriXIterable
+except ImportError:
+    pass
+
+try:
     from .turtle import TurtleIterable
 except ImportError:
     pass
@@ -397,6 +459,11 @@ except ImportError:
 
 try:
     from .xls import XLSIterable
+except ImportError:
+    pass
+
+try:
+    from .xlsb import XLSBIterable
 except ImportError:
     pass
 
@@ -432,6 +499,7 @@ __all__ = [
     "CSVIterable",
     "CSVWIterable",
     "FixedWidthIterable",
+    "GeoJSONSeqIterable",
     "JSONIterable",
     "JSONLinesIterable",
     "JSONLDIterable",
@@ -440,29 +508,40 @@ __all__ = [
     "MySQLDumpIterable",
     "PSVIterable",
     "SSVIterable",
+    "TARIterable",
     "TxtIterable",
     # Optional formats
     "ARFFIterable",
     "ArrowIterable",
     "ASN1Iterable",
     "AVROIterable",
+    "BAMIterable",
+    "GenomicVCFIterable",
     "BeamIterable",
     "BencodeIterable",
     "BSONIterable",
     "CapnpIterable",
     "CBORIterable",
+    "CDFIterable",
     "CDXIterable",
     "CEFIterable",
     "DBFIterable",
     "DeltaIterable",
+    "DOTIterable",
     "DuckDBIterable",
+    "DXFIterable",
     "EDNIterable",
     "EMLIterable",
+    "FASTAIterable",
+    "FASTQIterable",
     "FlatBuffersIterable",
     "FlexBuffersIterable",
     "FlinkIterable",
+    "FeedIterable",
     "GELIterable",
     "GeoJSONIterable",
+    "GEXFIterable",
+    "GraphMLIterable",
     "GeoPackageIterable",
     "GMLIterable",
     "GPXIterable",
@@ -483,12 +562,16 @@ __all__ = [
     "MBOXIterable",
     "MessagePackIterable",
     "MHTMLIterable",
+    "MVTIterable",
+    "N3Iterable",
     "NQuadsIterable",
     "NTriplesIterable",
+    "NetCDFIterable",
     "NumPyIterable",
     "ODSIterable",
     "ORCIterable",
     "ParquetIterable",
+    "PCAPIterable",
     "PGCopyIterable",
     "PickleIterable",
     "ProtobufIterable",
@@ -499,6 +582,7 @@ __all__ = [
     "RDSIterable",
     "RecordIOIterable",
     "SASIterable",
+    "SAMIterable",
     "SequenceFileIterable",
     "ShapefileIterable",
     "SMILEIterable",
@@ -508,12 +592,16 @@ __all__ = [
     "TFRecordIterable",
     "ThriftIterable",
     "TOMLIterable",
+    "TopoJSONIterable",
+    "TriGIterable",
+    "TriXIterable",
     "TurtleIterable",
     "UBJSONIterable",
     "VCFIterable",
     "VortexIterable",
     "WARCIterable",
     "XLSIterable",
+    "XLSBIterable",
     "XLSXIterable",
     "XMLIterable",
     "YAMLIterable",

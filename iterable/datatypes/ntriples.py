@@ -45,6 +45,10 @@ class NTriplesIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return True
 
+    def is_streaming(self) -> bool:
+        """Records are decoded incrementally; the file is not fully loaded."""
+        return True
+
     @staticmethod
     def has_totals() -> bool:
         """Has totals indicator"""

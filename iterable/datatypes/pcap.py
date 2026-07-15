@@ -44,6 +44,10 @@ class PCAPIterable(BaseFileIterable):
     def id() -> str:
         return "pcap"
 
+    def is_streaming(self) -> bool:
+        """Records are decoded incrementally; the file is not fully loaded."""
+        return True
+
     def reset(self) -> None:
         super().reset()
         self.reader = None

@@ -11,6 +11,7 @@ class TestConvert:
         assert os.path.exists("testdata/ru_cp1251_comma_converted.jsonl")
 
     def test_convert_csv_to_parquet(self):
+        pytest.importorskip("pyarrow", reason="pyarrow is required for Parquet support")
         convert(fromfile="fixtures/ru_cp1251_comma.csv", tofile="testdata/ru_cp1251_comma_converted.parquet")
         assert os.path.exists("testdata/ru_cp1251_comma_converted.parquet")
 
@@ -299,6 +300,7 @@ class TestBulkConvert:
 
     def test_bulk_convert_with_pattern(self, tmp_path):
         """Test bulk_convert with filename pattern"""
+        pytest.importorskip("pyarrow", reason="pyarrow is required for Parquet support")
         input_dir = tmp_path / "input"
         input_dir.mkdir()
         output_dir = tmp_path / "output"
@@ -350,6 +352,7 @@ class TestBulkConvert:
 
     def test_bulk_convert_with_compression(self, tmp_path):
         """Test bulk_convert with compressed files"""
+        pytest.importorskip("pyarrow", reason="pyarrow is required for Parquet support")
         input_dir = tmp_path / "input"
         input_dir.mkdir()
         output_dir = tmp_path / "output"
@@ -493,6 +496,7 @@ class TestBulkConvert:
         """Test bulk_convert filename pattern with different placeholders"""
         import gzip
 
+        pytest.importorskip("pyarrow", reason="pyarrow is required for Parquet support")
         input_dir = tmp_path / "input"
         input_dir.mkdir()
         output_dir = tmp_path / "output"

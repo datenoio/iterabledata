@@ -4,9 +4,8 @@ import typing
 from collections import defaultdict
 from typing import Any
 
-import lxml.etree as etree
-
 from ..base import BaseCodec, BaseFileIterable
+from ..helpers.xmlsec import safe_iterparse
 from ..types import Row
 
 
@@ -162,7 +161,7 @@ class RDFXMLIterable(BaseFileIterable):
     def reset(self):
         """Reset iterable"""
         super().reset()
-        self.reader = etree.iterparse(self.fobj, recover=True)
+        self.reader = safe_iterparse(self.fobj)
         self.pos = 0
 
     @staticmethod

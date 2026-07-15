@@ -1,6 +1,22 @@
+"""LZO compression codec with block-framed streaming.
+
+``python-lzo`` only exposes one-shot ``compress``/``decompress`` calls, so true
+stream compression is not available. To keep memory bounded this codec writes
+its own block-framed container: an ``ILZO1`` magic header followed by
+length-prefixed blocks, each an independent one-shot LZO payload of at most
+``_BLOCK_SIZE`` plaintext bytes. Reading framed files decompresses one block at
+a time, so peak memory is O(block size) rather than O(file size).
+
+Legacy files (a single raw ``lzo.compress`` blob, as written by earlier
+versions of this codec) are still readable via a full-buffer fallback; for
+those, memory is O(uncompressed size) because the format cannot be streamed.
+Note that neither framing is the ``lzop`` tool's container format.
+"""
+
 from __future__ import annotations
 
 import io
+import struct
 import typing
 
 from ..base import BaseCodec
@@ -9,6 +25,96 @@ try:
     import lzo
 except ImportError:
     lzo = None
+
+_FRAME_MAGIC = b"ILZO1"
+_BLOCK_HEADER = struct.Struct(">I")
+# Plaintext bytes per compressed block; bounds read/write memory.
+_BLOCK_SIZE = 256 * 1024
+
+
+class _LZOBlockReader(io.RawIOBase):
+    """Lazy reader decompressing an ILZO1 block-framed file one block at a time."""
+
+    def __init__(self, fileobj: typing.IO[bytes]):
+        self._fileobj = fileobj
+        self._buffer = bytearray()
+        self._eof = False
+
+    def readable(self) -> bool:
+        return True
+
+    def _fill(self) -> None:
+        while not self._buffer and not self._eof:
+            header = self._fileobj.read(_BLOCK_HEADER.size)
+            if not header:
+                self._eof = True
+                break
+            if len(header) < _BLOCK_HEADER.size:
+                raise ValueError("Truncated LZO block header")
+            (block_len,) = _BLOCK_HEADER.unpack(header)
+            block = self._fileobj.read(block_len)
+            if len(block) < block_len:
+                raise ValueError("Truncated LZO block payload")
+            self._buffer += lzo.decompress(block)
+
+    def readinto(self, b) -> int:
+        self._fill()
+        n = min(len(b), len(self._buffer))
+        b[:n] = self._buffer[:n]
+        del self._buffer[:n]
+        return n
+
+    def close(self) -> None:
+        if not self.closed:
+            try:
+                self._fileobj.close()
+            finally:
+                super().close()
+
+
+class _LZOBlockWriter(io.RawIOBase):
+    """Lazy writer compressing plaintext into ILZO1 length-prefixed blocks."""
+
+    def __init__(self, fileobj: typing.IO[bytes], compression_level: int):
+        self._fileobj = fileobj
+        self._compression_level = compression_level
+        self._plain = bytearray()
+        self._fileobj.write(_FRAME_MAGIC)
+
+    def writable(self) -> bool:
+        return True
+
+    def _flush_block(self) -> None:
+        if not self._plain:
+            return
+        block = lzo.compress(bytes(self._plain), self._compression_level)
+        self._fileobj.write(_BLOCK_HEADER.pack(len(block)))
+        self._fileobj.write(block)
+        self._plain.clear()
+
+    def write(self, b) -> int:
+        data = bytes(b)
+        self._plain += data
+        while len(self._plain) >= _BLOCK_SIZE:
+            chunk = bytes(self._plain[:_BLOCK_SIZE])
+            del self._plain[:_BLOCK_SIZE]
+            block = lzo.compress(chunk, self._compression_level)
+            self._fileobj.write(_BLOCK_HEADER.pack(len(block)))
+            self._fileobj.write(block)
+        return len(data)
+
+    def flush(self) -> None:
+        if not self.closed:
+            self._flush_block()
+            self._fileobj.flush()
+
+    def close(self) -> None:
+        if not self.closed:
+            try:
+                self.flush()
+                self._fileobj.close()
+            finally:
+                super().close()
 
 
 class LZOCodec(BaseCodec):
@@ -31,50 +137,32 @@ class LZOCodec(BaseCodec):
             )
 
         if "r" in self.mode:
-            # Reading: read entire file, decompress, provide as BytesIO
-            with open(self.filename, "rb") as f:
-                compressed_data = f.read()
-
-            if compressed_data:
-                decompressed_data = lzo.decompress(compressed_data)
+            base = open(self.filename, "rb")
+            header = base.read(len(_FRAME_MAGIC))
+            if header == _FRAME_MAGIC:
+                # Block-framed file: decompress lazily block by block.
+                self._fileobj = io.BufferedReader(_LZOBlockReader(base))
             else:
-                decompressed_data = b""
-
-            self._buffer = io.BytesIO(decompressed_data)
-            self._fileobj = self._buffer
+                # Legacy one-shot blob: cannot be streamed, decompress fully.
+                compressed_data = header + base.read()
+                base.close()
+                decompressed = lzo.decompress(compressed_data) if compressed_data else b""
+                self._fileobj = io.BytesIO(decompressed)
         else:
-            # Writing: buffer data, compress on close
-            self._buffer = io.BytesIO()
-            self._fileobj = self._buffer
-
+            base = open(self.filename, "wb")
+            self._fileobj = io.BufferedWriter(_LZOBlockWriter(base, self.compression_level))
         return self._fileobj
 
     def close(self) -> None:
-        if hasattr(self, "_fileobj") and self._fileobj:
-            if "w" in self.mode or "a" in self.mode:
-                if hasattr(self, "_buffer") and self._buffer:
-                    data = self._buffer.getvalue()
-                    if data:
-                        compressed_data = lzo.compress(data, self.compression_level)
-                        with open(self.filename, "wb") as f:
-                            f.write(compressed_data)
-                    self._buffer.close()
-                    self._buffer = None
-            else:
-                if hasattr(self, "_buffer") and self._buffer:
-                    self._buffer.close()
-                    self._buffer = None
+        if getattr(self, "_fileobj", None) is not None:
+            if not getattr(self._fileobj, "closed", False):
+                self._fileobj.close()
             self._fileobj = None
 
     def reset(self):
-        """Reset file position"""
-        if hasattr(self, "_buffer") and self._buffer:
-            if "r" in self.mode:
-                self._buffer.seek(0)
-            else:
-                # For writing, we need to reopen
-                self.close()
-                self.open()
+        """Reset by closing and reopening the underlying file."""
+        self.close()
+        self.open()
 
     @staticmethod
     def id():

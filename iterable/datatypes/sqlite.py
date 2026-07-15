@@ -141,6 +141,10 @@ class SQLiteIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return True
 
+    def is_streaming(self) -> bool:
+        """Records are decoded incrementally; the file is not fully loaded."""
+        return True
+
     @staticmethod
     def has_tables() -> bool:
         """Indicates if this format supports multiple tables."""

@@ -1,598 +1,231 @@
-"""Performance regression tests for IterableData.
+"""Enforced performance regression gate for IterableData.
 
-These tests compare current performance against baseline metrics to detect
-performance regressions. They fail if performance degrades beyond acceptable thresholds.
+Representative workloads (CSV read, JSONL read, compressed JSONL -> Parquet
+convert, bulk read/write) are timed and compared against committed baselines
+in ``tests/performance_baselines.json``.
 
-Baseline metrics are stored in a JSON file and can be updated when performance
-improvements are made.
+To make baselines portable across machines, every measurement is normalized
+by a fixed pure-Python calibration workload timed in the same session. The
+committed baseline for a workload is therefore a machine-independent ratio
+(workload time / calibration time), and tolerances are generous to absorb
+residual noise.
 
-Run with: pytest tests/test_performance_regression.py -v
+Running the gate (the ``performance`` marker is excluded by default):
 
-To update baselines after performance improvements:
-    pytest tests/test_performance_regression.py --update-baselines
+    pytest tests/test_performance_regression.py -m performance --no-cov
 
-To skip regression tests (run benchmarks only):
-    pytest tests/test_performance_regression.py --skip-regression
+Regenerating baselines (do this intentionally, on the reference environment,
+when a change legitimately alters performance; commit the resulting JSON):
+
+    pytest tests/test_performance_regression.py -m performance --no-cov \
+        --update-baselines
+
+Behavior when the baseline file is missing:
+- in CI (``CI`` env var set): the gate FAILS with regeneration instructions
+- locally: the test is skipped
+
+Set ``ITERABLE_PERF_BASELINE_FILE`` to point the gate at an alternative
+baseline file (used for validating that the gate detects regressions).
 """
 
+import gzip
 import json
+import os
+import platform
 import time
+from collections.abc import Callable
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from iterable.datatypes.csv import CSVIterable
+from iterable.convert import convert
 from iterable.helpers.detect import open_iterable
 
-# Baseline file location
-BASELINE_FILE = Path(__file__).parent / "performance_baselines.json"
+pytestmark = pytest.mark.performance
 
-# Performance regression thresholds (as multipliers)
-# e.g., 1.2 means 20% slower is acceptable, 1.5 means 50% slower fails
-PERFORMANCE_THRESHOLDS = {
-    "csv_read_small": 1.2,  # 20% slower acceptable
-    "csv_read_medium": 1.2,
-    "csv_read_large": 1.3,  # 30% slower acceptable for large files
-    "csv_write_small": 1.2,
-    "csv_write_medium": 1.2,
-    "jsonl_read_small": 1.2,
-    "jsonl_read_medium": 1.2,
-    "jsonl_write_small": 1.2,
-    "format_detection": 1.2,
-    "bulk_read_small": 1.15,  # 15% slower acceptable (should be fast)
-    "bulk_read_medium": 1.2,
-    "bulk_write_small": 1.15,
-    "factory_method_init": 1.1,  # 10% slower acceptable (should be minimal overhead)
-    "streaming_read": 1.2,
-    "reset_operation": 1.2,
+DEFAULT_BASELINE_FILE = Path(__file__).parent / "performance_baselines.json"
+
+ROWS = 10_000
+WARMUP_RUNS = 1
+MEASURED_RUNS = 3
+
+# Explicit per-workload tolerance multipliers applied to the committed
+# normalized baseline. E.g. 2.0 means "fail only when more than 2x slower
+# (relative to the calibration workload) than the reference measurement".
+TOLERANCES = {
+    "csv_read_10k": 2.0,
+    "jsonl_read_10k": 2.0,
+    "csv_bulk_read_10k": 2.0,
+    "csv_bulk_write_10k": 2.0,
+    "jsonl_gz_to_parquet_convert_10k": 2.5,
 }
 
 
-def load_baselines() -> dict[str, float]:
-    """Load baseline performance metrics from file."""
-    if not BASELINE_FILE.exists():
+def _baseline_file() -> Path:
+    override = os.environ.get("ITERABLE_PERF_BASELINE_FILE")
+    return Path(override) if override else DEFAULT_BASELINE_FILE
+
+
+def load_baselines() -> dict[str, Any]:
+    path = _baseline_file()
+    if not path.exists():
         return {}
-
-    try:
-        with BASELINE_FILE.open("r") as f:
-            return json.load(f)
-    except (OSError, json.JSONDecodeError):
-        return {}
+    with path.open("r") as f:
+        return json.load(f)
 
 
-def save_baselines(baselines: dict[str, float]) -> None:
-    """Save baseline performance metrics to file."""
-    BASELINE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with BASELINE_FILE.open("w") as f:
-        json.dump(baselines, f, indent=2)
+def save_baseline(key: str, normalized: float) -> None:
+    path = _baseline_file()
+    data = load_baselines()
+    data.setdefault("_meta", {}).update(
+        {
+            "description": (
+                "Normalized performance baselines: workload wall time divided by "
+                "a pure-Python calibration workload timed on the same machine. "
+                "Regenerate with: pytest tests/test_performance_regression.py "
+                "-m performance --no-cov --update-baselines"
+            ),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "platform": platform.platform(),
+            "python": platform.python_version(),
+            "cpu_count": os.cpu_count(),
+            "rows": ROWS,
+        }
+    )
+    data.setdefault("workloads", {})[key] = round(normalized, 4)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as f:
+        json.dump(data, f, indent=2, sort_keys=True)
+        f.write("\n")
 
 
-def measure_operation(func: Any, *args: Any, **kwargs: Any) -> float:
-    """Measure execution time of an operation in seconds."""
-    start = time.perf_counter()
-    result = func(*args, **kwargs)
-    elapsed = time.perf_counter() - start
-    # Consume result if it's an iterator
-    if hasattr(result, "__iter__") and not isinstance(result, (str, bytes)):
-        try:
-            list(result)
-        except Exception:
-            pass
-    return elapsed
+def _best_of(func: Callable[[], Any], runs: int = MEASURED_RUNS, warmup: int = WARMUP_RUNS) -> float:
+    """Return the best wall time of ``runs`` executions after ``warmup`` runs."""
+    for _ in range(warmup):
+        func()
+    best = float("inf")
+    for _ in range(runs):
+        start = time.perf_counter()
+        func()
+        best = min(best, time.perf_counter() - start)
+    return best
 
 
-@pytest.fixture
-def small_csv_data(tmp_path):
-    """Create a small CSV file for testing (100 rows)."""
-    test_file = tmp_path / "small.csv"
-    lines = ["id,name,value"] + [f"{i},Name{i},{i * 10}" for i in range(100)]
-    test_file.write_text("\n".join(lines))
-    return test_file
+def _calibration_workload() -> int:
+    """Fixed pure-Python workload used to normalize timings across machines."""
+    total = 0
+    for i in range(1_500_000):
+        total += i * i
+    return total
 
 
-@pytest.fixture
-def medium_csv_data(tmp_path):
-    """Create a medium CSV file for testing (10,000 rows)."""
-    test_file = tmp_path / "medium.csv"
-    lines = ["id,name,value"]
-    with test_file.open("w") as f:
-        f.write("\n".join(lines) + "\n")
-        for i in range(10000):
+@pytest.fixture(scope="module")
+def calibration_time() -> float:
+    return _best_of(_calibration_workload)
+
+
+@pytest.fixture(scope="module")
+def workload_files(tmp_path_factory):
+    """Create the shared input files for all workloads once per module."""
+    root = tmp_path_factory.mktemp("perf")
+
+    csv_file = root / "data.csv"
+    with csv_file.open("w") as f:
+        f.write("id,name,value\n")
+        for i in range(ROWS):
             f.write(f"{i},Name{i},{i * 10}\n")
-    return test_file
 
-
-@pytest.fixture
-def small_jsonl_data(tmp_path):
-    """Create a small JSONL file for testing (100 rows)."""
-    import json
-
-    test_file = tmp_path / "small.jsonl"
-    with test_file.open("w") as f:
-        for i in range(100):
+    jsonl_file = root / "data.jsonl"
+    with jsonl_file.open("w") as f:
+        for i in range(ROWS):
             f.write(json.dumps({"id": i, "name": f"Name{i}", "value": i * 10}) + "\n")
-    return test_file
 
-
-@pytest.fixture
-def medium_jsonl_data(tmp_path):
-    """Create a medium JSONL file for testing (10,000 rows)."""
-    import json
-
-    test_file = tmp_path / "medium.jsonl"
-    with test_file.open("w") as f:
-        for i in range(10000):
+    jsonl_gz_file = root / "data.jsonl.gz"
+    with gzip.open(jsonl_gz_file, "wt") as f:
+        for i in range(ROWS):
             f.write(json.dumps({"id": i, "name": f"Name{i}", "value": i * 10}) + "\n")
-    return test_file
+
+    return {"root": root, "csv": csv_file, "jsonl": jsonl_file, "jsonl_gz": jsonl_gz_file}
 
 
-# NOTE: pytest options (--update-baselines, --skip-regression) are registered
-# in tests/conftest.py, since pytest only collects pytest_addoption from conftest.
+def _check_workload(key: str, func: Callable[[], Any], calibration_time: float, request) -> None:
+    """Measure one workload and compare its normalized time to the baseline."""
+    if request.config.getoption("--skip-regression"):
+        pytest.skip("Regression check skipped via --skip-regression")
 
+    elapsed = _best_of(func)
+    normalized = elapsed / calibration_time
 
-class TestCSVPerformanceRegression:
-    """Test CSV read/write performance regression."""
+    if request.config.getoption("--update-baselines"):
+        save_baseline(key, normalized)
+        pytest.skip(f"Baseline updated: {key} = {normalized:.4f}")
 
-    def test_csv_read_small_performance(self, small_csv_data, request):
-        """Test CSV read performance for small files."""
-        baselines = load_baselines()
-        update_baselines = request.config.getoption("--update-baselines")
-        skip_regression = request.config.getoption("--skip-regression")
-
-        elapsed = measure_operation(lambda: list(open_iterable(small_csv_data)))
-
-        baseline_key = "csv_read_small"
-        baseline = baselines.get(baseline_key)
-
-        if update_baselines:
-            baselines[baseline_key] = elapsed
-            save_baselines(baselines)
-            pytest.skip("Baseline updated")
-
-        if skip_regression or baseline is None:
-            pytest.skip("No baseline available or regression check skipped")
-
-        threshold = PERFORMANCE_THRESHOLDS.get(baseline_key, 1.2)
-        max_acceptable = baseline * threshold
-
-        assert elapsed <= max_acceptable, (
-            f"CSV read performance regressed: {elapsed:.4f}s > {max_acceptable:.4f}s "
-            f"(baseline: {baseline:.4f}s, threshold: {threshold}x)"
+    baselines = load_baselines().get("workloads", {})
+    baseline = baselines.get(key)
+    if baseline is None:
+        message = (
+            f"No committed baseline for workload '{key}' in {_baseline_file()}. "
+            "Regenerate with: pytest tests/test_performance_regression.py "
+            "-m performance --no-cov --update-baselines"
         )
-
-    def test_csv_read_medium_performance(self, medium_csv_data, request):
-        """Test CSV read performance for medium files."""
-        baselines = load_baselines()
-        update_baselines = request.config.getoption("--update-baselines")
-        skip_regression = request.config.getoption("--skip-regression")
-
-        elapsed = measure_operation(lambda: list(open_iterable(medium_csv_data)))
-
-        baseline_key = "csv_read_medium"
-        baseline = baselines.get(baseline_key)
-
-        if update_baselines:
-            baselines[baseline_key] = elapsed
-            save_baselines(baselines)
-            pytest.skip("Baseline updated")
-
-        if skip_regression or baseline is None:
-            pytest.skip("No baseline available or regression check skipped")
-
-        threshold = PERFORMANCE_THRESHOLDS.get(baseline_key, 1.2)
-        max_acceptable = baseline * threshold
-
-        assert elapsed <= max_acceptable, (
-            f"CSV read (medium) performance regressed: {elapsed:.4f}s > {max_acceptable:.4f}s "
-            f"(baseline: {baseline:.4f}s, threshold: {threshold}x)"
-        )
-
-    def test_csv_write_small_performance(self, tmp_path, request):
-        """Test CSV write performance for small files."""
-        baselines = load_baselines()
-        update_baselines = request.config.getoption("--update-baselines")
-        skip_regression = request.config.getoption("--skip-regression")
-
-        output_file = tmp_path / "output.csv"
-        data = [{"id": i, "name": f"Name{i}", "value": i * 10} for i in range(100)]
-
-        def write_operation():
-            with open_iterable(output_file, "w") as dest:
-                dest.write_bulk(data)
-
-        elapsed = measure_operation(write_operation)
-
-        baseline_key = "csv_write_small"
-        baseline = baselines.get(baseline_key)
-
-        if update_baselines:
-            baselines[baseline_key] = elapsed
-            save_baselines(baselines)
-            pytest.skip("Baseline updated")
-
-        if skip_regression or baseline is None:
-            pytest.skip("No baseline available or regression check skipped")
-
-        threshold = PERFORMANCE_THRESHOLDS.get(baseline_key, 1.2)
-        max_acceptable = baseline * threshold
-
-        assert elapsed <= max_acceptable, (
-            f"CSV write performance regressed: {elapsed:.4f}s > {max_acceptable:.4f}s "
-            f"(baseline: {baseline:.4f}s, threshold: {threshold}x)"
-        )
-
-    def test_csv_write_medium_performance(self, tmp_path, request):
-        """Test CSV write performance for medium files."""
-        baselines = load_baselines()
-        update_baselines = request.config.getoption("--update-baselines")
-        skip_regression = request.config.getoption("--skip-regression")
-
-        output_file = tmp_path / "output.csv"
-        data = [{"id": i, "name": f"Name{i}", "value": i * 10} for i in range(10000)]
-
-        def write_operation():
-            with open_iterable(output_file, "w") as dest:
-                dest.write_bulk(data)
-
-        elapsed = measure_operation(write_operation)
-
-        baseline_key = "csv_write_medium"
-        baseline = baselines.get(baseline_key)
-
-        if update_baselines:
-            baselines[baseline_key] = elapsed
-            save_baselines(baselines)
-            pytest.skip("Baseline updated")
-
-        if skip_regression or baseline is None:
-            pytest.skip("No baseline available or regression check skipped")
-
-        threshold = PERFORMANCE_THRESHOLDS.get(baseline_key, 1.2)
-        max_acceptable = baseline * threshold
-
-        assert elapsed <= max_acceptable, (
-            f"CSV write (medium) performance regressed: {elapsed:.4f}s > {max_acceptable:.4f}s "
-            f"(baseline: {baseline:.4f}s, threshold: {threshold}x)"
-        )
-
-
-class TestJSONLPerformanceRegression:
-    """Test JSONL read/write performance regression."""
-
-    def test_jsonl_read_small_performance(self, small_jsonl_data, request):
-        """Test JSONL read performance for small files."""
-        baselines = load_baselines()
-        update_baselines = request.config.getoption("--update-baselines")
-        skip_regression = request.config.getoption("--skip-regression")
-
-        elapsed = measure_operation(lambda: list(open_iterable(small_jsonl_data)))
-
-        baseline_key = "jsonl_read_small"
-        baseline = baselines.get(baseline_key)
-
-        if update_baselines:
-            baselines[baseline_key] = elapsed
-            save_baselines(baselines)
-            pytest.skip("Baseline updated")
-
-        if skip_regression or baseline is None:
-            pytest.skip("No baseline available or regression check skipped")
-
-        threshold = PERFORMANCE_THRESHOLDS.get(baseline_key, 1.2)
-        max_acceptable = baseline * threshold
-
-        assert elapsed <= max_acceptable, (
-            f"JSONL read performance regressed: {elapsed:.4f}s > {max_acceptable:.4f}s "
-            f"(baseline: {baseline:.4f}s, threshold: {threshold}x)"
-        )
-
-    def test_jsonl_read_medium_performance(self, medium_jsonl_data, request):
-        """Test JSONL read performance for medium files."""
-        baselines = load_baselines()
-        update_baselines = request.config.getoption("--update-baselines")
-        skip_regression = request.config.getoption("--skip-regression")
-
-        elapsed = measure_operation(lambda: list(open_iterable(medium_jsonl_data)))
-
-        baseline_key = "jsonl_read_medium"
-        baseline = baselines.get(baseline_key)
-
-        if update_baselines:
-            baselines[baseline_key] = elapsed
-            save_baselines(baselines)
-            pytest.skip("Baseline updated")
-
-        if skip_regression or baseline is None:
-            pytest.skip("No baseline available or regression check skipped")
-
-        threshold = PERFORMANCE_THRESHOLDS.get(baseline_key, 1.2)
-        max_acceptable = baseline * threshold
-
-        assert elapsed <= max_acceptable, (
-            f"JSONL read (medium) performance regressed: {elapsed:.4f}s > {max_acceptable:.4f}s "
-            f"(baseline: {baseline:.4f}s, threshold: {threshold}x)"
-        )
-
-    def test_jsonl_write_small_performance(self, tmp_path, request):
-        """Test JSONL write performance for small files."""
-        baselines = load_baselines()
-        update_baselines = request.config.getoption("--update-baselines")
-        skip_regression = request.config.getoption("--skip-regression")
-
-        output_file = tmp_path / "output.jsonl"
-        data = [{"id": i, "name": f"Name{i}", "value": i * 10} for i in range(100)]
-
-        def write_operation():
-            with open_iterable(output_file, "w") as dest:
-                dest.write_bulk(data)
-
-        elapsed = measure_operation(write_operation)
-
-        baseline_key = "jsonl_write_small"
-        baseline = baselines.get(baseline_key)
-
-        if update_baselines:
-            baselines[baseline_key] = elapsed
-            save_baselines(baselines)
-            pytest.skip("Baseline updated")
-
-        if skip_regression or baseline is None:
-            pytest.skip("No baseline available or regression check skipped")
-
-        threshold = PERFORMANCE_THRESHOLDS.get(baseline_key, 1.2)
-        max_acceptable = baseline * threshold
-
-        assert elapsed <= max_acceptable, (
-            f"JSONL write performance regressed: {elapsed:.4f}s > {max_acceptable:.4f}s "
-            f"(baseline: {baseline:.4f}s, threshold: {threshold}x)"
-        )
-
-
-class TestBulkOperationsPerformanceRegression:
-    """Test bulk operations performance regression."""
-
-    def test_bulk_read_small_performance(self, small_csv_data, request):
-        """Test bulk read performance for small files."""
-        baselines = load_baselines()
-        update_baselines = request.config.getoption("--update-baselines")
-        skip_regression = request.config.getoption("--skip-regression")
-
-        def bulk_read_operation():
-            with open_iterable(small_csv_data) as source:
-                while True:
-                    chunk = source.read_bulk(num=10)
-                    if not chunk:
-                        break
-
-        elapsed = measure_operation(bulk_read_operation)
-
-        baseline_key = "bulk_read_small"
-        baseline = baselines.get(baseline_key)
-
-        if update_baselines:
-            baselines[baseline_key] = elapsed
-            save_baselines(baselines)
-            pytest.skip("Baseline updated")
-
-        if skip_regression or baseline is None:
-            pytest.skip("No baseline available or regression check skipped")
-
-        threshold = PERFORMANCE_THRESHOLDS.get(baseline_key, 1.15)
-        max_acceptable = baseline * threshold
-
-        assert elapsed <= max_acceptable, (
-            f"Bulk read performance regressed: {elapsed:.4f}s > {max_acceptable:.4f}s "
-            f"(baseline: {baseline:.4f}s, threshold: {threshold}x)"
-        )
-
-    def test_bulk_read_medium_performance(self, medium_csv_data, request):
-        """Test bulk read performance for medium files."""
-        baselines = load_baselines()
-        update_baselines = request.config.getoption("--update-baselines")
-        skip_regression = request.config.getoption("--skip-regression")
-
-        def bulk_read_operation():
-            with open_iterable(medium_csv_data) as source:
-                while True:
-                    chunk = source.read_bulk(num=1000)
-                    if not chunk:
-                        break
-
-        elapsed = measure_operation(bulk_read_operation)
-
-        baseline_key = "bulk_read_medium"
-        baseline = baselines.get(baseline_key)
-
-        if update_baselines:
-            baselines[baseline_key] = elapsed
-            save_baselines(baselines)
-            pytest.skip("Baseline updated")
-
-        if skip_regression or baseline is None:
-            pytest.skip("No baseline available or regression check skipped")
-
-        threshold = PERFORMANCE_THRESHOLDS.get(baseline_key, 1.2)
-        max_acceptable = baseline * threshold
-
-        assert elapsed <= max_acceptable, (
-            f"Bulk read (medium) performance regressed: {elapsed:.4f}s > {max_acceptable:.4f}s "
-            f"(baseline: {baseline:.4f}s, threshold: {threshold}x)"
-        )
-
-    def test_bulk_write_small_performance(self, tmp_path, request):
-        """Test bulk write performance for small files."""
-        baselines = load_baselines()
-        update_baselines = request.config.getoption("--update-baselines")
-        skip_regression = request.config.getoption("--skip-regression")
-
-        output_file = tmp_path / "output.csv"
-        data = [{"id": i, "name": f"Name{i}", "value": i * 10} for i in range(100)]
-
-        def bulk_write_operation():
-            with open_iterable(output_file, "w") as dest:
-                dest.write_bulk(data)
-
-        elapsed = measure_operation(bulk_write_operation)
-
-        baseline_key = "bulk_write_small"
-        baseline = baselines.get(baseline_key)
-
-        if update_baselines:
-            baselines[baseline_key] = elapsed
-            save_baselines(baselines)
-            pytest.skip("Baseline updated")
-
-        if skip_regression or baseline is None:
-            pytest.skip("No baseline available or regression check skipped")
-
-        threshold = PERFORMANCE_THRESHOLDS.get(baseline_key, 1.15)
-        max_acceptable = baseline * threshold
-
-        assert elapsed <= max_acceptable, (
-            f"Bulk write performance regressed: {elapsed:.4f}s > {max_acceptable:.4f}s "
-            f"(baseline: {baseline:.4f}s, threshold: {threshold}x)"
-        )
-
-
-class TestFactoryMethodPerformanceRegression:
-    """Test factory method performance regression."""
-
-    def test_factory_method_init_performance(self, tmp_path, request):
-        """Test factory method initialization performance."""
-        baselines = load_baselines()
-        update_baselines = request.config.getoption("--update-baselines")
-        skip_regression = request.config.getoption("--skip-regression")
-
-        test_file = tmp_path / "test.csv"
-        test_file.write_text("id,name\n1,test\n")
-
-        # Measure factory method initialization
-        elapsed = measure_operation(lambda: CSVIterable.from_file(str(test_file)))
-
-        baseline_key = "factory_method_init"
-        baseline = baselines.get(baseline_key)
-
-        if update_baselines:
-            baselines[baseline_key] = elapsed
-            save_baselines(baselines)
-            pytest.skip("Baseline updated")
-
-        if skip_regression or baseline is None:
-            pytest.skip("No baseline available or regression check skipped")
-
-        threshold = PERFORMANCE_THRESHOLDS.get(baseline_key, 1.1)
-        max_acceptable = baseline * threshold
-
-        assert elapsed <= max_acceptable, (
-            f"Factory method init performance regressed: {elapsed:.4f}s > {max_acceptable:.4f}s "
-            f"(baseline: {baseline:.4f}s, threshold: {threshold}x)"
-        )
-
-
-class TestFormatDetectionPerformanceRegression:
-    """Test format detection performance regression."""
-
-    def test_format_detection_performance(self, small_csv_data, request):
-        """Test format detection performance."""
-        baselines = load_baselines()
-        update_baselines = request.config.getoption("--update-baselines")
-        skip_regression = request.config.getoption("--skip-regression")
-
-        elapsed = measure_operation(lambda: open_iterable(small_csv_data))
-
-        baseline_key = "format_detection"
-        baseline = baselines.get(baseline_key)
-
-        if update_baselines:
-            baselines[baseline_key] = elapsed
-            save_baselines(baselines)
-            pytest.skip("Baseline updated")
-
-        if skip_regression or baseline is None:
-            pytest.skip("No baseline available or regression check skipped")
-
-        threshold = PERFORMANCE_THRESHOLDS.get(baseline_key, 1.2)
-        max_acceptable = baseline * threshold
-
-        assert elapsed <= max_acceptable, (
-            f"Format detection performance regressed: {elapsed:.4f}s > {max_acceptable:.4f}s "
-            f"(baseline: {baseline:.4f}s, threshold: {threshold}x)"
-        )
-
-
-class TestStreamingPerformanceRegression:
-    """Test streaming operations performance regression."""
-
-    def test_streaming_read_performance(self, medium_csv_data, request):
-        """Test streaming read performance."""
-        baselines = load_baselines()
-        update_baselines = request.config.getoption("--update-baselines")
-        skip_regression = request.config.getoption("--skip-regression")
-
-        # Measure streaming read (iterator, not loading all into memory)
-        def streaming_read_operation():
-            with open_iterable(medium_csv_data) as source:
-                count = 0
+        if os.environ.get("CI"):
+            pytest.fail(message)
+        pytest.skip(message)
+
+    tolerance = TOLERANCES[key]
+    max_acceptable = baseline * tolerance
+    assert normalized <= max_acceptable, (
+        f"Performance regression in workload '{key}': normalized time "
+        f"{normalized:.4f} exceeds {max_acceptable:.4f} "
+        f"(baseline {baseline:.4f} x tolerance {tolerance}). "
+        f"Raw: workload {elapsed:.4f}s, calibration {calibration_time:.4f}s."
+    )
+
+
+class TestPerformanceRegressionGate:
+    """Compare representative workloads against committed baselines."""
+
+    def test_csv_read(self, workload_files, calibration_time, request):
+        def workload():
+            with open_iterable(workload_files["csv"]) as source:
                 for _row in source:
-                    count += 1
-                    if count >= 1000:  # Read first 1000 rows
-                        break
+                    pass
 
-        elapsed = measure_operation(streaming_read_operation)
+        _check_workload("csv_read_10k", workload, calibration_time, request)
 
-        baseline_key = "streaming_read"
-        baseline = baselines.get(baseline_key)
+    def test_jsonl_read(self, workload_files, calibration_time, request):
+        def workload():
+            with open_iterable(workload_files["jsonl"]) as source:
+                for _row in source:
+                    pass
 
-        if update_baselines:
-            baselines[baseline_key] = elapsed
-            save_baselines(baselines)
-            pytest.skip("Baseline updated")
+        _check_workload("jsonl_read_10k", workload, calibration_time, request)
 
-        if skip_regression or baseline is None:
-            pytest.skip("No baseline available or regression check skipped")
+    def test_csv_bulk_read(self, workload_files, calibration_time, request):
+        def workload():
+            with open_iterable(workload_files["csv"]) as source:
+                while source.read_bulk(num=1000):
+                    pass
 
-        threshold = PERFORMANCE_THRESHOLDS.get(baseline_key, 1.2)
-        max_acceptable = baseline * threshold
+        _check_workload("csv_bulk_read_10k", workload, calibration_time, request)
 
-        assert elapsed <= max_acceptable, (
-            f"Streaming read performance regressed: {elapsed:.4f}s > {max_acceptable:.4f}s "
-            f"(baseline: {baseline:.4f}s, threshold: {threshold}x)"
-        )
+    def test_csv_bulk_write(self, workload_files, calibration_time, request):
+        data = [{"id": i, "name": f"Name{i}", "value": i * 10} for i in range(ROWS)]
+        output = workload_files["root"] / "bulk_out.csv"
 
+        def workload():
+            with open_iterable(output, "w") as dest:
+                dest.write_bulk(data)
 
-class TestResetPerformanceRegression:
-    """Test reset operation performance regression."""
+        _check_workload("csv_bulk_write_10k", workload, calibration_time, request)
 
-    def test_reset_operation_performance(self, small_csv_data, request):
-        """Test reset operation performance."""
-        baselines = load_baselines()
-        update_baselines = request.config.getoption("--update-baselines")
-        skip_regression = request.config.getoption("--skip-regression")
+    def test_jsonl_gz_to_parquet_convert(self, workload_files, calibration_time, request):
+        pytest.importorskip("pyarrow", reason="Parquet convert workload requires pyarrow")
+        output = workload_files["root"] / "converted.parquet"
 
-        def reset_operation():
-            with open_iterable(small_csv_data) as source:
-                source.read()  # Read one row
-                source.reset()  # Reset
-                source.read()  # Read again
+        def workload():
+            convert(str(workload_files["jsonl_gz"]), str(output))
 
-        elapsed = measure_operation(reset_operation)
-
-        baseline_key = "reset_operation"
-        baseline = baselines.get(baseline_key)
-
-        if update_baselines:
-            baselines[baseline_key] = elapsed
-            save_baselines(baselines)
-            pytest.skip("Baseline updated")
-
-        if skip_regression or baseline is None:
-            pytest.skip("No baseline available or regression check skipped")
-
-        threshold = PERFORMANCE_THRESHOLDS.get(baseline_key, 1.2)
-        max_acceptable = baseline * threshold
-
-        assert elapsed <= max_acceptable, (
-            f"Reset operation performance regressed: {elapsed:.4f}s > {max_acceptable:.4f}s "
-            f"(baseline: {baseline:.4f}s, threshold: {threshold}x)"
-        )
+        _check_workload("jsonl_gz_to_parquet_convert_10k", workload, calibration_time, request)

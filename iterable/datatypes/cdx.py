@@ -81,6 +81,10 @@ class CDXIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return True
 
+    def is_streaming(self) -> bool:
+        """Records are decoded incrementally; the file is not fully loaded."""
+        return True
+
     def read(self, skip_empty: bool = True) -> dict:
         """Read single CDX record"""
         while True:

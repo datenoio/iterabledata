@@ -7,6 +7,8 @@ import pyarrow
 import pyarrow.parquet
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..exceptions import FormatParseError, WriteError
+from ..helpers.utils import normalize_extended_json
 from ..types import Row
 
 DEFAULT_BATCH_SIZE = 1024
@@ -56,7 +58,14 @@ class ParquetIterable(BaseFileIterable):
         self.pos = 0
         self.reader = None
         if self.mode == "r":
-            self.reader = pyarrow.parquet.ParquetFile(self.fobj)
+            try:
+                self.reader = pyarrow.parquet.ParquetFile(self.fobj)
+            except (pyarrow.ArrowInvalid, OSError, ValueError) as e:
+                raise FormatParseError(
+                    format_id="parquet",
+                    message=str(e),
+                    filename=getattr(self, "filename", None),
+                ) from e
             self.iterator = self.__iterator()
             # Initialize batch iterator for optimized bulk reads
             self._batch_iterator = self.reader.iter_batches(batch_size=self.batch_size)
@@ -110,16 +119,33 @@ class ParquetIterable(BaseFileIterable):
         except Exception:
             return self.reader.scan_contents()
 
+    def _normalize_records_to_schema(self, records: list[Row], schema: pyarrow.Schema) -> list[dict]:
+        """Normalize records to match an existing schema field order and names."""
+        field_names = [field.name for field in schema]
+        return [{field_name: record.get(field_name) for field_name in field_names} for record in records]
+
+    def _prepare_records(self, records: list[Row]) -> list[Row]:
+        """Normalize record values before PyArrow schema inference."""
+        return [normalize_extended_json(record) for record in records]
+
+    def _write_records(self, records: list[Row]) -> None:
+        """Write records to Parquet, aligning schema when appending to an existing file."""
+        records = self._prepare_records(records)
+        if self.writer is None:
+            table = pyarrow.Table.from_pylist(records)
+            self.writer = pyarrow.parquet.ParquetWriter(
+                self.fobj, table.schema, compression=self.compression, use_dictionary=False
+            )
+        else:
+            normalized_records = self._normalize_records_to_schema(records, self.writer.schema)
+            table = pyarrow.Table.from_pylist(normalized_records, schema=self.writer.schema)
+        self.writer.write_table(table)
+
     def flush(self):
         """Flush all data"""
         if not self.__buffer:
             return
-        table = pyarrow.Table.from_pylist(self.__buffer)
-        if self.writer is None:
-            self.writer = pyarrow.parquet.ParquetWriter(
-                self.fobj, table.schema, compression=self.compression, use_dictionary=False
-            )
-        self.writer.write_table(table)
+        self._write_records(self.__buffer)
         self.__buffer = []
 
     def close(self):
@@ -206,31 +232,19 @@ class ParquetIterable(BaseFileIterable):
         if not records:
             return
 
-        # If we already have a writer, normalize records to match existing schema
+        # If we already have a writer, align records to the established schema.
         if self.writer is not None:
-            # Get expected fields from existing schema
-            expected_fields = {field.name for field in self.writer.schema}
-
-            # Normalize records to match existing schema
-            # Add missing fields as None, remove extra fields
-            normalized_records = []
-            for record in records:
-                normalized = {}
-                for field_name in expected_fields:
-                    normalized[field_name] = record.get(field_name)
-                normalized_records.append(normalized)
-
             try:
-                table = pyarrow.Table.from_pylist(normalized_records)
-                self.writer.write_table(table)
-                return
-            except Exception:
-                # If normalization didn't work, buffer and let flush handle it
-                # This can happen if there are type mismatches
-                self.__buffer.extend(normalized_records)
-                if len(self.__buffer) >= self.batch_size:
-                    self.flush()
-                return
+                self._write_records(records)
+            except Exception as e:
+                # Surface alignment failures (e.g. type mismatches between
+                # batches) immediately instead of buffering them silently.
+                raise WriteError(
+                    f"Failed to write records aligned to the existing Parquet schema ({self.writer.schema.names}): {e}",
+                    filename=getattr(self, "filename", None),
+                    error_code="SCHEMA_ALIGNMENT_FAILED",
+                ) from e
+            return
 
         # Schema-adaptive streaming: buffer up to batch_size, then flush (writer created on first flush).
         self.__buffer.extend(records)

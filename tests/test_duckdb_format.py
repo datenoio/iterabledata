@@ -6,10 +6,11 @@ This tests the DuckDBIterable from iterable.datatypes.duckdb
 import os
 import tempfile
 
-import duckdb
 import pytest
 
-from iterable.datatypes.duckdb import DuckDBIterable
+duckdb = pytest.importorskip("duckdb", reason="duckdb is required for the DuckDB format")
+
+from iterable.datatypes.duckdb import DuckDBIterable  # noqa: E402
 
 
 def _new_duckdb_path(suffix: str = ".duckdb") -> str:

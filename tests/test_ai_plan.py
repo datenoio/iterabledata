@@ -11,7 +11,8 @@ class TestPlanConversion:
         assert isinstance(plan["warnings"], list)
 
     def test_plan_readonly_target_warning(self):
-        plan = plan_conversion("fixtures/2cols6rows.csv", "out.avro")
+        # `.xls` is a read-only format; converting *to* it should warn.
+        plan = plan_conversion("fixtures/2cols6rows.csv", "out.xls")
         assert any("read-only" in w.lower() for w in plan["warnings"])
 
     def test_plan_with_llm_mocked(self):

@@ -11,8 +11,11 @@ import pytest
 
 pytest.importorskip("pytest_benchmark", reason="pytest-benchmark not installed (pip install pytest-benchmark)")
 
-from iterable.datatypes.csv import CSVIterable
-from iterable.helpers.detect import open_iterable
+from iterable.datatypes.csv import CSVIterable  # noqa: E402
+from iterable.helpers.detect import open_iterable  # noqa: E402
+
+# Excluded from the default run via addopts; run with: pytest -m benchmark
+pytestmark = pytest.mark.benchmark
 
 
 @pytest.fixture
@@ -106,8 +109,8 @@ class TestCSVBenchmarks:
         def read_bulk():
             with open_iterable(small_csv_data) as source:
                 chunks = []
-                for chunk in source.read_bulk(num=10):
-                    chunks.extend(chunk)
+                while batch := source.read_bulk(num=10):
+                    chunks.extend(batch)
                 return chunks
 
         result = benchmark(read_bulk)
@@ -119,8 +122,8 @@ class TestCSVBenchmarks:
         def read_bulk():
             with open_iterable(medium_csv_data) as source:
                 chunks = []
-                for chunk in source.read_bulk(num=1000):
-                    chunks.extend(chunk)
+                while batch := source.read_bulk(num=1000):
+                    chunks.extend(batch)
                 return chunks
 
         result = benchmark(read_bulk)
@@ -180,8 +183,8 @@ class TestJSONLBenchmarks:
         def read_bulk():
             with open_iterable(small_jsonl_data) as source:
                 chunks = []
-                for chunk in source.read_bulk(num=10):
-                    chunks.extend(chunk)
+                while batch := source.read_bulk(num=10):
+                    chunks.extend(batch)
                 return chunks
 
         result = benchmark(read_bulk)
@@ -268,7 +271,9 @@ class TestFactoryMethodBenchmarks:
         """Benchmark traditional __init__ method"""
 
         def create():
-            return CSVIterable(filename=str(small_csv_data), noopen=True)
+            it = CSVIterable(filename=str(small_csv_data))
+            it.close()
+            return it
 
         result = benchmark(create)
         assert result is not None
@@ -283,16 +288,18 @@ class TestBulkOperationsBenchmarks:
         def bulk_read():
             with open_iterable(medium_csv_data) as source:
                 chunks = []
-                for chunk in source.read_bulk(num=1000):
-                    chunks.extend(chunk)
+                while batch := source.read_bulk(num=1000):
+                    chunks.extend(batch)
                 return chunks
 
         def individual_read():
             with open_iterable(medium_csv_data) as source:
                 return list(source)
 
+        # pytest-benchmark allows a single benchmark() call per test; benchmark
+        # the bulk path and verify equivalence with the individual path separately.
         bulk_result = benchmark(bulk_read)
-        individual_result = benchmark(individual_read)
+        individual_result = individual_read()
 
         # Both should return same data
         assert len(bulk_result) == len(individual_result) == 10000
@@ -312,8 +319,10 @@ class TestBulkOperationsBenchmarks:
                 for record in data:
                     dest.write(record)
 
+        # pytest-benchmark allows a single benchmark() call per test; benchmark
+        # the bulk path and run the individual path once for comparison coverage.
         benchmark(bulk_write)
-        benchmark(individual_write)
+        individual_write()
 
         # Both files should exist
         assert (tmp_path / "bulk.csv").exists()

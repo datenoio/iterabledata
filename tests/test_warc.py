@@ -1,7 +1,9 @@
 import pytest
 
-from iterable.codecs import GZIPCodec
-from iterable.datatypes import WARCIterable
+pytest.importorskip("warcio", reason="warcio is required for WARC support")
+
+from iterable.codecs import GZIPCodec  # noqa: E402
+from iterable.datatypes import WARCIterable  # noqa: E402
 
 
 class TestWARC:

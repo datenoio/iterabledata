@@ -1,0 +1,6 @@
+{"type": "Feature", "properties": {"id": "1", "name": "John"}, "geometry": {"type": "Point", "coordinates": [0, 0]}}
+{"type": "Feature", "properties": {"id": "2", "name": "Mary"}, "geometry": {"type": "Point", "coordinates": [1, 1]}}
+{"type": "Feature", "properties": {"id": "3", "name": "Michael"}, "geometry": {"type": "Point", "coordinates": [2, 2]}}
+{"type": "Feature", "properties": {"id": "4", "name": "Anna"}, "geometry": {"type": "Point", "coordinates": [3, 3]}}
+{"type": "Feature", "properties": {"id": "5", "name": "Orban"}, "geometry": {"type": "Point", "coordinates": [4, 4]}}
+{"type": "Feature", "properties": {"id": "6", "name": "Lucy"}, "geometry": {"type": "Point", "coordinates": [5, 5]}}

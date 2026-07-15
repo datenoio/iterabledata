@@ -2,8 +2,9 @@ import glob
 import logging
 import os
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +49,251 @@ def _atomic_write(target_file: str, temp_file: str) -> None:
             "Atomic writes only work on the same filesystem. "
             "If source and destination are on different filesystems, use atomic=False."
         ) from e
+
+
+def _prepare_atomic_target(tofile: str, atomic: bool) -> tuple[str, str | None]:
+    """Return the actual write target and temp file path (when atomic)."""
+    if not atomic:
+        return tofile, None
+    temp_file = os.path.join(os.path.dirname(tofile) or ".", os.path.basename(tofile) + ".tmp")
+    if os.path.exists(temp_file):
+        try:
+            os.remove(temp_file)
+        except Exception as e:
+            logging.warning(f"Failed to remove existing temporary file '{temp_file}': {e}")
+    return temp_file, temp_file
+
+
+def _close_quietly(it: Any, err_msg: str, errors: list[Exception]) -> None:
+    """Close an iterable, logging and recording (not raising) any failure."""
+    if it is None:
+        return
+    try:
+        it.close()
+    except Exception as e:
+        logging.warning(f"{err_msg}: {e}")
+        if e not in errors:
+            errors.append(e)
+
+
+@dataclass
+class _ConvertMetrics:
+    """Mutable metrics shared across the conversion stages."""
+
+    start_time: float
+    rows_read: int = 0
+    rows_written: int = 0
+    bytes_read: int | None = None
+    bytes_written: int | None = None
+    errors: list[Exception] = field(default_factory=list)
+
+
+def _progress_estimates(
+    metrics: _ConvertMetrics, estimated_total: int | None, elapsed: float
+) -> tuple[float | None, float | None]:
+    """Compute percent complete and ETA from current metrics, when possible."""
+    percent_complete = None
+    estimated_time_remaining = None
+    if estimated_total is not None and estimated_total > 0:
+        percent_complete = (metrics.rows_read / estimated_total) * 100.0
+        if elapsed > 0 and metrics.rows_read > 0:
+            rate = metrics.rows_read / elapsed
+            remaining_rows = estimated_total - metrics.rows_read
+            estimated_time_remaining = remaining_rows / rate if rate > 0 else None
+    return percent_complete, estimated_time_remaining
+
+
+def _report_progress(
+    progress: Callable[[dict[str, Any]], None] | None,
+    metrics: _ConvertMetrics,
+    it_in: Any,
+    use_totals: bool,
+) -> None:
+    """Invoke the user progress callback with current metrics, if provided."""
+    if progress is None:
+        return
+    elapsed = time.time() - metrics.start_time
+    estimated_total = None
+    if use_totals and it_in is not None and it_in.has_totals():
+        estimated_total = it_in.totals()
+
+    percent_complete, estimated_time_remaining = _progress_estimates(metrics, estimated_total, elapsed)
+
+    try:
+        progress(
+            {
+                "rows_read": metrics.rows_read,
+                "rows_written": metrics.rows_written,
+                "elapsed": elapsed,
+                "estimated_total": estimated_total,
+                "bytes_read": metrics.bytes_read,
+                "bytes_written": metrics.bytes_written,
+                "percent_complete": percent_complete,
+                "estimated_time_remaining": estimated_time_remaining,
+            }
+        )
+    except Exception as e:
+        logging.warning(f"Error in progress callback: {e}")
+
+
+def _safe_reset(it_in: Any) -> None:
+    """Reset an iterable, tolerating sources (e.g. databases) that cannot."""
+    try:
+        it_in.reset()
+    except NotImplementedError:
+        pass
+
+
+def _scan_schema_keys(it_in: Any, scan_limit: int | None, is_flatten: bool, silent: bool) -> set[str]:
+    """Scan up to ``scan_limit`` rows to collect the flat output key set."""
+    keys: set[str] = set()
+    n = 0
+    it = tqdm(it_in, total=scan_limit, desc="Schema analysis") if not silent else it_in
+    for item in it:
+        if scan_limit is not None and n >= scan_limit:
+            break
+        n += 1
+        if not is_flatten:
+            for i in dict_generator(item):
+                keys.add(".".join(i[:-1]))
+        else:
+            keys.update(make_flat(item).keys())
+    return keys
+
+
+def _build_output_args(
+    tofile: str, actual_tofile: str, is_flat_output: bool, keys: list[str], toiterableargs: IterableArgs
+) -> dict[str, Any]:
+    """Merge auto-detected schema keys and explicit format into output args."""
+    if is_flat_output:
+        args: dict[str, Any] = {"keys": keys}
+        args.update(toiterableargs)
+    else:
+        args = dict(toiterableargs)
+    # When atomic, actual_tofile has a .tmp extension; carry the real format.
+    if actual_tofile != tofile and "format" not in args:
+        out_ext = (tofile.lower().rsplit(".", 1)[-1] if "." in tofile else None) or ""
+        if out_ext:
+            args = {**args, "format": out_ext}
+    return args
+
+
+def _wrap_progress_iter(it_in: Any, use_totals: bool, should_show_progress: bool) -> Iterable[Any]:
+    """Wrap the source iterable with a tqdm bar when totals/progress apply."""
+    if use_totals and it_in.has_totals():
+        totals = it_in.totals()
+        if totals is not None and totals > 0:
+            logging.debug(f"Total rows: {totals}")
+            _safe_reset(it_in)
+            return tqdm(it_in, total=totals, desc="Converting") if should_show_progress else it_in
+        _safe_reset(it_in)
+    return tqdm(it_in, desc="Converting") if should_show_progress else it_in
+
+
+def _flush_batch(it_out: Any, batch: list[Any], metrics: _ConvertMetrics, err_msg: str) -> None:
+    """Write one batch, recording any write error without aborting."""
+    try:
+        it_out.write_bulk(batch)
+        metrics.rows_written += len(batch)
+    except Exception as e:
+        metrics.errors.append(e)
+        logging.error(f"{err_msg}: {e}")
+
+
+def _run_write_loop(
+    it: Iterable[Any],
+    it_out: Any,
+    keys: list[str],
+    *,
+    is_flatten: bool,
+    batch_size: int,
+    progress_interval: int,
+    metrics: _ConvertMetrics,
+    it_in: Any,
+    use_totals: bool,
+    progress: Callable[[dict[str, Any]], None] | None,
+) -> None:
+    """Read rows in batches and write them to the destination iterable."""
+    batch: list[Any] = []
+    n = 0
+    for row in it:
+        n += 1
+        metrics.rows_read = n
+        if is_flatten:
+            for k in keys:
+                if k not in row:
+                    row[k] = None
+            batch.append(make_flat(row))
+        else:
+            batch.append(row)
+
+        if n % batch_size == 0:
+            _flush_batch(it_out, batch, metrics, "Error writing batch")
+            batch = []
+
+        if n % progress_interval == 0:
+            _report_progress(progress, metrics, it_in, use_totals)
+
+    if batch:
+        _flush_batch(it_out, batch, metrics, "Error writing final batch")
+
+    metrics.rows_read = n
+
+
+def _validate_convert_args(scan_limit: int | None, batch_size: int) -> None:
+    """Validate user-facing convert() numeric arguments."""
+    if scan_limit is not None and scan_limit < 0:
+        raise ValueError(f"scan_limit must be non-negative, got {scan_limit}")
+    if batch_size <= 0:
+        raise ValueError(f"batch_size must be positive, got {batch_size}")
+
+
+def _resolve_schema_keys(
+    it_in: Any,
+    reopen_source: Callable[[], Any],
+    scan_limit: int | None,
+    is_flatten: bool,
+    silent: bool,
+) -> tuple[Any, list[str]]:
+    """Scan the source for flat output keys, resetting or reopening it after.
+
+    Returns the (possibly reopened) source iterable and the sorted key list.
+    """
+    if not silent:
+        logging.debug("Extracting schema")
+    key_set = _scan_schema_keys(it_in, scan_limit, is_flatten, silent)
+    try:
+        it_in.reset()
+    except NotImplementedError:
+        # Database sources cannot reset; the schema scan consumed the
+        # iterator, so recreate it for the real conversion pass.
+        if not silent:
+            logging.debug("Database source doesn't support reset - recreating iterator")
+        it_in.close()
+        it_in = reopen_source()
+    return it_in, sorted(key_set)
+
+
+def _finalize_atomic_write(tofile: str, temp_file: str | None, metrics: _ConvertMetrics) -> None:
+    """Atomically move the temp file into place (no-op when not atomic)."""
+    if temp_file is None or not os.path.exists(temp_file):
+        return
+    try:
+        _atomic_write(tofile, temp_file)
+    except Exception as e:
+        metrics.errors.append(e)
+        logging.error(f"Failed to atomically rename temporary file: {e}")
+        raise
+
+
+def _cleanup_temp_file(temp_file: str | None) -> None:
+    """Remove a leftover atomic temp file, tolerating failures."""
+    if temp_file is None or not os.path.exists(temp_file):
+        return
+    try:
+        os.remove(temp_file)
+    except Exception as cleanup_error:
+        logging.warning(f"Failed to clean up temporary file '{temp_file}': {cleanup_error}")
 
 
 def convert(
@@ -129,259 +375,69 @@ def convert(
             iterableargs={'engine': 'postgres', 'query': 'SELECT * FROM users'}
         )
     """
-    if iterableargs is None:
-        iterableargs = {}
-    if toiterableargs is None:
-        toiterableargs = {}
+    iterableargs = iterableargs or {}
+    toiterableargs = toiterableargs or {}
+    _validate_convert_args(scan_limit, batch_size)
 
-    # Input validation
-    if scan_limit is not None and scan_limit < 0:
-        raise ValueError(f"scan_limit must be non-negative, got {scan_limit}")
-    if batch_size <= 0:
-        raise ValueError(f"batch_size must be positive, got {batch_size}")
-
-    # Initialize metrics tracking
-    start_time = time.time()
-    rows_read = 0
-    rows_written = 0
-    errors: list[Exception] = []
-    bytes_read: int | None = None
-    bytes_written: int | None = None
-
-    # Determine if we should show progress bar
+    metrics = _ConvertMetrics(start_time=time.time())
     should_show_progress = show_progress and not silent and TQDM_AVAILABLE
 
-    # Determine actual output file (may be temporary if atomic=True)
-    actual_tofile = tofile
-    temp_file: str | None = None
-    if atomic:
-        # Generate temporary filename by appending .tmp
-        temp_file = os.path.join(os.path.dirname(tofile) or ".", os.path.basename(tofile) + ".tmp")
-        actual_tofile = temp_file
-        # Clean up any existing temp file
-        if os.path.exists(temp_file):
-            try:
-                os.remove(temp_file)
-            except Exception as e:
-                logging.warning(f"Failed to remove existing temporary file '{temp_file}': {e}")
+    actual_tofile, temp_file = _prepare_atomic_target(tofile, atomic)
 
     it_in = None
     it_out = None
 
-    def invoke_progress_callback():
-        """Invoke progress callback if provided."""
-        if progress is not None:
-            elapsed = time.time() - start_time
-            estimated_total = None
-            if use_totals and it_in is not None and it_in.has_totals():
-                estimated_total = it_in.totals()
+    source_iterableargs = dict(iterableargs)
+    source_engine = source_iterableargs.pop("engine", "internal")
 
-            # Calculate enhanced stats
-            percent_complete = None
-            estimated_time_remaining = None
-            if estimated_total is not None and estimated_total > 0:
-                percent_complete = (rows_read / estimated_total) * 100.0
-                if elapsed > 0 and rows_read > 0:
-                    rate = rows_read / elapsed
-                    remaining_rows = estimated_total - rows_read
-                    estimated_time_remaining = remaining_rows / rate if rate > 0 else None
-
-            try:
-                progress(
-                    {
-                        "rows_read": rows_read,
-                        "rows_written": rows_written,
-                        "elapsed": elapsed,
-                        "estimated_total": estimated_total,
-                        "bytes_read": bytes_read,
-                        "bytes_written": bytes_written,
-                        "percent_complete": percent_complete,
-                        "estimated_time_remaining": estimated_time_remaining,
-                    }
-                )
-            except Exception as e:
-                logging.warning(f"Error in progress callback: {e}")
+    def reopen_source() -> Any:
+        return open_iterable(fromfile, mode="r", engine=source_engine, iterableargs=source_iterableargs)
 
     try:
-        # Extract engine from iterableargs if present (for database sources)
-        # Make a copy to avoid modifying the original dict
-        source_iterableargs = iterableargs.copy() if iterableargs else {}
-        source_engine = source_iterableargs.pop("engine", "internal")
-
-        # Open source iterable (may be file or database)
-        it_in = open_iterable(fromfile, mode="r", engine=source_engine, iterableargs=source_iterableargs)
-        keys = set()  # Use set for O(1) lookups instead of O(n) with list
-        n = 0
+        it_in = reopen_source()
         is_flat_output = is_flat(tofile)
 
-        # Schema extraction for flat output formats
+        keys: list[str] = []
         if is_flat_output:
-            if not silent:
-                logging.debug("Extracting schema")
-            it = tqdm(it_in, total=scan_limit, desc="Schema analysis") if not silent else it_in
-            for item in it:
-                if scan_limit is not None and n >= scan_limit:
-                    break
-                n += 1
-                if not is_flatten:
-                    dk = dict_generator(item)
-                    for i in dk:
-                        k = ".".join(i[:-1])
-                        keys.add(k)
-                else:
-                    item = make_flat(item)
-                    keys.update(item.keys())
+            it_in, keys = _resolve_schema_keys(it_in, reopen_source, scan_limit, is_flatten, silent)
 
-            # Reset after schema extraction (moved outside the loop - was a critical bug)
-            # Note: Database sources don't support reset, so we skip it for them
-            try:
-                it_in.reset()
-            except NotImplementedError:
-                # Database sources don't support reset - this is expected
-                # For database sources, schema extraction consumes the iterator
-                # We'll need to recreate the iterator for the actual conversion
-                if not silent:
-                    logging.debug("Database source doesn't support reset - recreating iterator")
-                # Close and recreate the source iterable
-                it_in.close()
-                it_in = open_iterable(fromfile, mode="r", engine=source_engine, iterableargs=source_iterableargs)
-            keys = sorted(keys)  # Convert to sorted list for consistent ordering
-
-        # Prepare output iterable arguments
-        # Merge auto-generated args (like 'keys' for flat formats) with user-provided args
-        if is_flat_output:
-            args = {"keys": keys}
-            # Merge user-provided args (user args can override 'keys' if needed, though not recommended)
-            args.update(toiterableargs)
-        else:
-            args = toiterableargs.copy()
-        # When atomic, actual_tofile has .tmp extension; pass format from final path so open_iterable can open it
-        if actual_tofile != tofile and "format" not in args:
-            out_ext = (tofile.lower().rsplit(".", 1)[-1] if "." in tofile else None) or ""
-            if out_ext:
-                args = {**args, "format": out_ext}
+        args = _build_output_args(tofile, actual_tofile, is_flat_output, keys, toiterableargs)
         it_out = open_iterable(actual_tofile, mode="w", iterableargs=args)
 
         logging.debug("Converting data")
-        n = 0
+        it = _wrap_progress_iter(it_in, use_totals, should_show_progress)
 
-        # Setup progress tracking
-        if use_totals and it_in.has_totals():
-            totals = it_in.totals()
-            if totals is not None and totals > 0:
-                logging.debug(f"Total rows: {totals}")
-                try:
-                    it_in.reset()
-                except NotImplementedError:
-                    # Database sources don't support reset - skip it
-                    pass
-                it = tqdm(it_in, total=totals, desc="Converting") if should_show_progress else it_in
-            else:
-                # Fallback if totals() returns None or invalid value
-                try:
-                    it_in.reset()
-                except NotImplementedError:
-                    # Database sources don't support reset - skip it
-                    pass
-                it = tqdm(it_in, desc="Converting") if should_show_progress else it_in
-        else:
-            it = tqdm(it_in, desc="Converting") if should_show_progress else it_in
+        _run_write_loop(
+            it,
+            it_out,
+            keys,
+            is_flatten=is_flatten,
+            batch_size=batch_size,
+            progress_interval=progress_interval,
+            metrics=metrics,
+            it_in=it_in,
+            use_totals=use_totals,
+            progress=progress,
+        )
 
-        # Try to get file size for bytes tracking
-        try:
-            if hasattr(it_in, "file") and hasattr(it_in.file, "tell"):
-                # For file-based iterables, we might be able to track bytes
-                pass  # Will implement if needed
-        except Exception:
-            pass
-
-        # Process data in batches
-        batch = []
-        for row in it:
-            n += 1
-            rows_read = n  # Update rows_read for each row processed
-            if is_flatten:
-                # Ensure all keys are present (fill missing with None)
-                for k in keys:
-                    if k not in row:
-                        row[k] = None
-                batch.append(make_flat(row))
-            else:
-                batch.append(row)
-
-            if n % batch_size == 0:
-                try:
-                    it_out.write_bulk(batch)
-                    rows_written += len(batch)
-                except Exception as e:
-                    errors.append(e)
-                    logging.error(f"Error writing batch: {e}")
-                batch = []
-
-            # Invoke progress callback periodically
-            if n % progress_interval == 0:
-                invoke_progress_callback()
-
-        # Write remaining batch
-        if len(batch) > 0:
-            try:
-                it_out.write_bulk(batch)
-                rows_written += len(batch)
-            except Exception as e:
-                errors.append(e)
-                logging.error(f"Error writing final batch: {e}")
-
-        # Update final rows_read count
-        rows_read = n
-
-        # Final progress callback
-        invoke_progress_callback()
-
-        # Perform atomic rename if atomic writes are enabled
-        if atomic and temp_file is not None and os.path.exists(temp_file):
-            try:
-                _atomic_write(tofile, temp_file)
-            except Exception as e:
-                errors.append(e)
-                logging.error(f"Failed to atomically rename temporary file: {e}")
-                raise
+        _report_progress(progress, metrics, it_in, use_totals)
+        _finalize_atomic_write(tofile, temp_file, metrics)
 
     except Exception as e:
-        errors.append(e)
-        # Clean up temporary file on error
-        if atomic and temp_file is not None and os.path.exists(temp_file):
-            try:
-                os.remove(temp_file)
-            except Exception as cleanup_error:
-                logging.warning(f"Failed to clean up temporary file '{temp_file}': {cleanup_error}")
+        metrics.errors.append(e)
+        _cleanup_temp_file(temp_file)
         raise
     finally:
-        # Ensure resources are always cleaned up, even if an error occurs
-        if it_in is not None:
-            try:
-                it_in.close()
-            except Exception as e:
-                logging.warning(f"Error closing input file: {e}")
-                if e not in errors:
-                    errors.append(e)
-        if it_out is not None:
-            try:
-                it_out.close()
-            except Exception as e:
-                logging.warning(f"Error closing output file: {e}")
-                if e not in errors:
-                    errors.append(e)
-
-    # Calculate final metrics
-    elapsed_seconds = time.time() - start_time
+        _close_quietly(it_in, "Error closing input file", metrics.errors)
+        _close_quietly(it_out, "Error closing output file", metrics.errors)
 
     return ConversionResult(
-        rows_in=rows_read,
-        rows_out=rows_written,
-        elapsed_seconds=elapsed_seconds,
-        bytes_read=bytes_read,
-        bytes_written=bytes_written,
-        errors=errors,
+        rows_in=metrics.rows_read,
+        rows_out=metrics.rows_written,
+        elapsed_seconds=time.time() - metrics.start_time,
+        bytes_read=metrics.bytes_read,
+        bytes_written=metrics.bytes_written,
+        errors=metrics.errors,
     )
 
 
@@ -494,6 +550,174 @@ def _convert_file_worker(
         return (source_file, None, e)
 
 
+@dataclass
+class _BulkMetrics:
+    """Aggregated metrics across a bulk conversion run."""
+
+    start_time: float
+    total_files: int = 0
+    total_rows_in: int = 0
+    total_rows_out: int = 0
+    successful_files: int = 0
+    failed_files: int = 0
+    file_results: list[FileConversionResult] = field(default_factory=list)
+    errors: list[Exception] = field(default_factory=list)
+
+
+def _record_file_result(
+    metrics: _BulkMetrics,
+    source_file: str,
+    dest_file: str,
+    result: ConversionResult | None,
+    error: Exception | None,
+) -> None:
+    """Record a single per-file outcome into aggregated metrics."""
+    if error is not None:
+        metrics.failed_files += 1
+        metrics.errors.append(error)
+        logging.error(f"Error converting {source_file}: {error}")
+    elif result is not None:
+        metrics.total_rows_in += result.rows_in
+        metrics.total_rows_out += result.rows_out
+        metrics.successful_files += 1
+        if result.errors:
+            metrics.errors.extend(result.errors)
+    metrics.file_results.append(
+        FileConversionResult(source_file=source_file, dest_file=dest_file, result=result, error=error)
+    )
+
+
+def _build_convert_kwargs(
+    iterableargs: IterableArgs | None,
+    toiterableargs: IterableArgs | None,
+    scan_limit: int,
+    batch_size: int,
+    is_flatten: bool,
+    use_totals: bool,
+    progress_interval: int,
+    atomic: bool,
+) -> dict[str, Any]:
+    """Build the per-file kwargs shared by all bulk conversion tasks."""
+    return {
+        "iterableargs": iterableargs,
+        "toiterableargs": toiterableargs,
+        "scan_limit": scan_limit,
+        "batch_size": batch_size,
+        "silent": True,  # Per-file progress is handled at the bulk level
+        "is_flatten": is_flatten,
+        "use_totals": use_totals,
+        "progress": None,
+        "progress_interval": progress_interval,
+        "show_progress": False,
+        "atomic": atomic,
+    }
+
+
+def _invoke_bulk_progress(
+    progress: Callable[[dict[str, Any]], None] | None,
+    metrics: _BulkMetrics,
+    source_file: str,
+    result: ConversionResult | None,
+) -> None:
+    """Invoke the bulk-level progress callback after a file completes."""
+    if progress is None or result is None:
+        return
+    try:
+        progress(
+            {
+                "file_index": metrics.successful_files + metrics.failed_files,
+                "total_files": metrics.total_files,
+                "current_file": source_file,
+                "file_rows_read": result.rows_in,
+                "file_rows_written": result.rows_out,
+                "rows_read": metrics.total_rows_in,
+                "rows_written": metrics.total_rows_out,
+                "elapsed": time.time() - metrics.start_time,
+            }
+        )
+    except Exception as e:
+        logging.warning(f"Error in progress callback: {e}")
+
+
+def _run_parallel_bulk(
+    tasks: list[tuple[str, str, dict[str, Any]]],
+    dest_files: dict[str, str],
+    workers: int,
+    should_show_progress: bool,
+    metrics: _BulkMetrics,
+    progress: Callable[[dict[str, Any]], None] | None,
+) -> None:
+    """Convert files concurrently with a thread pool, aggregating results."""
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(_convert_file_worker, task): task[0] for task in tasks}
+        file_iterator = tqdm(futures, desc="Converting files", total=len(tasks)) if should_show_progress else futures
+        for future in as_completed(file_iterator):
+            source_file, result, error = future.result()
+            _record_file_result(metrics, source_file, dest_files[source_file], result, error)
+            if error is None:
+                _invoke_bulk_progress(progress, metrics, source_file, result)
+
+
+def _make_file_progress(
+    progress: Callable[[dict[str, Any]], None], file_idx: int, total: int, src: str
+) -> Callable[[dict[str, Any]], None]:
+    """Wrap a bulk progress callback with per-file conversion context."""
+
+    def file_progress_callback(stats: dict[str, Any]) -> None:
+        progress(
+            {
+                **stats,
+                "file_index": file_idx,
+                "total_files": total,
+                "current_file": src,
+                "file_rows_read": stats.get("rows_read", 0),
+                "file_rows_written": stats.get("rows_written", 0),
+            }
+        )
+
+    return file_progress_callback
+
+
+def _run_sequential_bulk(
+    tasks: list[tuple[str, str, dict[str, Any]]],
+    should_show_progress: bool,
+    metrics: _BulkMetrics,
+    progress: Callable[[dict[str, Any]], None] | None,
+    silent: bool,
+) -> None:
+    """Convert files one by one, aggregating results."""
+    file_iterator = tqdm(tasks, desc="Converting files") if should_show_progress else tasks
+    for file_index, (source_file, dest_file, kwargs) in enumerate(file_iterator, 1):
+        file_progress: Callable[[dict[str, Any]], None] | None = None
+        if progress is not None:
+            file_progress = _make_file_progress(progress, file_index, metrics.total_files, source_file)
+        try:
+            result = convert(
+                fromfile=source_file,
+                tofile=dest_file,
+                **{**kwargs, "silent": silent, "progress": file_progress},
+            )
+            _record_file_result(metrics, source_file, dest_file, result, None)
+        except Exception as e:
+            _record_file_result(metrics, source_file, dest_file, None, e)
+
+
+def _ensure_dest_dir(dest: str) -> None:
+    """Create the destination directory, failing if it exists as a file."""
+    dest_path = Path(dest)
+    if not dest_path.exists():
+        dest_path.mkdir(parents=True, exist_ok=True)
+    elif not dest_path.is_dir():
+        raise ValueError(f"Destination path '{dest}' exists but is not a directory")
+
+
+def _resolve_workers(workers: int | None) -> int:
+    """Pick a worker count; I/O-bound work needs only a small pool."""
+    if workers is None:
+        return min(4, os.cpu_count() or 1)
+    return workers
+
+
 def bulk_convert(
     source: str,
     dest: str,
@@ -579,7 +803,6 @@ def bulk_convert(
     if pattern is None and to_ext is None:
         raise ValueError("Either 'pattern' or 'to_ext' must be specified")
 
-    # Discover files to convert
     source_files = _discover_files(source)
     if not source_files:
         logging.warning(f"No files found matching source: {source}")
@@ -594,209 +817,31 @@ def bulk_convert(
             errors=[],
         )
 
-    # Ensure output directory exists
-    dest_path = Path(dest)
-    if not dest_path.exists():
-        dest_path.mkdir(parents=True, exist_ok=True)
-    elif not dest_path.is_dir():
-        raise ValueError(f"Destination path '{dest}' exists but is not a directory")
+    _ensure_dest_dir(dest)
 
-    # Initialize aggregated metrics
-    start_time = time.time()
-    total_rows_in = 0
-    total_rows_out = 0
-    successful_files = 0
-    failed_files = 0
-    file_results: list[FileConversionResult] = []
-    all_errors: list[Exception] = []
-
-    # Determine if we should show progress bar
+    metrics = _BulkMetrics(start_time=time.time(), total_files=len(source_files))
     should_show_progress = show_progress and not silent and TQDM_AVAILABLE
 
-    # Determine number of workers for parallel processing
+    convert_kwargs = _build_convert_kwargs(
+        iterableargs, toiterableargs, scan_limit, batch_size, is_flatten, use_totals, progress_interval, atomic
+    )
+    dest_files = {f: _generate_output_filename(f, dest, pattern, to_ext) for f in source_files}
+    tasks = [(f, dest_files[f], convert_kwargs) for f in source_files]
+
     if parallel:
-        if workers is None:
-            # Default to min(4, CPU count) for I/O-bound operations
-            cpu_count = os.cpu_count() or 1
-            workers = min(4, cpu_count)
+        workers = _resolve_workers(workers)
         logging.debug(f"Parallel conversion enabled with {workers} workers")
-
-    # Prepare file conversion tasks
-    tasks = []
-    for source_file in source_files:
-        dest_file = _generate_output_filename(source_file, dest, pattern, to_ext)
-        tasks.append(
-            (
-                source_file,
-                dest_file,
-                {
-                    "iterableargs": iterableargs,
-                    "toiterableargs": toiterableargs,
-                    "scan_limit": scan_limit,
-                    "batch_size": batch_size,
-                    "silent": True,  # Don't show per-file progress in parallel mode
-                    "is_flatten": is_flatten,
-                    "use_totals": use_totals,
-                    "progress": None,  # Progress callbacks handled separately in parallel mode
-                    "progress_interval": progress_interval,
-                    "show_progress": False,
-                    "atomic": atomic,
-                },
-            )
-        )
-
-    # Process files in parallel or sequentially
-    if parallel:
-        # Parallel processing using ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            # Submit all conversion tasks
-            futures = {executor.submit(_convert_file_worker, task): task[0] for task in tasks}
-
-            # Process completed conversions
-            file_iterator = (
-                tqdm(futures, desc="Converting files", total=len(tasks)) if should_show_progress else futures
-            )
-
-            for future in as_completed(file_iterator):
-                source_file, result, error = future.result()
-
-                if error:
-                    # File conversion failed
-                    failed_files += 1
-                    all_errors.append(error)
-                    logging.error(f"Error converting {source_file}: {error}")
-
-                    file_results.append(
-                        FileConversionResult(
-                            source_file=source_file,
-                            dest_file=_generate_output_filename(source_file, dest, pattern, to_ext),
-                            result=None,
-                            error=error,
-                        )
-                    )
-                else:
-                    # File conversion succeeded
-                    if result:
-                        total_rows_in += result.rows_in
-                        total_rows_out += result.rows_out
-                        successful_files += 1
-                        if result.errors:
-                            all_errors.extend(result.errors)
-
-                    file_results.append(
-                        FileConversionResult(
-                            source_file=source_file,
-                            dest_file=_generate_output_filename(source_file, dest, pattern, to_ext),
-                            result=result,
-                            error=None,
-                        )
-                    )
-
-                    # Invoke progress callback if provided
-                    if progress is not None and result:
-                        try:
-                            progress(
-                                {
-                                    "file_index": successful_files + failed_files,
-                                    "total_files": len(source_files),
-                                    "current_file": source_file,
-                                    "file_rows_read": result.rows_in,
-                                    "file_rows_written": result.rows_out,
-                                    "rows_read": total_rows_in,
-                                    "rows_written": total_rows_out,
-                                    "elapsed": time.time() - start_time,
-                                }
-                            )
-                        except Exception as e:
-                            logging.warning(f"Error in progress callback: {e}")
+        _run_parallel_bulk(tasks, dest_files, workers, should_show_progress, metrics, progress)
     else:
-        # Sequential processing (existing code)
-        file_iterator = tqdm(source_files, desc="Converting files") if should_show_progress else source_files
-
-        for file_index, source_file in enumerate(file_iterator, 1):
-            try:
-                # Generate output filename
-                dest_file = _generate_output_filename(source_file, dest, pattern, to_ext)
-
-                # Create per-file progress callback wrapper if needed
-                file_progress: Callable[[dict[str, Any]], None] | None = None
-                if progress is not None:
-
-                    def make_file_progress(file_idx: int, total: int, src: str) -> Callable[[dict[str, Any]], None]:
-                        def file_progress_callback(stats: dict[str, Any]) -> None:
-                            # Add bulk conversion context to progress stats
-                            bulk_stats = {
-                                **stats,
-                                "file_index": file_idx,
-                                "total_files": total,
-                                "current_file": src,
-                                "file_rows_read": stats.get("rows_read", 0),
-                                "file_rows_written": stats.get("rows_written", 0),
-                            }
-                            progress(bulk_stats)
-
-                        return file_progress_callback
-
-                    file_progress = make_file_progress(file_index, len(source_files), source_file)
-
-                # Convert the file
-                result = convert(
-                    fromfile=source_file,
-                    tofile=dest_file,
-                    iterableargs=iterableargs,
-                    toiterableargs=toiterableargs,
-                    scan_limit=scan_limit,
-                    batch_size=batch_size,
-                    silent=silent,
-                    is_flatten=is_flatten,
-                    use_totals=use_totals,
-                    progress=file_progress,
-                    progress_interval=progress_interval,
-                    show_progress=False,  # Don't show per-file progress bars in bulk mode
-                    atomic=atomic,
-                )
-
-                # Aggregate metrics
-                total_rows_in += result.rows_in
-                total_rows_out += result.rows_out
-                successful_files += 1
-                if result.errors:
-                    all_errors.extend(result.errors)
-
-                file_results.append(
-                    FileConversionResult(
-                        source_file=source_file,
-                        dest_file=dest_file,
-                        result=result,
-                        error=None,
-                    )
-                )
-
-            except Exception as e:
-                # File conversion failed, but continue with others
-                failed_files += 1
-                all_errors.append(e)
-                logging.error(f"Error converting {source_file}: {e}")
-
-                file_results.append(
-                    FileConversionResult(
-                        source_file=source_file,
-                        dest_file=_generate_output_filename(source_file, dest, pattern, to_ext),
-                        result=None,
-                        error=e,
-                    )
-                )
-
-    # Calculate total elapsed time
-    total_elapsed_seconds = time.time() - start_time
+        _run_sequential_bulk(tasks, should_show_progress, metrics, progress, silent)
 
     return BulkConversionResult(
         total_files=len(source_files),
-        successful_files=successful_files,
-        failed_files=failed_files,
-        total_rows_in=total_rows_in,
-        total_rows_out=total_rows_out,
-        total_elapsed_seconds=total_elapsed_seconds,
-        file_results=file_results,
-        errors=all_errors,
+        successful_files=metrics.successful_files,
+        failed_files=metrics.failed_files,
+        total_rows_in=metrics.total_rows_in,
+        total_rows_out=metrics.total_rows_out,
+        total_elapsed_seconds=time.time() - metrics.start_time,
+        file_results=metrics.file_results,
+        errors=metrics.errors,
     )

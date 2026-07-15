@@ -1,0 +1,14 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:John Doe
+N:Doe;John;;;
+EMAIL:john.doe@example.com
+TEL:+1-555-0100
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Jane Smith
+N:Smith;Jane;;;
+EMAIL:jane.smith@example.com
+TEL:+1-555-0200
+END:VCARD

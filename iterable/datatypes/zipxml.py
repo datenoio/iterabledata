@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import zipfile
 
-import lxml.etree as etree
-
+from ..helpers.xmlsec import safe_iterparse
 from .xml import etree_to_dict
 from .zipped import ZIPSourceWrapper
 
@@ -27,7 +26,7 @@ class ZIPXMLSource(ZIPSourceWrapper):
         super().__init__(filename, mode=mode, options=options)
         self.tagname = tagname
         self.prefix_strip = prefix_strip
-        self.reader = etree.iterparse(self.current_file, recover=True) if self.current_file is not None else None
+        self.reader = safe_iterparse(self.current_file) if self.current_file is not None else None
 
     @staticmethod
     def id() -> str:
@@ -37,7 +36,7 @@ class ZIPXMLSource(ZIPSourceWrapper):
         """Reset to the first file and recreate the XML reader."""
         super().reset()
         if self.current_file is not None:
-            self.reader = etree.iterparse(self.current_file, recover=True)
+            self.reader = safe_iterparse(self.current_file)
         else:
             self.reader = None
 
@@ -84,7 +83,7 @@ class ZIPXMLSource(ZIPSourceWrapper):
     def iterfile(self) -> bool:
         res = super().iterfile()
         if res and self.current_file is not None:
-            self.reader = etree.iterparse(self.current_file, recover=True)
+            self.reader = safe_iterparse(self.current_file)
         return res
 
     def read_single(self) -> dict:

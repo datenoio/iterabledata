@@ -23,6 +23,12 @@ from ..types import Row
 
 
 class CBORIterable(BaseFileIterable):
+    """CBOR (Concise Binary Object Representation) reader/writer.
+
+    Memory behavior: the whole file is parsed and materialized in memory on
+    open; this format does not stream records incrementally.
+    """
+
     datamode = "binary"
 
     def __init__(
@@ -91,6 +97,10 @@ class CBORIterable(BaseFileIterable):
 
     @staticmethod
     def is_flatonly() -> bool:
+        return False
+
+    def is_streaming(self) -> bool:
+        """Memory behavior: the whole file/table is materialized on open."""
         return False
 
     def read(self, skip_empty: bool = True) -> dict:

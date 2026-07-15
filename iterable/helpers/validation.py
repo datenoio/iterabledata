@@ -123,19 +123,20 @@ def schema_validator(schema: dict[str, Any]) -> ValidationHook:
                 expected_type = field_type.lower()
                 actual_type = type(value).__name__
 
-                # Type mapping and conversion
-                type_map = {
-                    "int": ("int", "integer"),
-                    "float": ("float", "double"),
-                    "str": ("str", "string"),
-                    "bool": ("bool", "boolean"),
+                # Type mapping and conversion: explicit name -> type lookup
+                # (never eval type names coming from schema input).
+                type_map: dict[type, tuple[str, ...]] = {
+                    int: ("int", "integer"),
+                    float: ("float", "double"),
+                    str: ("str", "string"),
+                    bool: ("bool", "boolean"),
                 }
 
                 type_matches = False
                 # Check if actual type matches expected
                 for python_type, aliases in type_map.items():
-                    if expected_type in [python_type] + list(aliases):
-                        if isinstance(value, eval(python_type)):  # noqa: S307
+                    if expected_type in aliases:
+                        if isinstance(value, python_type):
                             type_matches = True
                             break
 
