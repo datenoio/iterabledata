@@ -4,7 +4,6 @@ import json
 import typing
 from collections import OrderedDict
 from collections.abc import Callable, Iterator
-from itertools import repeat, takewhile
 from statistics import mean
 from typing import Any, cast
 
@@ -42,20 +41,41 @@ def hashable_key(value: typing.Any) -> str | typing.Any:
         return json.dumps(value, sort_keys=True, default=str)
 
 
-def rowincount(filename: str | None = None, fileobj: typing.BinaryIO | None = None) -> int:
-    """Count number of rows by filename or file object"""
-    totals = 0
+def rowincount(filename: str | None = None, fileobj: typing.IO[Any] | None = None) -> int:
+    """Count newline-delimited rows without changing a seekable stream.
+
+    Text codecs expose ``str`` chunks while ordinary files expose ``bytes``;
+    selecting the delimiter from the first chunk keeps totals usable for both
+    paths.  A seekable stream is restored to its original position so a
+    progress query cannot consume the source.
+    """
     if filename is not None:
-        f = open(filename, "rb")
-        bufgen = takewhile(lambda x: x, (f.read(1024 * 1024) for _ in repeat(None)))
-        totals = sum(buf.count(b"\n") for buf in bufgen)
-        f.close()
-    elif fileobj is not None:
-        bufgen = takewhile(lambda x: x, (fileobj.read(1024 * 1024) for _ in repeat(None)))
-        totals = sum(buf.count(b"\n") for buf in bufgen)
-    else:
+        with open(filename, "rb") as f:
+            return sum(chunk.count(b"\n") for chunk in iter(lambda: f.read(1024 * 1024), b""))
+    if fileobj is None:
         raise ValueError("Filename or fileobj should not be None")
-    return totals
+
+    original_pos = None
+    try:
+        original_pos = fileobj.tell()
+    except (AttributeError, OSError, ValueError):
+        pass
+
+    total = 0
+    try:
+        while True:
+            chunk = fileobj.read(1024 * 1024)
+            if not chunk:
+                break
+            delimiter = b"\n" if isinstance(chunk, bytes) else "\n"
+            total += chunk.count(delimiter)
+    finally:
+        if original_pos is not None:
+            try:
+                fileobj.seek(original_pos)
+            except (AttributeError, OSError, ValueError):
+                pass
+    return total
 
 
 def detect_encoding_raw(

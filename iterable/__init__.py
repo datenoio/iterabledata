@@ -1,10 +1,14 @@
 __author__ = "Ivan Begtin"
-__version__ = "1.0.16"
+__version__ = "1.0.17"
 __licence__ = "MIT"
 __doc__ = "Iterable data processing Python library"
 
 from . import ingest, validate
-from .ai import doc as ai
+
+try:
+    from .ai import doc as ai
+except ImportError:  # AI extras remain optional for the core package import.
+    ai = None
 from .exceptions import (
     CodecCompressionError,
     CodecDecompressionError,

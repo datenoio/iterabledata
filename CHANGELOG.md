@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.17] - 2026-07-16
+
+### Added
+- **Native batch conversion**: Added the optional `BatchSelection` protocol and `convert(..., use_native_batch=True)` path for Parquet and Arrow/Feather, with projection, row-range, batch-size selection, strict-mode errors, and row/bulk fallback.
+- **Format profiles**: Added Zarr arrays, GeoParquet, FlatGeobuf, CRAM, BED3–BED12, GFF3/GTF, and OTLP JSON/Protobuf profiles with optional-dependency guidance and focused documentation.
+- **Codec performance profiles**: Added `fast`, `balanced`, and `max` profiles, explicit compression-level precedence, and effective-setting diagnostics for supported codecs.
+- **Capability catalog metadata**: Added versioned maturity, memory, native-batch, selection, codec, and source-constraint fields, plus catalog audit/check scripts.
+- **Repository quality gates**: Added minimal-install and optional-family CI smoke jobs, fixture immutability checks, distribution-content verification, and release artifact smoke tests.
+
+### Changed
+- **Columnar I/O performance**: Parquet and Arrow now share a single logical row/bulk cursor; Parquet writes remain buffered after schema creation with configurable `row_group_size`; Arrow and Lance flush bounded batches.
+- **Conversion progress**: Totals are evaluated once and cached; compressed and seekable streams are not consumed by progress estimation.
+- **JSONL hot path**: Successful bulk reads no longer perform per-record offset probes; detailed offsets remain available for diagnostics when requested.
+- **Packaging and publishing**: Package discovery and source distributions are restricted to release content; publishing uses one protected OIDC/attestation workflow instead of duplicate token-based workflows.
+- **Documentation**: Added native-batch, codec-profile, Zarr, geospatial, genomic-interval, OTLP, performance, and release guidance.
+
+### Fixed
+- **Parquet row-write fragmentation**: Repeated `write()` calls no longer create one tiny row group per record after the writer is initialized.
+- **Mixed cursor consumption**: Interleaving `read()` and `read_bulk()` for Parquet and Arrow no longer repeats rows.
+- **Optional core imports**: A minimal installation can import `iterable` without the optional AI dependency stack.
+- **Test fixture safety**: Legacy tests that write through `tests/testdata` now run against disposable fixture copies, preventing tracked fixture mutation.
+
 ## [1.0.16] - 2026-07-15
 
 ### Added
@@ -871,4 +893,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved compression codec handling
 - Pipeline processing framework
 - Bulk operations support
-

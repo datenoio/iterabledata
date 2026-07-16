@@ -334,7 +334,7 @@ class WriteError(IterableDataError):
         self.filename = filename
 
 
-class WriteNotSupportedError(WriteError):
+class WriteNotSupportedError(WriteError, NotImplementedError):
     """Write operation is not supported for this format.
 
     Raised when attempting to write to a format that doesn't support writing,

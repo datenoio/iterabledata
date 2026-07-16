@@ -166,3 +166,7 @@ class LanceIterable(BaseFileIterable):
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk records"""
         self.__buffer.extend(records)
+        # Keep memory bounded and make single-row writes form sensible Lance
+        # fragments instead of issuing one dataset mutation per call.
+        if len(self.__buffer) >= self.batch_size:
+            self.flush()

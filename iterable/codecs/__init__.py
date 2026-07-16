@@ -2,6 +2,7 @@
 from .bz2codec import BZIP2Codec
 from .gzipcodec import GZIPCodec
 from .lzmacodec import LZMACodec
+from .profiles import PROFILE_LEVELS, PROFILES
 from .rawcodec import RAWCodec
 from .zipcodec import ZIPCodec
 
@@ -54,4 +55,6 @@ __all__ = [
     "SZipCodec",
     "ZIPCodec",
     "ZSTDCodec",
+    "PROFILES",
+    "PROFILE_LEVELS",
 ]

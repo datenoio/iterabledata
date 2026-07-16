@@ -7,7 +7,7 @@ allowing users to discover what operations and features are supported by each da
 from __future__ import annotations
 
 import inspect
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..exceptions import FormatDetectionError
 from .detect import _get_format_registry, _load_symbol
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from ..base import BaseIterable
 
 # Capability cache: format_id -> capabilities dict
-_CAPABILITY_CACHE: dict[str, dict[str, bool | None]] = {}
+_CAPABILITY_CACHE: dict[str, dict[str, Any]] = {}
 
 
 def _is_read_only(format_id: str) -> bool:
@@ -30,7 +30,7 @@ def _is_read_only(format_id: str) -> bool:
     return fid in build_read_only_formats()
 
 
-def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, bool | None]:
+def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, Any]:
     """Detect capabilities for a format class by introspection.
 
     Args:
@@ -50,6 +50,14 @@ def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, bool | N
         "tables": None,
         "compression": None,
         "nested": None,
+        "native_bulk_read": None,
+        "native_bulk_write": None,
+        "read_memory": "unknown",
+        "write_memory": "unknown",
+        "selection": [],
+        "codec_support": [],
+        "source_constraints": [],
+        "maturity": "stable",
     }
 
     # Check for read/write methods
@@ -62,6 +70,23 @@ def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, bool | N
             format_id = format_class.id()
     except (AttributeError, TypeError):
         pass
+
+    # Extended capabilities are declarative. Runtime method inspection below
+    # remains only for backwards-compatible legacy keys.
+    descriptor = get_descriptor(format_id) if format_id else None
+    if descriptor is not None:
+        caps.update(
+            {
+                "native_bulk_read": descriptor.native_bulk_read,
+                "native_bulk_write": descriptor.native_bulk_write,
+                "read_memory": descriptor.read_memory,
+                "write_memory": descriptor.write_memory,
+                "selection": list(descriptor.selection),
+                "codec_support": list(descriptor.codec_support),
+                "source_constraints": list(descriptor.source_constraints),
+                "maturity": descriptor.maturity,
+            }
+        )
 
     # Quick check via format descriptor (falls back to legacy read-only set for orphans).
     if format_id and _is_read_only(format_id):
@@ -268,7 +293,7 @@ def _get_format_class(format_id: str) -> type[BaseIterable]:
         ) from e
 
 
-def get_format_capabilities(format_id: str) -> dict[str, bool | None]:
+def get_format_capabilities(format_id: str) -> dict[str, Any]:
     """Get all capabilities for a specific format.
 
     Args:
@@ -330,6 +355,14 @@ def get_format_capabilities(format_id: str) -> dict[str, bool | None]:
                 "tables": None,
                 "compression": None,
                 "nested": None,
+                "native_bulk_read": None,
+                "native_bulk_write": None,
+                "read_memory": "unknown",
+                "write_memory": "unknown",
+                "selection": [],
+                "codec_support": [],
+                "source_constraints": [],
+                "maturity": "stable",
             }
     else:
         # Get format class and detect capabilities
@@ -350,6 +383,14 @@ def get_format_capabilities(format_id: str) -> dict[str, bool | None]:
                 "tables": None,
                 "compression": None,
                 "nested": None,
+                "native_bulk_read": None,
+                "native_bulk_write": None,
+                "read_memory": "unknown",
+                "write_memory": "unknown",
+                "selection": [],
+                "codec_support": [],
+                "source_constraints": [],
+                "maturity": "stable",
             }
 
     # Cache the result
@@ -358,7 +399,7 @@ def get_format_capabilities(format_id: str) -> dict[str, bool | None]:
     return capabilities
 
 
-def list_all_capabilities() -> dict[str, dict[str, bool | None]]:
+def list_all_capabilities() -> dict[str, dict[str, Any]]:
     """List capabilities for all registered formats.
 
     Returns:
@@ -376,7 +417,7 @@ def list_all_capabilities() -> dict[str, dict[str, bool | None]]:
     # Get unique format classes (multiple extensions may map to same class)
     registry = _get_format_registry()
     format_classes_seen: set[tuple[str, str]] = set()
-    result: dict[str, dict[str, bool | None]] = {}
+    result: dict[str, dict[str, Any]] = {}
 
     for format_id in sorted(registry.keys()):
         module_path, symbol = registry[format_id]
@@ -401,6 +442,14 @@ def list_all_capabilities() -> dict[str, dict[str, bool | None]]:
                     "tables": None,
                     "compression": None,
                     "nested": None,
+                    "native_bulk_read": None,
+                    "native_bulk_write": None,
+                    "read_memory": "unknown",
+                    "write_memory": "unknown",
+                    "selection": [],
+                    "codec_support": [],
+                    "source_constraints": [],
+                    "maturity": "stable",
                 }
         else:
             # Reuse capabilities from the first format ID that uses this class
@@ -414,7 +463,7 @@ def list_all_capabilities() -> dict[str, dict[str, bool | None]]:
     return result
 
 
-def get_capability(format_id: str, capability: str) -> bool | None:
+def get_capability(format_id: str, capability: str) -> Any:
     """Get a specific capability for a format.
 
     Args:

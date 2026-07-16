@@ -1,0 +1,9 @@
+include LICENSE README.md pyproject.toml setup.cfg setup.py
+recursive-include iterable *.py py.typed
+prune build
+prune dist
+prune dev
+prune docs
+prune examples
+prune openspec
+prune tests

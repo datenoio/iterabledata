@@ -64,12 +64,15 @@ class JSONLinesIterable(BaseFileIterable):
         """Read single JSON lines record"""
         while True:
             try:
-                # Get byte offset before reading
-                if hasattr(self.fobj, "tell"):
-                    try:
-                        self._current_byte_offset = self.fobj.tell()
-                    except (OSError, AttributeError):
-                        pass
+                # ``tell`` is comparatively expensive on buffered and
+                # decompressed streams. Keep offsets for diagnostics, but do
+                # not pay that cost on the normal successful fast path.
+                if self._on_error != "raise" or self._debug:
+                    if hasattr(self.fobj, "tell"):
+                        try:
+                            self._current_byte_offset = self.fobj.tell()
+                        except (OSError, AttributeError):
+                            pass
 
                 line = next(self.fobj)
                 self._current_line_number += 1
@@ -111,12 +114,12 @@ class JSONLinesIterable(BaseFileIterable):
         chunk = []
         for _n in range(0, num):
             try:
-                # Get byte offset before reading
-                if hasattr(self.fobj, "tell"):
-                    try:
-                        self._current_byte_offset = self.fobj.tell()
-                    except (OSError, AttributeError):
-                        pass
+                if self._on_error != "raise" or self._debug:
+                    if hasattr(self.fobj, "tell"):
+                        try:
+                            self._current_byte_offset = self.fobj.tell()
+                        except (OSError, AttributeError):
+                            pass
 
                 line = self.fobj.readline()
                 if not line:

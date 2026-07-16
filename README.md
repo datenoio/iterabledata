@@ -15,6 +15,9 @@ This library simplifies data processing and conversion between formats while pre
 - **Pipeline Processing**: Built-in pipeline support for data transformation
 - **Encoding Detection**: Automatic encoding and delimiter detection for text files
 - **Bulk Operations**: Efficient batch reading and writing
+- **Native Batch Conversion**: Opt-in columnar-to-columnar transfers with projection, row-range, and batch-size selection
+- **Bounded Columnar I/O**: Shared row/bulk cursors and configurable Parquet row groups keep large reads and writes bounded
+- **Codec Performance Profiles**: Choose `fast`, `balanced`, or `max` compression settings with effective-setting diagnostics
 - **Table Listing**: Discover available tables, sheets, and datasets in multi-table formats
 - **Context Manager Support**: Use `with` statements for automatic resource cleanup
 - **DataFrame Bridges**: Convert iterable data to Pandas, Polars, and Dask DataFrames with one-liner methods
@@ -62,6 +65,7 @@ This library simplifies data processing and conversion between formats while pre
 - **Parquet** - Apache Parquet columnar format
 - **ORC** - Optimized Row Columnar format
 - **Arrow/Feather** - Apache Arrow columnar format
+- **GeoParquet** - GeoParquet metadata-aware Parquet profile with geometry/CRS preservation
 - **Lance** - Modern columnar format optimized for ML and vector search
 - **Vortex** - Modern columnar format with fast random access
 - **Delta Lake** - Delta Lake format
@@ -90,6 +94,7 @@ This library simplifies data processing and conversion between formats while pre
 - **NetCDF** - Network Common Data Form for scientific data
 - **CDF** - NASA Common Data Format (space science)
 - **HDF5** - Hierarchical Data Format
+- **Zarr** - Chunked array stores (`zarr` extra; experimental)
 
 ### Geospatial Formats
 
@@ -101,6 +106,7 @@ This library simplifies data processing and conversion between formats while pre
 - **KMZ** - KML Zipped (ZIP archive containing KML)
 - **GPX** - GPS Exchange Format (waypoints, routes, tracks)
 - **Shapefile** - ESRI Shapefile format
+- **FlatGeobuf** - Streaming geospatial features with optional spatial-index filtering
 - **MVT/PBF** - Mapbox Vector Tiles
 - **TopoJSON** - Topology-preserving GeoJSON extension
 
@@ -172,6 +178,9 @@ This library simplifies data processing and conversion between formats while pre
 - **SAM** - Sequence Alignment/Map (text)
 - **BAM** - Binary SAM format
 - **Genomic VCF/BCF** - Variant Call Format for genomic data (distinct from vCard `.vcf`; requires `bio` extra)
+- **CRAM** - Reference-compressed sequence alignments (requires `alignment` extra and an explicit reference when needed)
+- **BED** - BED3–BED12 genomic intervals
+- **GFF3/GTF** - Genomic feature annotations with coordinate and attribute preservation
 
 ### Streaming & Big Data Formats
 
@@ -192,6 +201,7 @@ This library simplifies data processing and conversion between formats while pre
 - **Thrift** - Apache Thrift format
 - **ASN.1** - ASN.1 encoding format
 - **Ion** - Amazon Ion format
+- **OTLP JSON/Protobuf** - OpenTelemetry traces, logs, and metrics export profiles (requires `otlp` extra)
 
 ### Other Formats
 
@@ -252,11 +262,20 @@ pip install iterabledata[xlsb]
 # Graph formats (GraphML, GEXF, DOT)
 pip install iterabledata[graph]
 
-# Alignment formats (BAM, SAM)
+# Alignment formats (BAM, SAM, CRAM)
 pip install iterabledata[alignment]
 
-# Genomic formats (VCF/BCF via pysam)
+# Genomic formats (VCF/BCF, CRAM, BED, GFF3/GTF via pysam and bio readers)
 pip install iterabledata[bio]
+
+# Zarr chunked array stores
+pip install iterabledata[zarr]
+
+# GeoParquet and FlatGeobuf support
+pip install iterabledata[parquet,geospatial]
+
+# OpenTelemetry JSON and Protobuf export profiles
+pip install iterabledata[otlp]
 
 # Lakehouse table formats (Delta Lake, Apache Iceberg, Lance, Apache Hudi)
 pip install iterabledata[lakehouse]
@@ -280,7 +299,7 @@ pip install iterabledata[all]
 - `[db-sql]`: SQL databases only (PostgreSQL, ClickHouse, MySQL, MSSQL)
 - `[db-nosql]`: NoSQL databases only (MongoDB, Elasticsearch)
 
-**Genomic formats** (`[bio]`): Enables genomic VCF/BCF reading via `pysam`.
+**Genomic formats** (`[bio]`): Enables genomic VCF/BCF, CRAM, BED, GFF3, and GTF support. Alignment formats use `pysam` and may require a reference file.
 
 See the [API documentation](https://datenoio.github.io/iterabledata/) for details on these features.
 
@@ -438,6 +457,26 @@ with open_iterable('dataset.tar.gz', iterableargs={'members': '*.csv'}) as sourc
 with open_iterable('variants.vcf') as source:
     for variant in source:
         print(variant['chrom'], variant['pos'], variant['ref'], variant['alt'])
+
+# Read genomic intervals (BED, GFF3, or GTF)
+with open_iterable('genes.gff3') as source:
+    for feature in source:
+        print(feature['seqid'], feature['type'], feature['start'], feature['end'])
+
+# Read a Zarr array (requires pip install iterabledata[zarr])
+with open_iterable('signals.zarr', iterableargs={'array': 'values'}) as source:
+    for row in source:
+        print(row['value'])
+
+# Read GeoParquet or FlatGeobuf (requires parquet/geospatial extras)
+with open_iterable('roads.geoparquet') as source:
+    for feature in source:
+        print(feature.get('geometry'), feature.get('properties'))
+
+# Read an OTLP JSON export (requires pip install iterabledata[otlp])
+with open_iterable('telemetry.otlp.json') as source:
+    for item in source:
+        print(item['signal'], item['record'])
 ```
 
 ### Reading from Databases
@@ -950,6 +989,36 @@ source.close()
 destination.close()
 ```
 
+### Performance-oriented Conversion
+
+Use native batches when both endpoints are Parquet or Arrow/Feather. The
+selection is pushed into the columnar reader when supported; otherwise the
+conversion safely falls back to the regular row/bulk loop:
+
+```python
+from iterable.convert import BatchSelection, convert
+
+convert(
+    'events.parquet',
+    'events-copy.parquet',
+    use_native_batch=True,
+    selection=BatchSelection(columns=('event_id', 'created_at'), batch_size=8192),
+    toiterableargs={'row_group_size': 32768},
+)
+```
+
+For general compression workloads, use the balanced profile. Choose `fast`
+for CPU-bound pipelines or `max` for archival output:
+
+```python
+with open_iterable('events.jsonl.zst', mode='w', codecargs={'profile': 'fast'}) as dest:
+    dest.write_bulk(records)
+```
+
+See [native batches](docs/docs/api/native-batches.md), [codec profiles](docs/docs/api/codecs.md),
+and the [performance guide](docs/docs/getting-started/performance.md) for selection,
+memory, row-group, and fallback behavior.
+
 ### Working with Excel Files
 
 ```python
@@ -1142,7 +1211,7 @@ Detects file type and compression codec from filename.
 
 **Returns:** Dictionary with `success`, `datatype`, and `codec` keys
 
-#### `convert(fromfile, tofile, iterableargs={}, toiterableargs={}, scan_limit=1000, batch_size=50000, silent=True, is_flatten=False, use_totals=False, progress=None, show_progress=False, atomic=False) -> ConversionResult`
+#### `convert(fromfile, tofile, iterableargs={}, toiterableargs={}, scan_limit=1000, batch_size=50000, silent=True, is_flatten=False, use_totals=False, progress=None, show_progress=False, atomic=False, use_native_batch=False, selection=None, strict_native=False) -> ConversionResult`
 
 Converts data between formats.
 
@@ -1160,6 +1229,9 @@ Converts data between formats.
 - `progress` (callable): Optional callback function receiving progress stats dictionary
 - `show_progress` (bool): Display progress bar using tqdm (if available)
 - `atomic` (bool): Write to temporary file and atomically rename on success
+- `use_native_batch` (bool): Request native columnar batch transfer when both endpoints support it
+- `selection` (`BatchSelection` or dict): Optional columns, row range, slice, table, or backend predicate selection
+- `strict_native` (bool): Raise instead of falling back when native batching or the requested selection is unsupported
 
 **Returns:** `ConversionResult` object with:
 
@@ -1370,6 +1442,13 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
+### Version 1.0.17 (2026-07-16)
+
+- **Performance**: Bounded Parquet/Arrow/Lance batching, shared row/bulk cursors, cached conversion totals, and opt-in native columnar batch conversion.
+- **Compression**: `fast`, `balanced`, and `max` codec profiles with effective-setting diagnostics.
+- **Format support**: Zarr, GeoParquet, FlatGeobuf, CRAM, BED, GFF3/GTF, and OTLP JSON/Protobuf profiles.
+- **Repository quality**: Versioned capability metadata, distribution-content checks, fixture isolation, optional-family CI coverage, and OIDC release guidance.
+
 ### Version 1.0.16 (2026-07-15)
 
 - **New formats**: GeoJSON Text Sequence (`geojsonseq`), TAR container (`tar`), genomic VCF/BCF (`genomic_vcf`, `bio` extra)
@@ -1381,4 +1460,3 @@ See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 ### Version 1.0.15 (2026-07-04)
 
 - **Bare install importability**: `import iterable` no longer requires optional BSON or Pydantic dependencies
-

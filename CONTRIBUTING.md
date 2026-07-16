@@ -47,3 +47,16 @@ AI assistants in Cursor can use project skills in **`.cursor/skills/`**:
 - **[llms.txt](llms.txt)** — machine-readable index of entry points and docs
 - **[docs/integrations/](docs/integrations/)** — AI framework integration guides
 - **API docs:** https://datenoio.github.io/iterabledata/
+
+## Quality and release checks
+
+Committed files under `tests/fixtures/` are read-only inputs. Write tests to
+`tmp_path`; the test harness also runs legacy round trips in a disposable copy
+and CI fails if tracked fixtures change. For a minimal environment run
+`pytest --no-cov`; representative optional families are exercised with
+`.[parquet]`, `.[geospatial]`, `.[alignment,bio]`, and `.[compression]`.
+
+Before a release, validate the exact artifacts with `python -m build`,
+`python -m twine check dist/*`, `check-wheel-contents`, and
+`python dev/scripts/verify_dist.py dist/*`. OpenSpec changes must be validated
+strictly and their task checklists must reflect only completed work.

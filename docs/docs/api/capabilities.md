@@ -517,4 +517,21 @@ The following capabilities are tracked for each format:
 - Subsequent calls return cached results
 - Cache is valid for the lifetime of the Python process (format classes don't change at runtime)
 
+## Extended catalog fields
+
+`iterable.catalog.export_catalog()` emits `_schema_version` (`1.1`) and each
+format descriptor includes the following reviewable declarations:
+
+- `native_bulk_read` / `native_bulk_write`: whether the backend has a native
+  batch path; this is distinct from the legacy API-method flags.
+- `read_memory` / `write_memory`: `bounded`, `whole_input`, `whole_output`,
+  `backend_defined`, or `unknown`.
+- `selection`: supported projection, filter, row-group, or slice selectors.
+- `codec_support`: codec names declared for the format.
+- `source_constraints`: requirements such as `filename` or `directory`.
+- `maturity`: `stable`, `experimental`, or `partial`.
+
+Unknown values remain explicit rather than being inferred optimistically from
+method existence. Use `dev/scripts/audit_format_descriptors.py` to review the
+complete canonical descriptor table before changing generated catalog data.
 

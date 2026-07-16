@@ -4,6 +4,7 @@ import zstandard as zstd
 
 from ..base import BaseCodec
 from ._stream import get_underlying_fileobj
+from .profiles import profile_options, resolve_profile
 
 # Zstandard file object doesn't support file seek so reset rewritten to close and open file
 
@@ -15,10 +16,13 @@ class ZSTDCodec(BaseCodec):
         if options is None:
             options = {}
         # Allow compression_level to be set from options (codecargs)
-        if "compression_level" in options:
-            self.compression_level = options["compression_level"]
-        else:
-            self.compression_level = compression_level
+        self.profile, self.compression_level = resolve_profile(
+            "zstd",
+            profile=options.get("profile"),
+            explicit_level=options.get("compression_level"),
+            default_level=compression_level,
+        )
+        self.effective_settings = profile_options("zstd", self.profile, self.compression_level)
         rmode = "rb" if mode in ["r", "rb"] else "wb"
         self._base_file = None  # Store base file for proper cleanup
         super().__init__(filename, mode=rmode, open_it=open_it, options=options)

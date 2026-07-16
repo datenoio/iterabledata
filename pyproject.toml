@@ -8,7 +8,8 @@ description = "Iterable data processing Python library"
 dynamic = ["version", "readme"]
 requires-python = ">=3.10"
 authors = [{name = "Ivan Begtin"}]
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE*"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
@@ -19,7 +20,6 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
     "Topic :: Software Development",
     "Topic :: Text Processing",
 ]
@@ -50,6 +50,7 @@ warc = ["warcio>=1.7.0"]
 duckdb = ["duckdb>=0.9.0"]
 stats = ["pyreadstat>=1.2.0"]
 protobuf = ["protobuf>=4.0.0"]
+otlp = ["protobuf>=4.0.0", "ijson>=3.2.0"]
 ion = ["ion-python>=1.0.0"]
 hdf5 = ["h5py>=3.0.0"]
 geospatial = ["geojson>=3.0.0", "pyshp>=2.3.0", "fiona>=1.9.0", "mapbox-vector-tile>=1.2.0", "topojson>=1.5.0"]
@@ -60,6 +61,7 @@ pcap = ["dpkt>=1.9.0"]
 netcdf = ["netCDF4>=1.6.0"]
 cbor = ["cbor2>=5.0.0"]
 cdf = ["spacepy>=0.4.0"]  # NASA CDF; may require CDF C library (see https://cdf.gsfc.nasa.gov)
+zarr = ["zarr>=2.16.0", "numpy>=1.24.0"]
 mvt = ["mapbox-vector-tile>=1.2.0"]
 topojson = ["topojson>=1.5.0"]
 feed = ["feedparser>=6.0.0"]
@@ -289,6 +291,7 @@ version = {attr = "iterable.__version__"}
 readme = {file = ["README.md"], content-type = "text/markdown"}
 
 [tool.setuptools.packages.find]
+include = ["iterable", "iterable.*"]
 exclude = ["tests", "tests.*"]
 
 [tool.setuptools.package-data]
@@ -305,7 +308,7 @@ ignore = []
 [tool.pytest.ini_options]
 addopts = "--doctest-modules --verbose --cov=iterable --cov-report=term-missing --cov-report=html --cov-report=xml -m 'not stress and not slow and not benchmark and not integration and not performance'"
 testpaths = ["tests"]
-norecursedirs = ["examples", ".git", ".venv", "__pycache__", "*.egg", "build", "dist", "node_modules", "docs"]
+norecursedirs = ["examples", ".git", ".venv", ".hypothesis", "__pycache__", "*.egg", "build", "dist", "node_modules", "docs"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

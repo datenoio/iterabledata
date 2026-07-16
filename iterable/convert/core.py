@@ -18,6 +18,7 @@ except ImportError:
 from ..helpers.detect import is_flat, open_iterable
 from ..helpers.utils import dict_generator, make_flat
 from ..types import BulkConversionResult, ConversionResult, FileConversionResult, IterableArgs
+from .batch import BatchSelection, native_batch_supported
 
 DEFAULT_BATCH_SIZE = 50000
 DEFAULT_HEADERS_DETECT_LIMIT = 1000
@@ -85,6 +86,8 @@ class _ConvertMetrics:
     rows_written: int = 0
     bytes_read: int | None = None
     bytes_written: int | None = None
+    estimated_total: int | None = None
+    totals_evaluated: bool = False
     errors: list[Exception] = field(default_factory=list)
 
 
@@ -113,9 +116,7 @@ def _report_progress(
     if progress is None:
         return
     elapsed = time.time() - metrics.start_time
-    estimated_total = None
-    if use_totals and it_in is not None and it_in.has_totals():
-        estimated_total = it_in.totals()
+    estimated_total = _estimate_total(metrics, it_in, use_totals)
 
     percent_complete, estimated_time_remaining = _progress_estimates(metrics, estimated_total, elapsed)
 
@@ -178,10 +179,29 @@ def _build_output_args(
     return args
 
 
-def _wrap_progress_iter(it_in: Any, use_totals: bool, should_show_progress: bool) -> Iterable[Any]:
+def _estimate_total(metrics: _ConvertMetrics, it_in: Any, use_totals: bool) -> int | None:
+    """Evaluate a source total at most once for a conversion."""
+    if metrics.totals_evaluated:
+        return metrics.estimated_total
+    metrics.totals_evaluated = True
+    if not use_totals or it_in is None:
+        return None
+    try:
+        if it_in.has_totals():
+            metrics.estimated_total = it_in.totals()
+    except (OSError, TypeError, ValueError, AttributeError) as exc:
+        # Totals are an optional progress aid. A codec or non-seekable stream
+        # must not make conversion fail just because it cannot count rows.
+        logging.debug("Unable to estimate input totals: %s", exc)
+    return metrics.estimated_total
+
+
+def _wrap_progress_iter(
+    it_in: Any, use_totals: bool, should_show_progress: bool, metrics: _ConvertMetrics | None = None
+) -> Iterable[Any]:
     """Wrap the source iterable with a tqdm bar when totals/progress apply."""
-    if use_totals and it_in.has_totals():
-        totals = it_in.totals()
+    totals = _estimate_total(metrics, it_in, use_totals) if metrics is not None else None
+    if totals is not None:
         if totals is not None and totals > 0:
             logging.debug(f"Total rows: {totals}")
             _safe_reset(it_in)
@@ -238,6 +258,26 @@ def _run_write_loop(
         _flush_batch(it_out, batch, metrics, "Error writing final batch")
 
     metrics.rows_read = n
+
+
+def _run_native_batch_loop(
+    it_in: Any,
+    it_out: Any,
+    selection: BatchSelection,
+    metrics: _ConvertMetrics,
+    progress: Callable[[dict[str, Any]], None] | None,
+    use_totals: bool,
+    progress_interval: int,
+) -> None:
+    """Transfer backend batches without materializing row transforms."""
+    for batch in it_in.read_batches(selection):
+        if not batch:
+            continue
+        it_out.write_batch(batch)
+        metrics.rows_read += len(batch)
+        metrics.rows_written += len(batch)
+        if metrics.rows_read % progress_interval < len(batch):
+            _report_progress(progress, metrics, it_in, use_totals)
 
 
 def _validate_convert_args(scan_limit: int | None, batch_size: int) -> None:
@@ -310,6 +350,9 @@ def convert(
     progress_interval: int = DEFAULT_PROGRESS_INTERVAL,
     show_progress: bool = False,
     atomic: bool = False,
+    use_native_batch: bool = False,
+    selection: BatchSelection | dict[str, Any] | None = None,
+    strict_native: bool = False,
 ) -> ConversionResult:
     """
     Convert data between different file formats or from database sources to files.
@@ -339,6 +382,10 @@ def convert(
         atomic: If True, write to a temporary file and atomically rename to destination
                 upon successful completion. This ensures output files are never left in
                 a partially written state. Default: False.
+        use_native_batch: Request a native columnar batch transfer when both endpoints
+                          advertise the protocol; otherwise the row/bulk path is used.
+        selection: Optional columns, row range, slice, or backend predicate request.
+        strict_native: Raise when the requested native path or selection is unsupported.
 
     Returns:
         ConversionResult: Object containing conversion metrics (rows_in, rows_out,
@@ -396,29 +443,74 @@ def convert(
     try:
         it_in = reopen_source()
         is_flat_output = is_flat(tofile)
+        native_requested = use_native_batch or selection is not None
 
         keys: list[str] = []
-        if is_flat_output:
+        if is_flat_output and not native_requested:
             it_in, keys = _resolve_schema_keys(it_in, reopen_source, scan_limit, is_flatten, silent)
 
         args = _build_output_args(tofile, actual_tofile, is_flat_output, keys, toiterableargs)
         it_out = open_iterable(actual_tofile, mode="w", iterableargs=args)
 
         logging.debug("Converting data")
-        it = _wrap_progress_iter(it_in, use_totals, should_show_progress)
-
-        _run_write_loop(
-            it,
-            it_out,
-            keys,
-            is_flatten=is_flatten,
-            batch_size=batch_size,
-            progress_interval=progress_interval,
-            metrics=metrics,
-            it_in=it_in,
-            use_totals=use_totals,
-            progress=progress,
+        native_eligible = (
+            native_requested
+            and not is_flatten
+            and not getattr(it_in, "_validation_hooks", None)
+            and not getattr(it_out, "_validation_hooks", None)
+            and native_batch_supported(it_in, it_out)
         )
+        if native_requested and not native_eligible:
+            message = "Native batch conversion is unsupported for the selected endpoints or row transforms"
+            if strict_native:
+                raise ValueError(message)
+            logging.debug("%s; using row/bulk fallback", message)
+
+        if native_eligible:
+            logging.debug("Using native batch conversion path")
+            try:
+                _run_native_batch_loop(
+                    it_in,
+                    it_out,
+                    BatchSelection.from_value(selection),
+                    metrics,
+                    progress,
+                    use_totals,
+                    progress_interval,
+                )
+            except NotImplementedError:
+                if strict_native:
+                    raise
+                logging.debug("Native selection was not supported; restarting with row/bulk fallback")
+                _safe_reset(it_in)
+                metrics.rows_read = metrics.rows_written = 0
+                it = _wrap_progress_iter(it_in, use_totals, should_show_progress, metrics)
+                _run_write_loop(
+                    it,
+                    it_out,
+                    keys,
+                    is_flatten=is_flatten,
+                    batch_size=batch_size,
+                    progress_interval=progress_interval,
+                    metrics=metrics,
+                    it_in=it_in,
+                    use_totals=use_totals,
+                    progress=progress,
+                )
+        else:
+            it = _wrap_progress_iter(it_in, use_totals, should_show_progress, metrics)
+            _run_write_loop(
+                it,
+                it_out,
+                keys,
+                is_flatten=is_flatten,
+                batch_size=batch_size,
+                progress_interval=progress_interval,
+                metrics=metrics,
+                it_in=it_in,
+                use_totals=use_totals,
+                progress=progress,
+            )
 
         _report_progress(progress, metrics, it_in, use_totals)
         _finalize_atomic_write(tofile, temp_file, metrics)

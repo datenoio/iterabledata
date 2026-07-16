@@ -3,6 +3,7 @@ from __future__ import annotations
 import lzma
 
 from ..base import BaseCodec
+from .profiles import profile_options, resolve_profile
 
 
 class LZMACodec(BaseCodec):
@@ -11,7 +12,13 @@ class LZMACodec(BaseCodec):
     ):
         if options is None:
             options = {}
-        self.compression_level = compression_level
+        self.profile, self.compression_level = resolve_profile(
+            "xz",
+            profile=options.get("profile"),
+            explicit_level=options.get("compression_level"),
+            default_level=compression_level,
+        )
+        self.effective_settings = profile_options("xz", self.profile, self.compression_level)
         super().__init__(filename, mode=mode, open_it=open_it, options=options)
 
     def open(self) -> lzma.LZMAFile:

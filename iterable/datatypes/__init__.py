@@ -63,6 +63,21 @@ except ImportError:
     pass
 
 try:
+    from .cram import CRAMIterable
+except ImportError:
+    pass
+
+try:
+    from .bed import BEDIterable
+except ImportError:
+    pass
+
+try:
+    from .genomic_intervals import GFF3Iterable, GTFIterable
+except ImportError:
+    pass
+
+try:
     from .beam import BeamIterable
 except ImportError:
     pass
@@ -169,6 +184,16 @@ except ImportError:
 
 try:
     from .geopackage import GeoPackageIterable
+except ImportError:
+    pass
+
+try:
+    from .geoparquet import GeoParquetIterable
+except ImportError:
+    pass
+
+try:
+    from .flatgeobuf import FlatGeobufIterable
 except ImportError:
     pass
 
@@ -338,6 +363,11 @@ except ImportError:
     pass
 
 try:
+    from .otlp import OTLPJSONIterable, OTLPProtobufIterable
+except ImportError:
+    pass
+
+try:
     from .pulsar import PulsarIterable
 except ImportError:
     pass
@@ -488,6 +518,11 @@ except ImportError:
     pass
 
 try:
+    from .zarr import ZarrIterable
+except ImportError:
+    pass
+
+try:
     from .zipxml import ZIPXMLSource
 except ImportError:
     pass
@@ -517,6 +552,10 @@ __all__ = [
     "AVROIterable",
     "BAMIterable",
     "GenomicVCFIterable",
+    "CRAMIterable",
+    "BEDIterable",
+    "GFF3Iterable",
+    "GTFIterable",
     "BeamIterable",
     "BencodeIterable",
     "BSONIterable",
@@ -543,6 +582,8 @@ __all__ = [
     "GEXFIterable",
     "GraphMLIterable",
     "GeoPackageIterable",
+    "GeoParquetIterable",
+    "FlatGeobufIterable",
     "GMLIterable",
     "GPXIterable",
     "HDF5Iterable",
@@ -575,6 +616,8 @@ __all__ = [
     "PGCopyIterable",
     "PickleIterable",
     "ProtobufIterable",
+    "OTLPJSONIterable",
+    "OTLPProtobufIterable",
     "PulsarIterable",
     "PXIterable",
     "RDataIterable",
@@ -599,6 +642,7 @@ __all__ = [
     "UBJSONIterable",
     "VCFIterable",
     "VortexIterable",
+    "ZarrIterable",
     "WARCIterable",
     "XLSIterable",
     "XLSBIterable",

@@ -15,6 +15,7 @@ import io
 import typing
 
 from ..base import BaseCodec
+from .profiles import resolve_profile
 
 try:
     import snappy
@@ -111,6 +112,11 @@ class SnappyCodec(BaseCodec):
         """
         if options is None:
             options = {}
+        profile, _ = resolve_profile(
+            "snappy", profile=options.get("profile", "balanced"), explicit_level=None, default_level=0
+        )
+        self.profile = profile
+        self.effective_settings = {"codec": "snappy", "profile": "fixed", "framing": "auto"}
         super().__init__(filename, mode=mode, open_it=open_it, options=options)
 
     def open(self) -> typing.IO:
@@ -125,6 +131,7 @@ class SnappyCodec(BaseCodec):
             if header == _FRAMED_MAGIC:
                 # Framed stream: decompress lazily in bounded memory.
                 self._fileobj = io.BufferedReader(_SnappyStreamReader(base, initial=header))
+                self.effective_settings["framing"] = "framed-stream"
             else:
                 # Legacy raw snappy blob: no framing, so streaming is
                 # impossible. Fall back to a one-shot decompress.
@@ -132,6 +139,7 @@ class SnappyCodec(BaseCodec):
                 base.close()
                 decompressed = snappy.decompress(compressed_data) if compressed_data else b""
                 self._fileobj = io.BytesIO(decompressed)
+                self.effective_settings["framing"] = "legacy-raw-buffered"
         else:
             base = open(self.filename, "wb")
             self._fileobj = io.BufferedWriter(_SnappyStreamWriter(base))

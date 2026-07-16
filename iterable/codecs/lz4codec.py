@@ -3,6 +3,7 @@ from __future__ import annotations
 import lz4.frame
 
 from ..base import BaseCodec
+from .profiles import profile_options, resolve_profile
 
 
 class LZ4Codec(BaseCodec):
@@ -16,7 +17,13 @@ class LZ4Codec(BaseCodec):
     ):
         if options is None:
             options = {}
-        self.compression_level = compression_level
+        self.profile, self.compression_level = resolve_profile(
+            "lz4",
+            profile=options.get("profile"),
+            explicit_level=options.get("compression_level"),
+            default_level=compression_level,
+        )
+        self.effective_settings = profile_options("lz4", self.profile, self.compression_level)
         super().__init__(filename, mode=mode, open_it=open_it, options=options)
 
     def open(self) -> lz4.frame.LZ4FrameFile:

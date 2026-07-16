@@ -327,6 +327,23 @@ with open_iterable('large.csv.gz', engine='duckdb') as source:
 
 ## Benchmarking
 
+## Columnar tuning notes
+
+Parquet `batch_size` controls read memory; `row_group_size` controls physical
+write groups and is independent. Use a row-group target around 8K–64K rows for
+general ETL, then tune against schema width and downstream scans. Arrow and
+Lance flush bounded batches, while Vortex intentionally buffers a whole output
+because its current writer replaces the store on each write.
+
+`convert(..., use_native_batch=True, selection=BatchSelection(...))` enables
+the Parquet/Arrow batch path with projection and row-range selection. Requests
+that require flattening, validation hooks, or unsupported predicates fall back
+to the row/bulk path unless `strict_native=True`.
+
+Progress totals are evaluated once and do not consume seekable or codec-wrapped
+inputs. Prefer the codec `balanced` profile for general workloads; choose
+`fast` for CPU-bound pipelines and `max` for archival output.
+
 ### Measuring Performance
 
 Use the built-in benchmarking tools:

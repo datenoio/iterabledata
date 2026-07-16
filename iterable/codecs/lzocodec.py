@@ -20,6 +20,7 @@ import struct
 import typing
 
 from ..base import BaseCodec
+from .profiles import profile_options, resolve_profile
 
 try:
     import lzo
@@ -127,7 +128,14 @@ class LZOCodec(BaseCodec):
         """
         if options is None:
             options = {}
-        self.compression_level = compression_level
+        self.profile, self.compression_level = resolve_profile(
+            "lzo",
+            profile=options.get("profile"),
+            explicit_level=options.get("compression_level"),
+            default_level=compression_level,
+        )
+        self.effective_settings = profile_options("lzo", self.profile, self.compression_level)
+        self.effective_settings["container"] = "ILZO1 (not lzop)"
         super().__init__(filename, mode=mode, open_it=open_it, options=options)
 
     def open(self) -> typing.IO:
@@ -142,12 +150,14 @@ class LZOCodec(BaseCodec):
             if header == _FRAME_MAGIC:
                 # Block-framed file: decompress lazily block by block.
                 self._fileobj = io.BufferedReader(_LZOBlockReader(base))
+                self.effective_settings["container"] = "ILZO1"
             else:
                 # Legacy one-shot blob: cannot be streamed, decompress fully.
                 compressed_data = header + base.read()
                 base.close()
                 decompressed = lzo.decompress(compressed_data) if compressed_data else b""
                 self._fileobj = io.BytesIO(decompressed)
+                self.effective_settings["container"] = "legacy-raw-buffered"
         else:
             base = open(self.filename, "wb")
             self._fileobj = io.BufferedWriter(_LZOBlockWriter(base, self.compression_level))

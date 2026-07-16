@@ -5,6 +5,7 @@ from typing import Any
 
 from ..base import BaseCodec
 from ._stream import get_underlying_fileobj
+from .profiles import profile_options, resolve_profile
 
 
 class BZIP2Codec(BaseCodec):
@@ -19,7 +20,14 @@ class BZIP2Codec(BaseCodec):
     ):
         if options is None:
             options = {}
-        self.compression_level = compression_level
+        profile, self.compression_level = resolve_profile(
+            "bz2",
+            profile=options.get("profile"),
+            explicit_level=options.get("compression_level"),
+            default_level=compression_level,
+        )
+        self.profile = profile
+        self.effective_settings = profile_options("bz2", profile, self.compression_level)
         super().__init__(filename=filename, fileobj=fileobj, mode=mode, open_it=open_it, options=options)
 
     def open(self) -> bz2.BZ2File:

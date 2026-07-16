@@ -4,7 +4,9 @@ Ensures tests can find fixtures regardless of where pytest is run from.
 """
 
 import os
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -13,7 +15,7 @@ import pytest
 TESTS_DIR = Path(__file__).parent.absolute()
 
 # Canonical committed fixture root (tests/testdata is a symlink to this directory)
-FIXTURES_DIR = TESTS_DIR / "fixtures"
+CANONICAL_FIXTURES_DIR = TESTS_DIR / "fixtures"
 
 # Get the project root (parent of tests directory)
 PROJECT_ROOT = TESTS_DIR.parent
@@ -56,6 +58,15 @@ def _verify_testdata_symlink() -> None:
 
 
 _verify_testdata_symlink()
+
+# Tests historically write through the ``testdata`` compatibility path. Run
+# against a disposable copy so committed fixtures remain immutable even when
+# a legacy test has not yet been migrated to ``tmp_path``.
+_RUNTIME_ROOT = Path(tempfile.mkdtemp(prefix="iterabledata-tests-"))
+FIXTURES_DIR = _RUNTIME_ROOT / "fixtures"
+shutil.copytree(CANONICAL_FIXTURES_DIR, FIXTURES_DIR)
+(_RUNTIME_ROOT / "testdata").symlink_to("fixtures")
+os.chdir(_RUNTIME_ROOT)
 
 
 def fixture_path(name: str) -> Path:

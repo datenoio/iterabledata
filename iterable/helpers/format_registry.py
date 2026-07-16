@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, Literal
 
 from .format_descriptions import description_for, doc_url_for
 
@@ -26,6 +26,16 @@ class FormatDescriptor:
     example_args: dict[str, Any] | None = None
     limitations: tuple[str, ...] = ()
     doc_url: str | None = None
+    # Extended capability declarations. ``None`` is deliberate: an unknown
+    # backend-dependent value is safer than optimistic runtime inference.
+    maturity: Literal["stable", "experimental", "partial"] = "stable"
+    read_memory: Literal["bounded", "whole_input", "backend_defined", "unknown"] = "unknown"
+    write_memory: Literal["bounded", "whole_output", "backend_defined", "unknown"] = "unknown"
+    native_bulk_read: bool | None = None
+    native_bulk_write: bool | None = None
+    selection: tuple[str, ...] = ()
+    codec_support: tuple[str, ...] = ()
+    source_constraints: tuple[str, ...] = ()
 
 
 def _fmt(
@@ -43,6 +53,14 @@ def _fmt(
     example_args: dict[str, Any] | None = None,
     limitations: tuple[str, ...] = (),
     doc_url: str | None = None,
+    maturity: Literal["stable", "experimental", "partial"] = "stable",
+    read_memory: Literal["bounded", "whole_input", "backend_defined", "unknown"] = "unknown",
+    write_memory: Literal["bounded", "whole_output", "backend_defined", "unknown"] = "unknown",
+    native_bulk_read: bool | None = None,
+    native_bulk_write: bool | None = None,
+    selection: tuple[str, ...] = (),
+    codec_support: tuple[str, ...] = (),
+    source_constraints: tuple[str, ...] = (),
 ) -> FormatDescriptor:
     return FormatDescriptor(
         id=id,
@@ -58,6 +76,14 @@ def _fmt(
         example_args=example_args,
         limitations=limitations,
         doc_url=doc_url,
+        maturity=maturity,
+        read_memory=read_memory,
+        write_memory=write_memory,
+        native_bulk_read=native_bulk_read,
+        native_bulk_write=native_bulk_write,
+        selection=selection,
+        codec_support=codec_support,
+        source_constraints=source_constraints,
     )
 
 
@@ -82,6 +108,21 @@ _LLM_METADATA: dict[str, dict[str, Any]] = {
         "description": "Columnar binary format optimized for analytics and compression.",
         "doc_url": f"{_DOCS_BASE}/parquet.md",
         "limitations": ("Requires pyarrow",),
+    },
+    "geoparquet": {
+        "description": "GeoParquet profile preserving geometry metadata and WKB columns.",
+        "doc_url": f"{_DOCS_BASE}/geoparquet.md",
+        "limitations": ("Requires pyarrow; geometry is raw WKB by default",),
+    },
+    "flatgeobuf": {
+        "description": "Streaming FlatGeobuf geospatial features through Fiona/GDAL.",
+        "doc_url": f"{_DOCS_BASE}/geoparquet.md",
+        "limitations": ("Read-only; requires Fiona/GDAL",),
+    },
+    "zarr": {
+        "description": "Chunked Zarr v2/v3 array stores exposed as bounded rows.",
+        "doc_url": f"{_DOCS_BASE}/zarr.md",
+        "limitations": ("Requires zarr and numpy; explicit array selection for multi-array stores",),
     },
     "xml": {
         "description": "XML documents; requires the record element tag name.",
@@ -120,6 +161,33 @@ _LLM_METADATA: dict[str, dict[str, Any]] = {
         "doc_url": f"{_DOCS_BASE}/protobuf.md",
         "example_args": {"message_class": "mymodule.MyMessage"},
         "limitations": ("Requires message_class parameter",),
+    },
+    "otlp-json": {
+        "description": "OpenTelemetry traces, logs, and metrics in OTLP JSON envelopes.",
+        "doc_url": f"{_DOCS_BASE}/otlp.md",
+        "limitations": ("Signal-specific JSON documents are bounded by max_message_bytes",),
+    },
+    "otlp-protobuf": {
+        "description": "OpenTelemetry ExportRequest protobuf profile with explicit message classes.",
+        "doc_url": f"{_DOCS_BASE}/otlp.md",
+        "limitations": ("Requires generated OpenTelemetry protobuf message_class",),
+    },
+    "cram": {
+        "description": "CRAM binary sequence alignments with explicit reference configuration.",
+        "doc_url": f"{_DOCS_BASE}/genomic-intervals.md",
+        "limitations": ("Requires pysam and, for some files, reference_filename",),
+    },
+    "bed": {
+        "description": "BED3-BED12 genomic intervals with 0-based half-open coordinates.",
+        "doc_url": f"{_DOCS_BASE}/genomic-intervals.md",
+    },
+    "gff3": {
+        "description": "GFF3 genomic annotations with directives and ordered attributes.",
+        "doc_url": f"{_DOCS_BASE}/genomic-intervals.md",
+    },
+    "gtf": {
+        "description": "GTF genomic annotations with quoted attributes and 1-based coordinates.",
+        "doc_url": f"{_DOCS_BASE}/genomic-intervals.md",
     },
     "arrow": {
         "description": "Apache Arrow/Feather columnar in-memory format.",
@@ -234,18 +302,76 @@ def _enrich_descriptor(desc: FormatDescriptor) -> FormatDescriptor:
 _RAW_FORMAT_DESCRIPTORS: tuple[FormatDescriptor, ...] = (
     _fmt(id="avro", module="iterable.datatypes.avro", cls="AVROIterable", flat=True),
     _fmt(id="bson", module="iterable.datatypes.bsonf", cls="BSONIterable"),
-    _fmt(id="csv", module="iterable.datatypes.csv", cls="CSVIterable", aliases=("tsv",), text=True, flat=True),
+    _fmt(
+        id="csv",
+        module="iterable.datatypes.csv",
+        cls="CSVIterable",
+        aliases=("tsv",),
+        text=True,
+        flat=True,
+        read_memory="bounded",
+        write_memory="bounded",
+        native_bulk_read=False,
+        native_bulk_write=True,
+        codec_support=("gzip", "bz2", "xz", "zstd"),
+    ),
     _fmt(id="dbf", module="iterable.datatypes.dbf", cls="DBFIterable", flat=True, writable=False),
     _fmt(id="json", module="iterable.datatypes.json", cls="JSONIterable", text=True),
-    _fmt(id="jsonl", module="iterable.datatypes.jsonl", cls="JSONLinesIterable", aliases=("ndjson",), text=True),
+    _fmt(
+        id="jsonl",
+        module="iterable.datatypes.jsonl",
+        cls="JSONLinesIterable",
+        aliases=("ndjson",),
+        text=True,
+        read_memory="bounded",
+        write_memory="bounded",
+        native_bulk_read=False,
+        native_bulk_write=True,
+        codec_support=("gzip", "bz2", "xz", "zstd"),
+    ),
     _fmt(id="jsonld", module="iterable.datatypes.jsonld", cls="JSONLDIterable", text=True),
-    _fmt(id="parquet", module="iterable.datatypes.parquet", cls="ParquetIterable"),
+    _fmt(
+        id="parquet",
+        module="iterable.datatypes.parquet",
+        cls="ParquetIterable",
+        read_memory="bounded",
+        write_memory="bounded",
+        native_bulk_read=True,
+        native_bulk_write=True,
+        selection=("columns", "row_groups"),
+        codec_support=("snappy", "gzip", "brotli", "zstd", "lz4"),
+    ),
+    _fmt(
+        id="geoparquet",
+        module="iterable.datatypes.geoparquet",
+        cls="GeoParquetIterable",
+        aliases=("geo.parquet",),
+        flat=True,
+        extra="parquet",
+        read_memory="bounded",
+        write_memory="bounded",
+        native_bulk_read=True,
+        native_bulk_write=True,
+        selection=("columns", "row_groups", "bbox"),
+        source_constraints=("geometry_column",),
+    ),
     _fmt(id="pickle", module="iterable.datatypes.picklef", cls="PickleIterable"),
     _fmt(id="orc", module="iterable.datatypes.orc", cls="ORCIterable"),
     _fmt(id="xls", module="iterable.datatypes.xls", cls="XLSIterable", flat=True, writable=False),
     _fmt(id="xlsx", module="iterable.datatypes.xlsx", cls="XLSXIterable", flat=True, writable=False),
     _fmt(id="xml", module="iterable.datatypes.xml", cls="XMLIterable", text=True, writable=False),
-    _fmt(id="arrow", module="iterable.datatypes.arrow", cls="ArrowIterable", aliases=("feather",)),
+    _fmt(
+        id="arrow",
+        module="iterable.datatypes.arrow",
+        cls="ArrowIterable",
+        aliases=("feather",),
+        read_memory="bounded",
+        write_memory="bounded",
+        native_bulk_read=True,
+        native_bulk_write=True,
+        selection=("columns",),
+        codec_support=(),
+    ),
     _fmt(id="mp", module="iterable.datatypes.msgpack", cls="MessagePackIterable", aliases=("msgpack",)),
     _fmt(id="fwf", module="iterable.datatypes.fwf", cls="FixedWidthIterable", aliases=("fixed",), text=True, flat=True),
     _fmt(id="yml", module="iterable.datatypes.yaml", cls="YAMLIterable", aliases=("yaml",), text=True),
@@ -257,6 +383,33 @@ _RAW_FORMAT_DESCRIPTORS: tuple[FormatDescriptor, ...] = (
     ),
     _fmt(id="sav", module="iterable.datatypes.spss", cls="SPSSIterable", aliases=("spss",), flat=True, writable=False),
     _fmt(id="pb", module="iterable.datatypes.protobuf", cls="ProtobufIterable", aliases=("protobuf",)),
+    _fmt(
+        id="otlp-json",
+        module="iterable.datatypes.otlp",
+        cls="OTLPJSONIterable",
+        aliases=("otlp", "otlpjson"),
+        text=True,
+        extra="otlp",
+        maturity="experimental",
+        read_memory="whole_input",
+        write_memory="whole_output",
+        native_bulk_read=True,
+        native_bulk_write=True,
+        selection=("item_key",),
+    ),
+    _fmt(
+        id="otlp-protobuf",
+        module="iterable.datatypes.otlp",
+        cls="OTLPProtobufIterable",
+        aliases=("otlp.pb", "otlp-proto"),
+        extra="otlp",
+        maturity="experimental",
+        read_memory="whole_input",
+        write_memory="whole_output",
+        native_bulk_read=True,
+        native_bulk_write=True,
+        source_constraints=("message_class",),
+    ),
     _fmt(id="ion", module="iterable.datatypes.ion", cls="IonIterable"),
     _fmt(id="h5", module="iterable.datatypes.hdf5", cls="HDF5Iterable", aliases=("hdf5",), flat=True, writable=False),
     _fmt(id="geojson", module="iterable.datatypes.geojson", cls="GeoJSONIterable", text=True),
@@ -345,6 +498,52 @@ _RAW_FORMAT_DESCRIPTORS: tuple[FormatDescriptor, ...] = (
         extra="bio",
         writable=False,
     ),
+    _fmt(
+        id="cram",
+        module="iterable.datatypes.cram",
+        cls="CRAMIterable",
+        extra="alignment",
+        flat=True,
+        writable=False,
+        read_memory="bounded",
+        native_bulk_read=False,
+        source_constraints=("filename", "reference_filename"),
+    ),
+    _fmt(
+        id="bed",
+        module="iterable.datatypes.bed",
+        cls="BEDIterable",
+        aliases=("bed3", "bed6", "bed12"),
+        text=True,
+        flat=True,
+        read_memory="bounded",
+        write_memory="bounded",
+        native_bulk_read=False,
+        native_bulk_write=True,
+    ),
+    _fmt(
+        id="gff3",
+        module="iterable.datatypes.genomic_intervals",
+        cls="GFF3Iterable",
+        aliases=("gff",),
+        text=True,
+        flat=True,
+        read_memory="bounded",
+        write_memory="bounded",
+        native_bulk_read=False,
+        native_bulk_write=True,
+    ),
+    _fmt(
+        id="gtf",
+        module="iterable.datatypes.genomic_intervals",
+        cls="GTFIterable",
+        text=True,
+        flat=True,
+        read_memory="bounded",
+        write_memory="bounded",
+        native_bulk_read=False,
+        native_bulk_write=True,
+    ),
     _fmt(id="ics", module="iterable.datatypes.ical", cls="ICALIterable", aliases=("ical",), text=True),
     _fmt(id="eml", module="iterable.datatypes.eml", cls="EMLIterable", text=True),
     _fmt(
@@ -370,12 +569,36 @@ _RAW_FORMAT_DESCRIPTORS: tuple[FormatDescriptor, ...] = (
     _fmt(id="gml", module="iterable.datatypes.gml", cls="GMLIterable", text=True),
     _fmt(id="shp", module="iterable.datatypes.shapefile", cls="ShapefileIterable", aliases=("shapefile",)),
     _fmt(id="gpkg", module="iterable.datatypes.geopackage", cls="GeoPackageIterable", aliases=("geopackage",)),
+    _fmt(
+        id="flatgeobuf",
+        module="iterable.datatypes.flatgeobuf",
+        cls="FlatGeobufIterable",
+        aliases=("fgb",),
+        extra="geospatial",
+        writable=False,
+        read_memory="bounded",
+        native_bulk_read=True,
+        selection=("bbox",),
+        source_constraints=("filename",),
+    ),
     _fmt(id="csvw", module="iterable.datatypes.csvw", cls="CSVWIterable", text=True, flat=True),
     _fmt(
         id="rda", module="iterable.datatypes.rdata", cls="RDataIterable", aliases=("rdata",), flat=True, writable=False
     ),
     _fmt(id="rds", module="iterable.datatypes.rds", cls="RDSIterable", flat=True, writable=False),
-    _fmt(id="lance", module="iterable.datatypes.lance", cls="LanceIterable", flat=True),
+    _fmt(
+        id="lance",
+        module="iterable.datatypes.lance",
+        cls="LanceIterable",
+        flat=True,
+        maturity="partial",
+        read_memory="bounded",
+        write_memory="bounded",
+        native_bulk_read=True,
+        native_bulk_write=True,
+        selection=("columns", "filter"),
+        source_constraints=("directory",),
+    ),
     _fmt(id="pcap", module="iterable.datatypes.pcap", cls="PCAPIterable", aliases=("pcapng",), writable=False),
     _fmt(id="nc", module="iterable.datatypes.netcdf", cls="NetCDFIterable", aliases=("netcdf",), writable=False),
     _fmt(id="mvt", module="iterable.datatypes.mvt", cls="MVTIterable", aliases=("pbf",), writable=False),
@@ -421,7 +644,33 @@ _RAW_FORMAT_DESCRIPTORS: tuple[FormatDescriptor, ...] = (
     _fmt(id="gv", module="iterable.datatypes.dot", cls="DOTIterable", aliases=("dot",), text=True, writable=False),
     _fmt(id="bam", module="iterable.datatypes.bam", cls="BAMIterable", flat=True, writable=False),
     _fmt(id="sam", module="iterable.datatypes.sam", cls="SAMIterable", text=True, flat=True, writable=False),
-    _fmt(id="vtx", module="iterable.datatypes.vortex", cls="VortexIterable", aliases=("vortex",), flat=True),
+    _fmt(
+        id="zarr",
+        module="iterable.datatypes.zarr",
+        cls="ZarrIterable",
+        flat=True,
+        extra="zarr",
+        maturity="experimental",
+        read_memory="bounded",
+        write_memory="bounded",
+        native_bulk_read=True,
+        native_bulk_write=True,
+        selection=("array", "slice", "chunks"),
+        source_constraints=("directory",),
+    ),
+    _fmt(
+        id="vtx",
+        module="iterable.datatypes.vortex",
+        cls="VortexIterable",
+        aliases=("vortex",),
+        flat=True,
+        maturity="partial",
+        read_memory="bounded",
+        write_memory="whole_output",
+        native_bulk_read=True,
+        native_bulk_write=False,
+        source_constraints=("filename",),
+    ),
     _fmt(id="zipxml", module="iterable.datatypes.zipxml", cls="ZIPXMLSource", writable=False),
 )
 
@@ -660,6 +909,7 @@ def get_descriptor(format_id: str) -> FormatDescriptor | None:
 # Maps datatype/codec module paths to ``pyproject.toml`` optional-extra names.
 _MODULE_INSTALL_EXTRAS: dict[str, str] = {
     "iterable.datatypes.parquet": "parquet",
+    "iterable.datatypes.geoparquet": "parquet",
     "iterable.datatypes.orc": "orc",
     "iterable.datatypes.arrow": "parquet",
     "iterable.datatypes.xls": "excel",
@@ -674,11 +924,13 @@ _MODULE_INSTALL_EXTRAS: dict[str, str] = {
     "iterable.datatypes.stata": "stats",
     "iterable.datatypes.spss": "stats",
     "iterable.datatypes.protobuf": "protobuf",
+    "iterable.datatypes.otlp": "otlp",
     "iterable.datatypes.ion": "ion",
     "iterable.datatypes.hdf5": "hdf5",
     "iterable.datatypes.geojson": "geospatial",
     "iterable.datatypes.shapefile": "geospatial",
     "iterable.datatypes.geopackage": "geospatial",
+    "iterable.datatypes.flatgeobuf": "geospatial",
     "iterable.datatypes.mvt": "mvt",
     "iterable.datatypes.topojson": "topojson",
     "iterable.datatypes.kml": "geospatial",
@@ -697,6 +949,7 @@ _MODULE_INSTALL_EXTRAS: dict[str, str] = {
     "iterable.datatypes.arff": "arff",
     "iterable.datatypes.json": "json",
     "iterable.datatypes.vortex": "vortex",
+    "iterable.datatypes.zarr": "zarr",
     "iterable.datatypes.trig": "rdf",
     "iterable.datatypes.n3": "rdf",
     "iterable.datatypes.trix": "rdf",
@@ -707,6 +960,9 @@ _MODULE_INSTALL_EXTRAS: dict[str, str] = {
     "iterable.datatypes.bam": "alignment",
     "iterable.datatypes.sam": "alignment",
     "iterable.datatypes.genomic_vcf": "bio",
+    "iterable.datatypes.cram": "alignment",
+    "iterable.datatypes.bed": "bio",
+    "iterable.datatypes.genomic_intervals": "bio",
     "iterable.datatypes.lance": "lakehouse",
     "iterable.datatypes.delta": "lakehouse",
     "iterable.datatypes.iceberg": "lakehouse",

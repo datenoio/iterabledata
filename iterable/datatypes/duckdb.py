@@ -74,11 +74,12 @@ class DuckDBDatabaseIterable(BaseFileIterable):
 
         if self.mode in ["w", "wr"]:
             # Write mode - initialize but don't create cursor yet
-            # Table will be created on first write if needed
+            # Table will be created on first write if needed.  The database
+            # class keeps the filename-derived default for bulk conversions;
+            # the backwards-compatible ``DuckDBIterable`` alias below still
+            # requires an explicit table for its single-row ``write`` API.
             self.cursor = None
             self.keys = None
-            # Default the table name from the filename so generic conversions
-            # (which don't supply a table) work without extra configuration.
             if self.table is None:
                 self.table = _default_table_name(self.filename)
         else:
@@ -300,5 +301,18 @@ class DuckDBDatabaseIterable(BaseFileIterable):
         super().close()
 
 
-# Backwards-compatible alias (datatype)
-DuckDBIterable = DuckDBDatabaseIterable
+class DuckDBIterable(DuckDBDatabaseIterable):
+    """Datatype facade retaining the legacy single-row table contract."""
+
+    def __init__(self, *args, **kwargs):
+        mode = kwargs.get("mode", "r")
+        table = kwargs.get("table")
+        options = kwargs.get("options") or {}
+        explicit_table = table is not None or options.get("table") is not None
+        super().__init__(*args, **kwargs)
+        self._require_explicit_table_for_row_write = mode in ("w", "wr") and not explicit_table
+
+    def write(self, record: Row) -> None:
+        if getattr(self, "_require_explicit_table_for_row_write", False):
+            raise ValueError("Table name required for writing")
+        super().write(record)

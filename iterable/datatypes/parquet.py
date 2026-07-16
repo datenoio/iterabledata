@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import typing
+from collections import deque
 from typing import Any
 
 import pyarrow
 import pyarrow.parquet
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..convert.batch import BatchSelection
 from ..exceptions import FormatParseError, WriteError
 from ..helpers.utils import normalize_extended_json
 from ..types import Row
@@ -23,6 +25,7 @@ def fields_to_pyarrow_schema(keys):
 
 class ParquetIterable(BaseFileIterable):
     datamode = "binary"
+    supports_native_batch = True
 
     def __init__(
         self,
@@ -36,6 +39,7 @@ class ParquetIterable(BaseFileIterable):
         adapt_schema: bool = True,
         use_pandas: bool = True,
         batch_size: int = DEFAULT_BATCH_SIZE,
+        row_group_size: int | None = None,
         options: dict[str, Any] | None = None,
     ):
         if options is None:
@@ -47,6 +51,11 @@ class ParquetIterable(BaseFileIterable):
         self.schema = schema
         self.compression = compression
         self.batch_size = batch_size
+        # Read batch size and write row-group size are independent concerns.
+        # Keeping a bounded row-group target avoids creating one row group per
+        # call to ``write`` while still allowing readers to choose a small
+        # memory footprint.
+        self.row_group_size = row_group_size or batch_size
         super().__init__(filename, stream, codec=codec, mode=mode, binary=True, options=options)
         self.reset()
         self.is_data_written = False
@@ -66,10 +75,8 @@ class ParquetIterable(BaseFileIterable):
                     message=str(e),
                     filename=getattr(self, "filename", None),
                 ) from e
-            self.iterator = self.__iterator()
-            # Initialize batch iterator for optimized bulk reads
             self._batch_iterator = self.reader.iter_batches(batch_size=self.batch_size)
-            self._cached_batch = []  # Cache for remaining rows from a batch
+            self._pending_rows = deque()
         #           self.tbl = self.reader.to_table()
         self.writer = None
         if self.mode == "w":
@@ -156,13 +163,21 @@ class ParquetIterable(BaseFileIterable):
             self.writer.close()
         super().close()
 
-    def __iterator(self):
-        for batch in self.reader.iter_batches(batch_size=self.batch_size):
-            yield from batch.to_pylist()
+    def _fill_pending_rows(self) -> bool:
+        """Load one Arrow batch into the shared row cursor."""
+        if self._pending_rows:
+            return True
+        try:
+            self._pending_rows.extend(next(self._batch_iterator).to_pylist())
+        except StopIteration:
+            return False
+        return bool(self._pending_rows)
 
     def read(self, skip_empty: bool = True) -> dict:
         """Read single record"""
-        row = next(self.iterator)
+        if not self._fill_pending_rows():
+            raise StopIteration
+        row = self._pending_rows.popleft()
         self.pos += 1
         return row
 
@@ -174,38 +189,42 @@ class ParquetIterable(BaseFileIterable):
         improvements for columnar data access.
         """
         chunk = []
-
-        # First, consume from cached batch if available
-        if hasattr(self, "_cached_batch") and self._cached_batch:
-            while len(chunk) < num and self._cached_batch:
-                chunk.append(self._cached_batch.pop(0))
-                self.pos += 1
-
-        # If we need more rows, read from batches directly
-        while len(chunk) < num:
-            try:
-                # Get next batch from batch iterator
-                batch = next(self._batch_iterator)
-                batch_rows = batch.to_pylist()
-
-                # Add rows from batch to chunk
-                remaining = num - len(chunk)
-                chunk.extend(batch_rows[:remaining])
-                self.pos += len(batch_rows[:remaining])
-
-                # Cache remaining rows from batch for next read_bulk() call
-                if len(batch_rows) > remaining:
-                    if not hasattr(self, "_cached_batch"):
-                        self._cached_batch = []
-                    self._cached_batch = batch_rows[remaining:]
-                else:
-                    self._cached_batch = []
-
-            except StopIteration:
-                # No more batches available
-                break
+        while len(chunk) < num and self._fill_pending_rows():
+            take = min(num - len(chunk), len(self._pending_rows))
+            for _ in range(take):
+                chunk.append(self._pending_rows.popleft())
+            self.pos += take
 
         return chunk
+
+    def read_batches(self, selection: BatchSelection | None = None):
+        """Yield scanner batches, optionally projecting Parquet columns."""
+        selection = selection or BatchSelection()
+        if selection.predicate is not None or selection.table is not None:
+            raise NotImplementedError("Parquet native batches support columns and row ranges, not predicates/tables")
+        if selection.columns is not None and self.pos == 0 and not self._pending_rows:
+            self._batch_iterator = self.reader.iter_batches(
+                batch_size=selection.batch_size or self.batch_size,
+                columns=list(selection.columns),
+            )
+        target = selection.batch_size or self.batch_size
+        start, stop = selection.row_range or (0, None)
+        if selection.slice is not None:
+            slice_start, slice_stop, _step = selection.slice
+            start = slice_start
+            stop = slice_stop
+        index = 0
+        for batch in self._batch_iterator:
+            rows = batch.to_pylist()
+            selected: list[dict[str, Any]] = []
+            for row in rows:
+                if index >= start and (stop is None or index < stop):
+                    selected.append(row)
+                index += 1
+            while selected:
+                chunk, selected = selected[:target], selected[target:]
+                self.pos += len(chunk)
+                yield chunk
 
     def write(self, record: Row) -> None:
         """Write single record"""
@@ -232,21 +251,29 @@ class ParquetIterable(BaseFileIterable):
         if not records:
             return
 
-        # If we already have a writer, align records to the established schema.
         if self.writer is not None:
+            # Validate against the established schema before buffering so
+            # callers still receive alignment errors at the offending batch,
+            # while successful rows retain bounded row-group buffering.
             try:
-                self._write_records(records)
-            except Exception as e:
-                # Surface alignment failures (e.g. type mismatches between
-                # batches) immediately instead of buffering them silently.
+                prepared = self._prepare_records(records)
+                normalized = self._normalize_records_to_schema(prepared, self.writer.schema)
+                pyarrow.Table.from_pylist(normalized, schema=self.writer.schema)
+            except Exception as exc:
                 raise WriteError(
-                    f"Failed to write records aligned to the existing Parquet schema ({self.writer.schema.names}): {e}",
+                    "Failed to write records aligned to the existing Parquet schema "
+                    f"({self.writer.schema.names}): {exc}",
                     filename=getattr(self, "filename", None),
                     error_code="SCHEMA_ALIGNMENT_FAILED",
-                ) from e
-            return
+                ) from exc
 
-        # Schema-adaptive streaming: buffer up to batch_size, then flush (writer created on first flush).
+        # Always buffer to a bounded row group.  Previously a writer that had
+        # already been created bypassed the buffer, producing one physical row
+        # group per ``write`` call.
         self.__buffer.extend(records)
-        if len(self.__buffer) >= self.batch_size:
+        if len(self.__buffer) >= self.row_group_size:
             self.flush()
+
+    def write_batch(self, records: list[Row]) -> None:
+        """Native batch writer hook used by columnar conversion."""
+        self.write_bulk(records)

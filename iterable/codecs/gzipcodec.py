@@ -5,6 +5,7 @@ from typing import IO, Any
 
 from ..base import BaseCodec
 from ._stream import get_underlying_fileobj
+from .profiles import profile_options, resolve_profile
 
 
 class GZIPCodec(BaseCodec):
@@ -19,7 +20,14 @@ class GZIPCodec(BaseCodec):
     ):
         if options is None:
             options = {}
-        self.compression_level = compression_level
+        profile, self.compression_level = resolve_profile(
+            "gzip",
+            profile=options.get("profile"),
+            explicit_level=options.get("compression_level"),
+            default_level=compression_level,
+        )
+        self.profile = profile
+        self.effective_settings = profile_options("gzip", profile, self.compression_level)
         super().__init__(filename=filename, fileobj=fileobj, mode=mode, open_it=open_it, options=options)
 
     def open(self) -> gzip.GzipFile:

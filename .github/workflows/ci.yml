@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main, master, develop ]
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -68,7 +71,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
         cache-dependency-path: docs/package-lock.json
 
@@ -106,6 +109,9 @@ jobs:
       run: |
         pytest --verbose --cov=iterable --cov-report=xml --cov-report=term
 
+    - name: Assert committed fixtures were not modified
+      run: git diff --exit-code -- tests/fixtures
+
     - name: Per-package coverage report (advisory)
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
       run: python dev/scripts/coverage_by_package.py || true
@@ -139,6 +145,76 @@ jobs:
 
     - name: Run suite without extras (zero collection errors required)
       run: pytest --verbose --no-cov
+
+    - name: Assert committed fixtures were not modified
+      run: git diff --exit-code -- tests/fixtures
+
+  minimal-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip && pip install .
+      - name: Import and CSV/JSONL smoke
+        run: |
+          python - <<'PY'
+          import json
+          import tempfile
+          from pathlib import Path
+          from iterable.helpers.detect import open_iterable
+
+          with tempfile.TemporaryDirectory() as directory:
+              root = Path(directory)
+              csv_path = root / "rows.csv"
+              csv_path.write_text("id,name\n1,one\n", encoding="utf-8")
+              jsonl_path = root / "rows.jsonl"
+              jsonl_path.write_text(json.dumps({"id": 1}) + "\n", encoding="utf-8")
+              assert list(open_iterable(str(csv_path))) == [{"id": "1", "name": "one"}]
+              assert list(open_iterable(str(jsonl_path))) == [{"id": 1}]
+          PY
+
+  optional-family-smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - family: columnar
+            extras: "parquet"
+            tests: "tests/test_parquet.py tests/test_arrow.py"
+          - family: geospatial
+            extras: "geospatial"
+            tests: "tests/test_geoparquet.py"
+          - family: bio
+            extras: "alignment,bio"
+            tests: "tests/test_genomic_intervals.py"
+          - family: codecs
+            extras: "compression"
+            tests: "tests/test_codec_profiles.py"
+          - family: scientific
+            extras: "hdf5,netcdf,npy"
+            tests: "tests/test_numpy.py"
+          - family: database
+            extras: "db"
+            tests: "tests/test_db_engines.py -k 'not integration'"
+          - family: lakehouse
+            extras: "lakehouse"
+            tests: "tests/test_delta.py tests/test_iceberg.py"
+    name: optional-${{ matrix.family }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip && pip install -e ".[dev,${{ matrix.extras }}]"
+      - name: Run family tests (missing extras must skip, failures must be visible)
+        run: pytest ${{ matrix.tests }} --no-cov
+      - name: Assert committed fixtures were not modified
+        run: git diff --exit-code -- tests/fixtures
 
   # Single-leg performance regression gate: compares representative workloads
   # against committed normalized baselines (tests/performance_baselines.json).

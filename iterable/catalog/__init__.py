@@ -8,7 +8,9 @@ from typing import Any, Literal
 from ..helpers.capabilities import get_format_capabilities
 from ..helpers.format_registry import get_descriptor, iter_descriptors
 
-__all__ = ["describe_format", "export_catalog", "list_formats"]
+__all__ = ["CATALOG_SCHEMA_VERSION", "describe_format", "export_catalog", "list_formats"]
+
+CATALOG_SCHEMA_VERSION = "1.1"
 
 
 def list_formats() -> list[str]:
@@ -39,6 +41,14 @@ def describe_format(format_id: str, *, include_capabilities: bool = True) -> dic
         "example_args": desc.example_args,
         "limitations": list(desc.limitations),
         "doc_url": desc.doc_url,
+        "maturity": desc.maturity,
+        "read_memory": desc.read_memory,
+        "write_memory": desc.write_memory,
+        "native_bulk_read": desc.native_bulk_read,
+        "native_bulk_write": desc.native_bulk_write,
+        "selection": list(desc.selection),
+        "codec_support": list(desc.codec_support),
+        "source_constraints": list(desc.source_constraints),
     }
 
     if include_capabilities:
@@ -56,7 +66,10 @@ def export_catalog(
     include_capabilities: bool = True,
 ) -> dict[str, Any] | str:
     """Export the full format catalog as a dict or JSON string."""
-    catalog = {fmt_id: describe_format(fmt_id, include_capabilities=include_capabilities) for fmt_id in list_formats()}
+    catalog = {
+        "_schema_version": CATALOG_SCHEMA_VERSION,
+        **{fmt_id: describe_format(fmt_id, include_capabilities=include_capabilities) for fmt_id in list_formats()},
+    }
     if format == "json":
         return json.dumps(catalog, indent=2, sort_keys=True)
     return catalog

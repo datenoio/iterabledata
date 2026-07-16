@@ -100,6 +100,14 @@ class TestGetFormatCapabilities:
             "tables",
             "compression",
             "nested",
+            "native_bulk_read",
+            "native_bulk_write",
+            "read_memory",
+            "write_memory",
+            "selection",
+            "codec_support",
+            "source_constraints",
+            "maturity",
         }
 
         assert set(caps.keys()) == expected_keys
@@ -188,6 +196,14 @@ class TestListAllCapabilities:
             "tables",
             "compression",
             "nested",
+            "native_bulk_read",
+            "native_bulk_write",
+            "read_memory",
+            "write_memory",
+            "selection",
+            "codec_support",
+            "source_constraints",
+            "maturity",
         }
 
         for format_id, caps in all_caps.items():
@@ -290,7 +306,7 @@ class TestOptionalDependencies:
         for format_id, caps in all_caps.items():
             assert isinstance(caps, dict)
             # Values might be None if dependencies are missing, which is acceptable
-            assert all(v is None or isinstance(v, bool) for v in caps.values()), (
+            assert all(v is None or isinstance(v, (bool, str, list)) for v in caps.values()), (
                 f"Format {format_id} has invalid capability values"
             )
 

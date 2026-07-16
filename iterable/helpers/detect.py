@@ -261,7 +261,33 @@ def detect_file_type(filename: str, fileobj: IO[bytes] | None = None, debug: boo
     format_registry = _get_format_registry()
     codec_registry = _get_codec_registry()
 
-    if len(parts) == 2:
+    # Compound profile suffixes must be resolved before the generic last-dot
+    # lookup (``.otlp.json`` would otherwise be treated as ordinary JSON).
+    compound_formats = {
+        "otlp.json": "otlp-json",
+        "otlp.pb": "otlp-protobuf",
+        "otlp.protobuf": "otlp-protobuf",
+        "geoparquet": "geoparquet",
+    }
+    for suffix, format_id in compound_formats.items():
+        if filename.lower().endswith(f".{suffix}"):
+            result["datatype"] = _datatype_class(format_id)
+            result["success"] = True
+            result["confidence"] = 1.0
+            result["detection_method"] = "filename"
+            break
+        for codec_id in codec_registry:
+            if filename.lower().endswith(f".{suffix}.{codec_id}"):
+                result["datatype"] = _datatype_class(format_id)
+                result["codec"] = _codec_class(codec_id)
+                result["success"] = True
+                result["confidence"] = 1.0
+                result["detection_method"] = "filename"
+                break
+        if result["success"]:
+            break
+
+    if not result["success"] and len(parts) == 2:
         if parts[-1] in format_registry:
             result["datatype"] = _datatype_class(parts[-1])
             result["success"] = True
@@ -271,7 +297,7 @@ def detect_file_type(filename: str, fileobj: IO[bytes] | None = None, debug: boo
                 format_detection_logger.debug(
                     f"Detected format from extension: {parts[-1]} (confidence: 1.0, method: filename)"
                 )
-    elif len(parts) > 2:
+    elif not result["success"] and len(parts) > 2:
         if parts[-2] in format_registry and parts[-1] in codec_registry:
             result["datatype"] = _datatype_class(parts[-2])
             result["success"] = True
