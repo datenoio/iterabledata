@@ -5,10 +5,10 @@ builds the wheel and source distribution once, checks their metadata and
 contents, installs the wheel in a clean environment, and uploads those exact
 artifacts for publication and the GitHub release.
 
-PyPI publication runs in the protected `pypi` environment using GitHub OIDC
-Trusted Publishing. No PyPI API token is stored in repository or organization
-secrets. Configure the PyPI project publisher for this repository, workflow,
-and protected environment before enabling a production release.
+PyPI publication runs in the protected `pypi` environment using the
+`PYPI_API_TOKEN` repository secret. Prefer migrating to GitHub OIDC Trusted
+Publishing once a matching PyPI publisher is registered for this repository,
+workflow, and `pypi` environment.
 
 For a normal release:
 

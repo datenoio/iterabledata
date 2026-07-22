@@ -80,16 +80,18 @@ jobs:
     environment: pypi
     permissions:
       contents: read
-      id-token: write
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: release-dist
           path: dist
-      - name: Publish with PyPI Trusted Publishing
+      # Trusted Publishing (OIDC) is not configured for this project on PyPI yet;
+      # use the existing API token until a matching publisher is registered.
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          attestations: true
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          attestations: false
 
   github-release:
     needs: [build, publish]
