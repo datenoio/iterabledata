@@ -126,6 +126,21 @@ class TestApplyExplicitFormat:
         _apply_explicit_format(result, {})
         assert result["success"] is False
 
+    def test_explicit_format_overrides_existing_detection(self):
+        from iterable.datatypes.csv import CSVIterable
+        from iterable.datatypes.ducklake import DuckLakeIterable
+
+        result = {
+            "success": True,
+            "datatype": CSVIterable,
+            "codec": None,
+            "confidence": 1.0,
+            "detection_method": "filename",
+        }
+        _apply_explicit_format(result, {"format": "ducklake"})
+        assert result["datatype"] is DuckLakeIterable
+        assert result["detection_method"] == "explicit"
+
 
 class TestCloudURIHelpers:
     def test_cloud_uri_detection(self):

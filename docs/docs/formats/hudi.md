@@ -20,7 +20,7 @@ The Hudi implementation:
 
 ### Writing
 
-Writing is not currently supported for Hudi format.
+Writes are **deferred**: opening a Hudi iterable in write mode raises `WriteNotSupportedError`. Read-only access remains available when `pyhudi` / `hudi` is installed.
 
 ### Key Features
 

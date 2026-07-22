@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<iati-activities version="2.03">
+  <iati-activity>
+    <iati-identifier>AA-AAA-123456789-ABC123</iati-identifier>
+    <title>
+      <narrative>Sample Education Project</narrative>
+    </title>
+    <activity-status code="2"/>
+    <description>
+      <narrative>A short description of the activity.</narrative>
+    </description>
+  </iati-activity>
+  <iati-activity>
+    <iati-identifier>AA-AAA-123456789-DEF456</iati-identifier>
+    <title>
+      <narrative>Health Clinic Support</narrative>
+    </title>
+    <activity-status code="3"/>
+  </iati-activity>
+</iati-activities>

@@ -1,7 +1,9 @@
 """Apache Hudi table iterable (partial, table-path dependent).
 
 Uses ``pyhudi`` or ``hudi`` when installed. Full table reads depend on the
-installed library's API; write support is not implemented. Pass ``table_path``
+installed library's API. **Write support is deferred**: current Python
+bindings do not expose a stable append/COW writer suitable for IterableData
+(see OpenSpec ``add-lakehouse-write-support``). Pass ``table_path``
 (or ``filename``) pointing at a Hudi table directory.
 """
 
@@ -98,7 +100,11 @@ class HudiIterable(BaseFileIterable):
                     "Install 'pyhudi' instead: pip install pyhudi"
                 )
         else:
-            raise WriteNotSupportedError("hudi", "Hudi writing is not yet implemented")
+            raise WriteNotSupportedError(
+                "hudi",
+                "Hudi writing is deferred: no stable Python append/COW writer is available "
+                "in the pinned client. Tracking: openspec/changes/add-lakehouse-write-support",
+            )
 
     @staticmethod
     def has_totals() -> bool:
@@ -190,9 +196,17 @@ class HudiIterable(BaseFileIterable):
             raise StopIteration from None
 
     def write(self, record: Row) -> None:
-        """Write single Hudi record"""
-        raise WriteNotSupportedError("hudi", "Hudi writing is not yet implemented")
+        """Write single Hudi record — deferred (see module docstring)."""
+        raise WriteNotSupportedError(
+            "hudi",
+            "Hudi writing is deferred: no stable Python append/COW writer is available "
+            "in the pinned client. Tracking: openspec/changes/add-lakehouse-write-support",
+        )
 
     def write_bulk(self, records: list[Row]) -> None:
-        """Write bulk Hudi records"""
-        raise WriteNotSupportedError("hudi", "Hudi writing is not yet implemented")
+        """Write bulk Hudi records — deferred (see module docstring)."""
+        raise WriteNotSupportedError(
+            "hudi",
+            "Hudi writing is deferred: no stable Python append/COW writer is available "
+            "in the pinned client. Tracking: openspec/changes/add-lakehouse-write-support",
+        )

@@ -1,11 +1,11 @@
 ---
-title: Graphml Format
-description: Graphml format support in IterableData
+title: GraphML Format
+description: GraphML network graphs as node/edge records in IterableData
 ---
 
-# Graphml Format
+# GraphML Format
 
-> Registry-generated stub. Expand with parameters, examples, and limitations.
+Read GraphML graphs as node records followed by edge records (via NetworkX).
 
 ## Overview
 
@@ -14,27 +14,34 @@ description: Graphml format support in IterableData
 | Format id | `graphml` |
 | Class | `GraphMLIterable` |
 | Extensions | `.graphml` |
-| Text format | Yes |
-| Flat rows | No |
 | Read | Yes |
 | Write | No |
+| Extra | `graph` (`networkx`) |
+| Maturity | stable |
+
+## Record shape
+
+```python
+{"_type": "node", "id": "n0"}
+{"_type": "edge", "source": "n0", "target": "n1"}
+```
+
+Node/edge attributes from the file are merged into each record.
 
 ## Usage
 
 ```python
 from iterable.helpers.detect import open_iterable
 
-with open_iterable("data.graphml") as source:
-    for row in source:
-        print(row)
+with open_iterable("network.graphml") as source:
+    for rec in source:
+        print(rec["_type"], rec)
 ```
 
-## Installation
-
-```bash
-pip install 'iterabledata[graph]'
-```
+Install with `pip install iterabledata[graph]`.
 
 ## See also
 
+- [GEXF](/formats/gexf) — GEXF graphs
+- [DOT / Graphviz](/formats/gv) — DOT graphs
 - [Supported formats](/formats/)

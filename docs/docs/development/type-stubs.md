@@ -52,6 +52,22 @@ The following optional dependencies do not have type stubs available and are con
 - **pyshp**: Shapefile format support
 - **geojson**: GeoJSON format support
 - **vortex-data**: Vortex format support
+- **paimon-mosaic**: Paimon Mosaic format support
+- **pypaimon**: Apache Paimon table support
+- **pyducklake**: DuckLake table format support
+- **zstandard**: Paimon Row format support (also used by compression codecs)
+- **laspy**: LAS LiDAR format support
+- **segyio**: SEG-Y seismic format support
+- **cfgrib** / **xarray**: GRIB2 meteorological format support
+- **obspy**: miniSEED seismological format support
+- **access-parser**: Microsoft Access (MDB/ACCDB) format support
+- **fst**: R fst columnar format support
+- **hdt**: RDF HDT compact triple store support
+- **spacepy**: NASA CDF format support
+- **pyxlsb**: Excel Binary (XLSB) format support
+- **networkx**: GraphML / GEXF / DOT format support
+- **pysam**: BAM / SAM alignment format support
+- **scipy**: MATLAB MAT format support
 - **ion-python**: Ion format support
 - **avro-python3**: Avro format support
 - **pycapnp**: Cap'n Proto format support

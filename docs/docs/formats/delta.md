@@ -21,7 +21,15 @@ The Delta Lake implementation:
 
 ### Writing
 
-Writing is not currently supported for Delta Lake format.
+Writes use `deltalake.write_deltalake` with `write_mode` of `append` (default), `overwrite`, or `error`:
+
+```python
+with open_iterable("/path/to/delta/table", mode="w", iterableargs={
+    "format": "delta",
+    "write_mode": "overwrite",
+}) as dest:
+    dest.write_bulk([{"id": 1, "name": "Alice"}])
+```
 
 ### Key Features
 
@@ -84,11 +92,11 @@ No specific parameters required. The filename should be the path to the Delta ta
 
 ## Limitations
 
-1. **Read-only**: Delta Lake format does not support writing
-2. **deltalake dependency**: Requires `deltalake` package
-3. **Directory path required**: Requires path to table directory, not a file
-4. **Flat data only**: Only supports tabular data
-5. **Memory usage**: Entire table may be loaded into memory
+1. **deltalake dependency**: Requires `deltalake` package
+2. **Directory path required**: Requires path to table directory, not a file
+3. **Flat data only**: Only supports tabular data
+4. **Memory usage**: Entire table may be loaded into memory on read
+5. **Write modes**: Use `write_mode` of `append` (default), `overwrite`, or `error` via `iterableargs`
 
 ## Compression Support
 

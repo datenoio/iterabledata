@@ -1,34 +1,46 @@
 ---
-title: FQ Format
-description: FQ format support in IterableData
+title: FASTQ Format
+description: FASTQ sequencing reads with qualities in IterableData
 ---
 
-# FQ Format
+# FASTQ Format
 
-> Registry-generated stub. Expand with parameters, examples, and limitations.
+Read FASTQ reads as one record per four-line block (stdlib; no extra).
 
 ## Overview
 
 | Property | Value |
 |----------|-------|
-| Format id | `fq` |
+| Format id | `fq` (alias `fastq`) |
 | Class | `FASTQIterable` |
 | Extensions | `.fq`, `.fastq` |
-| Text format | Yes |
-| Flat rows | Yes |
 | Read | Yes |
 | Write | No |
+| Extra | none (stdlib) |
+| Maturity | stable |
+
+## Record shape
+
+```python
+{
+    "id": "read1",
+    "description": "",
+    "sequence": "ACGTACGT",
+    "quality": "IIIIIIII",
+}
+```
 
 ## Usage
 
 ```python
 from iterable.helpers.detect import open_iterable
 
-with open_iterable("data.fq") as source:
-    for row in source:
-        print(row)
+with open_iterable("reads.fq") as source:
+    for rec in source:
+        print(rec["id"], rec["sequence"], rec["quality"])
 ```
 
 ## See also
 
+- [FASTA](/formats/fa) — sequences without qualities
 - [Supported formats](/formats/)

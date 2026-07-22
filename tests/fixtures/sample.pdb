@@ -1,0 +1,10 @@
+HEADER    SAMPLE PDB
+MODEL        1
+ATOM      1  N   ALA A   1       1.000   2.000   3.000  1.00  0.00           N
+ATOM      2  CA  ALA A   1       4.000   5.000   6.000  1.00  0.00           C
+HETATM    3  O   HOH A   2       7.000   8.000   9.000  1.00  0.00           O
+ENDMDL
+MODEL        2
+ATOM      4  N   ALA A   1      11.000  12.000  13.000  1.00  0.00           N
+ENDMDL
+END

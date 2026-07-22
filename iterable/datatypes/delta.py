@@ -5,6 +5,7 @@ import typing
 
 try:
     import deltalake
+    from deltalake import write_deltalake
 
     HAS_DELTALAKE = True
 except ImportError:
@@ -14,15 +15,18 @@ from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
 from ..exceptions import ReadError, WriteNotSupportedError
+from ..helpers.lakehouse_write import infer_arrow_schema, records_to_arrow_table
 from ..types import Row
+
+DEFAULT_BATCH_SIZE = 1024
 
 
 class DeltaIterable(BaseFileIterable):
-    """Delta Lake table reader.
+    """Delta Lake table reader/writer.
 
     Memory behavior: records are read batch by batch via
-    ``DeltaTable.to_pyarrow_dataset().to_batches()``; the table is never
-    fully materialized.
+    ``DeltaTable.to_pyarrow_dataset().to_batches()``; writes flush Arrow
+    batches via ``write_deltalake`` at ``batch_size``.
     """
 
     datamode = "binary"
@@ -33,25 +37,37 @@ class DeltaIterable(BaseFileIterable):
         stream: typing.IO[Any] | None = None,
         codec: BaseCodec | None = None,
         mode: str = "r",
+        batch_size: int = DEFAULT_BATCH_SIZE,
+        write_mode: str = "append",
         options: dict[str, Any] | None = None,
     ):
         if options is None:
             options = {}
+        else:
+            options = dict(options)
         if not HAS_DELTALAKE:
-            raise ImportError("Delta Lake support requires 'deltalake' package")
-        super().__init__(filename, stream, codec=codec, binary=True, mode=mode, options=options)
+            raise ImportError(
+                "Delta Lake support requires the 'deltalake' package. "
+                "Install with: pip install iterabledata[lakehouse]"
+            )
+        self.batch_size = int(options.pop("batch_size", batch_size))
+        self.write_mode = str(options.pop("write_mode", write_mode)).lower()
+        self._buffer: list[Row] = []
+        self._arrow_schema = options.pop("schema", None)
+        self._wrote_once = False
+        super().__init__(filename, stream, codec=codec, binary=True, mode=mode, noopen=True, options=options)
         self.reset()
-        pass
 
     def reset(self):
         """Reset iterable"""
         super().reset()
         self.pos = 0
+        self.delta_table = None
+        self.dataset = None
+        self.iterator = None
         if self.mode == "r":
-            # Delta Lake requires a path to the delta table directory
             if self.filename:
                 self.delta_table = deltalake.DeltaTable(self.filename)
-                # Lazy dataset: batches are pulled on demand, not materialized.
                 self.dataset = self.delta_table.to_pyarrow_dataset()
                 self.iterator = self.__iterator()
             else:
@@ -61,7 +77,16 @@ class DeltaIterable(BaseFileIterable):
                     error_code="RESOURCE_REQUIREMENT_NOT_MET",
                 )
         else:
-            raise WriteNotSupportedError("delta", "Delta Lake writing is not yet implemented")
+            if self.filename is None:
+                raise ReadError(
+                    "Delta Lake writing requires filename (path to delta table)",
+                    filename=None,
+                    error_code="RESOURCE_REQUIREMENT_NOT_MET",
+                )
+            if self.write_mode not in {"append", "overwrite", "error", "ignore"}:
+                raise ValueError(f"Unsupported Delta write_mode: {self.write_mode}")
+            self._buffer = []
+            self._wrote_once = False
 
     def __iterator(self):
         """Iterator for reading Delta table records batch by batch"""
@@ -82,73 +107,68 @@ class DeltaIterable(BaseFileIterable):
 
     @staticmethod
     def has_tables() -> bool:
-        """Indicates if this format supports multiple tables.
-
-        Returns True only if using a catalog (not a single table directory).
-        For single table directories, returns False.
-        """
-        # Delta Lake typically works with single table directories
-        # Catalog support would require additional configuration
-        # For now, return False as most usage is single table
         return False
 
     def list_tables(self, filename: str | None = None) -> list[str] | None:
-        """List available table names in the Delta Lake catalog or directory.
-
-        Can be called as:
-        - Instance method: `iterable.list_tables()` - uses instance's path
-        - With filename: `iterable.list_tables(filename)` - opens catalog/directory temporarily
-
-        Args:
-            filename: Optional catalog path or table directory. If None, uses instance's filename.
-
-        Returns:
-            list[str] | None: List of table names if catalog-based, None if single table directory.
-        """
-        if not HAS_DELTALAKE:
-            return None
-
-        # Delta Lake typically uses single table directories
-        # Catalog support (Unity Catalog, Hive Metastore) would require additional setup
-        # For now, return None as most usage is single table directories
         target_path = filename if filename is not None else (self.filename if hasattr(self, "filename") else None)
         if target_path is None:
             return None
-
-        # Check if path is a catalog or single table
-        # This is a simplified check - actual catalog detection would require catalog configuration
         try:
-            # If it's a directory with _delta_log, it's a single table
             if os.path.isdir(target_path) and os.path.exists(os.path.join(target_path, "_delta_log")):
-                return None  # Single table directory
-
-            # Could be a catalog path - but would need catalog configuration
-            # For now, assume single table
+                return None
             return None
         except Exception:
             return None
 
     @staticmethod
     def has_totals() -> bool:
-        """Has totals indicator"""
         return True
 
     def totals(self):
-        """Returns file totals"""
         if hasattr(self, "dataset") and self.dataset is not None:
             return self.dataset.count_rows()
         return 0
 
     def read(self, skip_empty: bool = True) -> dict:
-        """Read single Delta record"""
         row = next(self.iterator)
         self.pos += 1
         return row
 
+    def _flush_buffer(self) -> None:
+        if not self._buffer:
+            return
+        if self._arrow_schema is None:
+            self._arrow_schema = infer_arrow_schema(self._buffer)
+        table = records_to_arrow_table(self._buffer, schema=self._arrow_schema)
+        mode = self.write_mode
+        if self._wrote_once and mode in {"error", "ignore"}:
+            mode = "append"
+        elif not self._wrote_once and mode == "error":
+            mode = "error"
+        write_deltalake(self.filename, table, mode=mode)
+        self._wrote_once = True
+        # Subsequent flushes in the same writer should append
+        if self.write_mode in {"overwrite", "error"}:
+            self.write_mode = "append"
+        self._buffer = []
+
     def write(self, record: Row) -> None:
-        """Write single Delta record - not supported"""
-        raise WriteNotSupportedError("delta", "Delta Lake writing is not yet implemented")
+        self.write_bulk([record])
 
     def write_bulk(self, records: list[Row]) -> None:
-        """Write bulk Delta records - not supported"""
-        raise WriteNotSupportedError("delta", "Delta Lake writing is not yet implemented")
+        if self.mode != "w":
+            raise WriteNotSupportedError("delta", "Delta Lake is open read-only")
+        if not records:
+            return
+        self._buffer.extend(records)
+        if len(self._buffer) >= self.batch_size:
+            self._flush_buffer()
+
+    def flush(self) -> None:
+        if self.mode == "w":
+            self._flush_buffer()
+
+    def close(self) -> None:
+        if self.mode == "w":
+            self._flush_buffer()
+        super().close()

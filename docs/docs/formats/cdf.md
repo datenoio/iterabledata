@@ -1,11 +1,11 @@
 ---
 title: CDF Format
-description: CDF format support in IterableData
+description: NASA Common Data Format records in IterableData
 ---
 
 # CDF Format
 
-> Registry-generated stub. Expand with parameters, examples, and limitations.
+Read NASA Common Data Format (CDF) files as one dict per record index across variables.
 
 ## Overview
 
@@ -14,27 +14,35 @@ description: CDF format support in IterableData
 | Format id | `cdf` |
 | Class | `CDFIterable` |
 | Extensions | `.cdf` |
-| Text format | No |
-| Flat rows | No |
 | Read | Yes |
 | Write | No |
+| Extra | `cdf` (`spacepy` / NASA CDF C library) |
+| Maturity | stable |
+
+## Record shape
+
+Keys are CDF variable names; values are Python scalars or lists:
+
+```python
+{"Epoch": "...", "VariableA": 1.2, "VariableB": [0.0, 1.0]}
+```
+
+Use `list_tables()` for variable names. Requires a filename (or a named file object). Also needs the NASA CDF C library; see https://cdf.gsfc.nasa.gov.
 
 ## Usage
 
 ```python
 from iterable.helpers.detect import open_iterable
 
-with open_iterable("data.cdf") as source:
+with open_iterable("data.cdf", format="cdf") as source:
+    print(source.list_tables())
     for row in source:
         print(row)
 ```
 
-## Installation
-
-```bash
-pip install 'iterabledata[cdf]'
-```
+Install with `pip install iterabledata[cdf]`.
 
 ## See also
 
+- [NetCDF](/formats/nc) — NetCDF scientific arrays
 - [Supported formats](/formats/)

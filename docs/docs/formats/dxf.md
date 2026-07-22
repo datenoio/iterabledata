@@ -1,11 +1,11 @@
 ---
 title: DXF Format
-description: DXF format support in IterableData
+description: AutoCAD DXF modelspace entities in IterableData
 ---
 
 # DXF Format
 
-> Registry-generated stub. Expand with parameters, examples, and limitations.
+Read AutoCAD DXF drawings as one record per modelspace entity.
 
 ## Overview
 
@@ -14,26 +14,39 @@ description: DXF format support in IterableData
 | Format id | `dxf` |
 | Class | `DXFIterable` |
 | Extensions | `.dxf` |
-| Text format | No |
-| Flat rows | No |
 | Read | Yes |
 | Write | No |
+| Extra | `dxf` (`ezdxf`) |
+| Maturity | stable |
+
+## Record shape
+
+Common fields plus geometry keyed by entity type (`LINE`, `CIRCLE`, `ARC`, `POINT`, `TEXT`, `LWPOLYLINE`, `POLYLINE`, …):
+
+```python
+{
+    "dxftype": "LINE",
+    "layer": "0",
+    "color": 256,
+    "handle": "1A",
+    "start": (0.0, 0.0, 0.0),
+    "end": (1.0, 0.0, 0.0),
+}
+```
+
+`totals()` returns the modelspace entity count.
 
 ## Usage
 
 ```python
 from iterable.helpers.detect import open_iterable
 
-with open_iterable("data.dxf") as source:
-    for row in source:
-        print(row)
+with open_iterable("drawing.dxf") as source:
+    for entity in source:
+        print(entity["dxftype"], entity.get("layer"))
 ```
 
-## Installation
-
-```bash
-pip install 'iterabledata[dxf]'
-```
+Install with `pip install iterabledata[dxf]`.
 
 ## See also
 

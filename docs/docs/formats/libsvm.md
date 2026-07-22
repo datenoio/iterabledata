@@ -1,11 +1,11 @@
 ---
-title: Libsvm Format
-description: Libsvm format support in IterableData
+title: LIBSVM Format
+description: LIBSVM sparse labeled feature vectors in IterableData
 ---
 
-# Libsvm Format
+# LIBSVM Format
 
-> Registry-generated stub. Expand with parameters, examples, and limitations.
+Read and write LIBSVM sparse feature lines (`label index:value …`).
 
 ## Overview
 
@@ -14,21 +14,40 @@ description: Libsvm format support in IterableData
 | Format id | `libsvm` |
 | Class | `LIBSVMIterable` |
 | Extensions | `.libsvm` |
-| Text format | No |
-| Flat rows | Yes |
 | Read | Yes |
 | Write | Yes |
+| Extra | none (stdlib) |
+| Maturity | stable |
+
+## Record shape
+
+```python
+{"label": 1, "features": {1: 0.5, 3: 0.8, 5: 1.0}}
+```
+
+## Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `label_key` | `label` | Dict key for the label |
+| `features_key` | `features` | Dict key for the sparse feature map |
+
+On write, `features` may be a dict (index→value) or a dense list/tuple (1-based; zeros omitted).
 
 ## Usage
 
 ```python
 from iterable.helpers.detect import open_iterable
 
-with open_iterable("data.libsvm") as source:
+with open_iterable("train.libsvm") as source:
     for row in source:
-        print(row)
+        print(row["label"], row["features"])
+
+with open_iterable("out.libsvm", mode="w") as dest:
+    dest.write({"label": 1, "features": {1: 0.5, 3: 0.8}})
 ```
 
 ## See also
 
+- [ARFF](/formats/arff) — Weka attribute tables
 - [Supported formats](/formats/)

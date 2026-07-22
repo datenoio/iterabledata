@@ -54,6 +54,11 @@ otlp = ["protobuf>=4.0.0", "ijson>=3.2.0"]
 ion = ["ion-python>=1.0.0"]
 hdf5 = ["h5py>=3.0.0"]
 geospatial = ["geojson>=3.0.0", "pyshp>=2.3.0", "fiona>=1.9.0", "mapbox-vector-tile>=1.2.0", "topojson>=1.5.0"]
+lidar = ["laspy>=2.5.0"]
+mat = ["scipy>=1.10.0", "numpy>=1.24.0", "h5py>=3.0.0"]
+geophysical = ["segyio>=1.9.0", "cfgrib>=0.9.10.0", "xarray>=2023.1.0", "obspy>=1.4.0"]
+access = ["access-parser>=0.0.6", "pyodbc>=4.0.0"]
+fst = ["fst>=0.9.0"]
 toml = ["tomli>=2.0.0", "tomli-w>=1.0.0", "toml>=0.10.0"]
 msgpack = ["msgpack>=1.0.0"]
 yaml = ["pyyaml>=6.0.0"]
@@ -120,8 +125,15 @@ graph = ["networkx>=3.0.0"]
 alignment = ["pysam>=0.21.0"]
 # Genomic variant formats (VCF/BCF); shares pysam with alignment
 bio = ["pysam>=0.21.0"]
-# Lakehouse table formats (Delta Lake, Apache Iceberg, Lance, Apache Hudi)
-lakehouse = ["deltalake>=0.15.0", "pyiceberg>=0.5.0", "pylance>=0.9.0", "hudi>=0.1.0"]
+# Lakehouse table formats (Delta Lake, Apache Iceberg, Lance, Apache Hudi, DuckLake)
+lakehouse = ["deltalake>=0.15.0", "pyiceberg[sql-sqlite]>=0.5.0", "pylance>=0.9.0", "hudi>=0.1.0", "sqlalchemy>=2.0.0", "pyducklake>=1.0.0", "duckdb>=1.4.0"]
+# Apache Paimon (Row + Mosaic files + tables); not folded into lakehouse to keep installs opt-in
+paimon-row = ["zstandard>=0.19.0"]
+paimon-mosaic = ["paimon-mosaic>=0.2.0", "pyarrow>=10.0.0"]
+paimon-table = ["pypaimon>=1.4.2", "pyarrow>=10.0.0"]
+paimon = ["zstandard>=0.19.0", "paimon-mosaic>=0.2.0", "pyarrow>=10.0.0", "pypaimon>=1.4.2"]
+# DuckLake table format (SQL catalog + Parquet data); also included in lakehouse
+ducklake = ["pyducklake>=1.0.0", "duckdb>=1.4.0", "pyarrow>=10.0.0"]
 # Long-tail format extras (one per format family)
 avro = ["avro>=1.11.0"]
 npy = ["numpy>=1.24.0"]
@@ -167,6 +179,13 @@ all = [
     "geojson>=3.0.0",
     "pyshp>=2.3.0",
     "fiona>=1.9.0",
+    "laspy>=2.5.0",
+    "scipy>=1.10.0",
+    "segyio>=1.9.0",
+    "cfgrib>=0.9.10.0",
+    "xarray>=2023.1.0",
+    "obspy>=1.4.0",
+    "access-parser>=0.0.6",
     "tomli>=2.0.0",
     "tomli-w>=1.0.0",
     "toml>=0.10.0",
@@ -213,9 +232,17 @@ all = [
     "spacepy>=0.4.0",
     # Lakehouse table formats
     "deltalake>=0.15.0",
-    "pyiceberg>=0.5.0",
+    "pyiceberg[sql-sqlite]>=0.5.0",
     "pylance>=0.9.0",
     "hudi>=0.1.0",
+    "sqlalchemy>=2.0.0",
+    # Apache Paimon file formats
+    "zstandard>=0.19.0",
+    "paimon-mosaic>=0.2.0",
+    "pypaimon>=1.4.2",
+    # DuckLake
+    "pyducklake>=1.0.0",
+    "duckdb>=1.4.0",
     # Long-tail format extras
     "avro>=1.11.0",
     "numpy>=1.24.0",

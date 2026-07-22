@@ -1,0 +1,19 @@
+[
+  {
+    "id": "document",
+    "version": "1.0",
+    "name": "sample"
+  },
+  {
+    "id": "point-1",
+    "position": {
+      "cartographicDegrees": [-75.0, 40.0, 0]
+    },
+    "point": {
+      "pixelSize": 10,
+      "color": {
+        "rgba": [255, 0, 0, 255]
+      }
+    }
+  }
+]

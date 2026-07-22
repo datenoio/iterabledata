@@ -1,0 +1,11 @@
+data_sample
+#
+loop_
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+O O1 0.000 0.000 0.000
+H H1 0.960 0.000 0.000
+H H2 -0.240 0.930 0.000

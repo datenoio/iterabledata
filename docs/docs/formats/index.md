@@ -14,21 +14,23 @@ Iterable Data supports a wide variety of data formats, from common formats like 
 
 ## Format Categories
 
-- **Tabular Formats**: CSV, TSV, PSV, SSV, FWF, Excel (XLS/XLSX), ODS, DBF
+- **Tabular Formats**: CSV, TSV, PSV, SSV, FWF, Excel (XLS/XLSX/XLSB), ODS, DBF
 - **JSON Formats**: JSON, JSONL/NDJSON, GeoJSON, UBJSON, SMILE
-- **Binary Formats**: Parquet, Avro, ORC, Arrow/Feather, Lance, Vortex, BSON, MessagePack, CBOR, Pickle
-- **Statistical Formats**: SAS, Stata, SPSS, HDF5, RData, RDS, PC-Axis (PX)
-- **Columnar Storage**: Parquet, ORC, Arrow, Lance, Vortex, Delta Lake, Iceberg, Hudi
+- **Binary Formats**: Parquet, Avro, ORC, Arrow/Feather, Lance, Vortex, Paimon Row, Paimon Mosaic, BSON, MessagePack, CBOR, Pickle
+- **Statistical Formats**: SAS, Stata, SPSS, HDF5, RData, RDS, fst, PC-Axis (PX), ARFF, LIBSVM, NumPy
+- **Columnar Storage**: Parquet, ORC, Arrow, Lance, Vortex, Paimon Mosaic, Delta Lake, Iceberg, Hudi, DuckLake
 - **Serialization Formats**: Protocol Buffers, Cap'n Proto, Thrift, FlatBuffers, FlexBuffers
-- **XML/RDF Formats**: XML, RDF/XML, Turtle, N-Triples, N-Quads
-- **Geospatial Formats**: GeoJSON, KML, GML, Shapefile, GeoPackage, CSVW
+- **XML/RDF Formats**: XML, RDF/XML, Turtle, N-Triples, N-Quads, N3, TriG, TriX, HDT
+- **Geospatial Formats**: GeoJSON, KML, KMZ, GML, Shapefile, GeoPackage, FileGDB, MapInfo MIF, ASCII Grid, E00, LAS, BAG, CZML, GPX, MVT, TopoJSON, DXF, CSVW
+- **Scientific Formats**: XYZ, CIF, PDB, MATLAB MAT, SEG-Y, GRIB2, miniSEED, NetCDF, CDF, FASTA, FASTQ, SAM, BAM, HDF5, Zarr
+- **Business & ML Formats**: EDI, Access MDB, Lotus 1-2-3, WebDataset, fst, IATI
+- **Graph Formats**: GraphML, GEXF, Graphviz DOT
 - **Log Formats**: Apache Log, GELF, CEF, ILP
 - **Web Formats**: WARC, CDX, MHTML
 - **Email Formats**: EML, MBOX
 - **Configuration Formats**: YAML, TOML, INI, HOCON, EDN
 - **Database Formats**: SQLite, DuckDB, MySQL Dump, PostgreSQL Copy
-- **Other Formats**: iCal, VCF, LDIF, ASN.1, Bencode, TFRecord, SequenceFile
-
+- **Other Formats**: iCal, VCF, LDIF, ASN.1, Bencode, TFRecord, SequenceFile, PCAP, RSS/Atom
 ## Supported Formats Table
 
 | Format | Extensions | Type | Flat Only | Read | Write | Dependencies | Documentation |
@@ -48,7 +50,8 @@ Iterable Data supports a wide variety of data formats, from common formats like 
 | [CSV](/formats/csv) | `.csv`, `.tsv` | Text | Yes | ✅ | ✅ | - | [Details](/formats/csv) |
 | [CSVW](/formats/csvw) | `.csvw` | Text | Yes | ✅ | ✅ | - | [Details](/formats/csvw) |
 | [DBF](/formats/dbf) | `.dbf` | Binary | Yes | ✅ | ❌ | `dbfread` | [Details](/formats/dbf) |
-| [Delta Lake](/formats/delta) | - | Binary | Yes | ✅ | ❌ | `deltalake` | [Details](/formats/delta) |
+| [Delta Lake](/formats/delta) | - | Binary | Yes | ✅ | ✅ | `deltalake` | [Details](/formats/delta) |
+| [DuckLake](/formats/ducklake) | - | Binary | Yes | ✅ | ✅ | `pyducklake` | [Details](/formats/ducklake) |
 | [EDN](/formats/edn) | `.edn` | Text | No | ✅ | ✅ | `edn_format` or `pyedn` | [Details](/formats/edn) |
 | [EML](/formats/eml) | `.eml` | Text | No | ✅ | ❌ | - | [Details](/formats/eml) |
 | [FlatBuffers](/formats/flatbuffers) | `.fbs` | Binary | No | ✅ | ❌ | `flatbuffers` | [Details](/formats/flatbuffers) |
@@ -63,7 +66,7 @@ Iterable Data supports a wide variety of data formats, from common formats like 
 | [HOCON](/formats/hocon) | `.hocon` | Text | No | ✅ | ❌ | `pyhocon` | [Details](/formats/hocon) |
 | [Apache Hudi](/formats/hudi) | - | Binary | Yes | ✅ | ❌ | `pyhudi` or `hudi` | [Details](/formats/hudi) |
 | [iCal](/formats/ical) | `.ical`, `.ics` | Text | No | ✅ | ✅ | `icalendar` or `ics` | [Details](/formats/ical) |
-| [Apache Iceberg](/formats/iceberg) | - | Binary | Yes | ✅ | ❌ | `pyiceberg` | [Details](/formats/iceberg) |
+| [Apache Iceberg](/formats/iceberg) | - | Binary | Yes | ✅ | ✅ | `pyiceberg` | [Details](/formats/iceberg) |
 | [ILP](/formats/ilp) | `.ilp` | Text | Yes | ✅ | ✅ | - | [Details](/formats/ilp) |
 | [INI](/formats/ini) | `.ini`, `.properties`, `.conf` | Text | No | ✅ | ✅ | - | [Details](/formats/ini) |
 | [Ion](/formats/ion) | `.ion` | Binary | No | ✅ | ✅ | `ion-python` | [Details](/formats/ion) |
@@ -109,37 +112,60 @@ Iterable Data supports a wide variety of data formats, from common formats like 
 | [UBJSON](/formats/ubjson) | `.ubj`, `.ubjson` | Binary | No | ✅ | ✅ | `py-ubjson` | [Details](/formats/ubjson) |
 | [VCF](/formats/vcf) | `.vcf`, `.vcard` | Text | No | ✅ | ❌ | `vobject` or `vcard` | [Details](/formats/vcf) |
 | [Vortex](/formats/vortex) | `.vortex`, `.vtx` | Binary | Yes | ✅ | ✅ | `vortex-data` | [Details](/formats/vortex) |
+| [Paimon tables](/formats/paimon) | - | Binary | Yes | ✅ | ✅ | `pypaimon` | [Details](/formats/paimon) |
+| [Paimon Row](/formats/paimon-row) | `.row` | Binary | Yes | ✅ | ✅ | `zstandard` (`paimon-row`) | [Details](/formats/paimon-row) |
+| [Paimon Mosaic](/formats/paimon-mosaic) | `.mosaic` | Binary | Yes | ✅ | ✅ | `paimon-mosaic` | [Details](/formats/paimon-mosaic) |
 | [WARC](/formats/warc) | `.warc`, `.arc` | Binary | No | ✅ | ❌ | `warcio` | [Details](/formats/warc) |
 | [XLS](/formats/xls) | `.xls` | Binary | Yes | ✅ | ❌ | `xlrd` | [Details](/formats/xls) |
 | [XLSX](/formats/xlsx) | `.xlsx` | Binary | Yes | ✅ | ✅ | `openpyxl` | [Details](/formats/xlsx) |
 | [XML](/formats/xml) | `.xml` | Text | No | ✅ | ❌ | `lxml` | [Details](/formats/xml) |
 | [YAML](/formats/yaml) | `.yaml`, `.yml` | Text | No | ✅ | ✅ | `pyyaml` | [Details](/formats/yaml) |
-
 | [ARFF](/formats/arff) | `.arff` | Text | Yes | ✅ | ❌ | `arff` | [Details](/formats/arff) |
+| [ASCII Grid](/formats/asc) | `.asc` | Text | Yes | ✅ | ✅ | - | [Details](/formats/asc) |
+| [BAG](/formats/bag) | `.bag` | Binary | No | ✅ | ❌ | `hdf5` (`h5py`) | [Details](/formats/bag) |
 | [BAM](/formats/bam) | `.bam` | Binary | Yes | ✅ | ❌ | `alignment` | [Details](/formats/bam) |
 | [CDF](/formats/cdf) | `.cdf` | Binary | No | ✅ | ❌ | `cdf` | [Details](/formats/cdf) |
+| [CIF](/formats/cif) | `.cif` | Text | Yes | ✅ | ❌ | - | [Details](/formats/cif) |
+| [CZML](/formats/czml) | `.czml` | Text | No | ✅ | ✅ | - | [Details](/formats/czml) |
 | [DXF](/formats/dxf) | `.dxf` | Binary | No | ✅ | ❌ | `dxf` | [Details](/formats/dxf) |
+| [E00](/formats/e00) | `.e00` | Text | No | ✅ | ❌ | - | [Details](/formats/e00) |
+| [EDI](/formats/edi) | `.edi` | Text | No | ✅ | ❌ | - | [Details](/formats/edi) |
 | [FA](/formats/fa) | `.fa`, `.fasta`, `.fna`, `.faa` | Text | Yes | ✅ | ❌ | - | [Details](/formats/fa) |
+| [File Geodatabase](/formats/fgdb) | `.gdb`, `.fgdb` | Binary | No | ✅ | ❌ | `geospatial` | [Details](/formats/fgdb) |
 | [FQ](/formats/fq) | `.fq`, `.fastq` | Text | Yes | ✅ | ❌ | - | [Details](/formats/fq) |
+| [fst](/formats/fst) | `.fst` | Binary | Yes | ✅ | ❌ | `fst` | [Details](/formats/fst) |
 | [GEXF](/formats/gexf) | `.gexf` | Text | No | ✅ | ❌ | `graph` | [Details](/formats/gexf) |
-| [GPX](/formats/gpx) | `.gpx` | Text | No | ✅ | ❌ | - | [Details](/formats/gpx) |
+| [GPX](/formats/gpx) | `.gpx` | Text | No | ✅ | ❌ | `xml` | [Details](/formats/gpx) |
+| [GRIB2](/formats/grib2) | `.grib2`, `.grb2`, `.grib` | Binary | No | ✅ | ❌ | `geophysical` | [Details](/formats/grib2) |
 | [Graphml](/formats/graphml) | `.graphml` | Text | No | ✅ | ❌ | `graph` | [Details](/formats/graphml) |
 | [GV](/formats/gv) | `.gv`, `.dot` | Text | No | ✅ | ❌ | `graph` | [Details](/formats/gv) |
+| [HDT](/formats/hdt) | `.hdt` | Binary | No | ✅ | ❌ | `rdf` | [Details](/formats/hdt) |
+| [IATI](/formats/iati) | `.iati`, `.iati.xml` | Text | No | ✅ | ❌ | `xml` | [Details](/formats/iati) |
 | [Jsonld](/formats/jsonld) | `.jsonld` | Text | No | ✅ | ✅ | - | [Details](/formats/jsonld) |
-| [KMZ](/formats/kmz) | `.kmz` | Text | No | ✅ | ❌ | `geospatial` | [Details](/formats/kmz) |
-| [Libsvm](/formats/libsvm) | `.libsvm` | Binary | Yes | ✅ | ✅ | - | [Details](/formats/libsvm) |
+| [KMZ](/formats/kmz) | `.kmz` | Binary | No | ✅ | ❌ | `geospatial` | [Details](/formats/kmz) |
+| [LAS](/formats/las) | `.las` | Binary | No | ✅ | ❌ | `lidar` | [Details](/formats/las) |
+| [LIBSVM](/formats/libsvm) | `.libsvm` | Text | Yes | ✅ | ✅ | - | [Details](/formats/libsvm) |
+| [Lotus 1-2-3](/formats/lotus123) (`123`) | `.123`, `.wk1`, `.wks` | Binary | Yes | ✅ | ❌ | - | [Details](/formats/lotus123) |
 | [LTSV](/formats/ltsv) | `.ltsv` | Text | No | ✅ | ✅ | - | [Details](/formats/ltsv) |
+| [MATLAB MAT](/formats/mat) | `.mat` | Binary | Yes | ✅ | ❌ | `mat` | [Details](/formats/mat) |
+| [Microsoft Access](/formats/mdb) | `.mdb`, `.accdb` | Binary | Yes | ✅ | ❌ | `access` | [Details](/formats/mdb) |
+| [MapInfo MIF](/formats/mif) | `.mif` | Text | No | ✅ | ❌ | `geospatial` | [Details](/formats/mif) |
+| [miniSEED](/formats/mseed) | `.mseed` | Binary | No | ✅ | ❌ | `geophysical` | [Details](/formats/mseed) |
 | [MVT](/formats/mvt) | `.mvt`, `.pbf` | Binary | No | ✅ | ❌ | `mvt` | [Details](/formats/mvt) |
 | [N3](/formats/n3) | `.n3` | Text | No | ✅ | ❌ | `rdf` | [Details](/formats/n3) |
 | [NC](/formats/nc) | `.nc`, `.netcdf` | Binary | No | ✅ | ❌ | `netcdf` | [Details](/formats/nc) |
-| [NPY](/formats/npy) | `.npy`, `.npz` | Binary | Yes | ✅ | ✅ | - | [Details](/formats/npy) |
+| [NPY](/formats/npy) | `.npy`, `.npz` | Binary | Yes | ✅ | ✅ | `npy` | [Details](/formats/npy) |
 | [PCAP](/formats/pcap) | `.pcap`, `.pcapng` | Binary | No | ✅ | ❌ | `pcap` | [Details](/formats/pcap) |
-| [RSS](/formats/rss) | `.rss`, `.feed`, `.atom` | Binary | No | ✅ | ❌ | `feed` | [Details](/formats/rss) |
+| [PDB](/formats/pdb) | `.pdb` | Text | Yes | ✅ | ✅ | - | [Details](/formats/pdb) |
+| [RSS](/formats/rss) | `.rss`, `.feed`, `.atom` | Text | No | ✅ | ❌ | `feed` | [Details](/formats/rss) |
 | [SAM](/formats/sam) | `.sam` | Text | Yes | ✅ | ❌ | `alignment` | [Details](/formats/sam) |
-| [Topojson](/formats/topojson) | `.topojson` | Binary | No | ✅ | ✅ | `topojson` | [Details](/formats/topojson) |
+| [SEG-Y](/formats/segy) | `.segy`, `.sgy` | Binary | No | ✅ | ❌ | `geophysical` | [Details](/formats/segy) |
+| [TopoJSON](/formats/topojson) | `.topojson` | Text | No | ✅ | ✅ | `topojson` | [Details](/formats/topojson) |
 | [TRIG](/formats/trig) | `.trig` | Text | No | ✅ | ❌ | `rdf` | [Details](/formats/trig) |
 | [TRIX](/formats/trix) | `.trix` | Text | No | ✅ | ❌ | `rdf` | [Details](/formats/trix) |
+| [WebDataset](/formats/webdataset) | `.tar` / `.wds` (`format=webdataset`) | Binary | No | ✅ | ❌ | - | [Details](/formats/webdataset) |
 | [XLSB](/formats/xlsb) | `.xlsb` | Binary | Yes | ✅ | ❌ | `xlsb` | [Details](/formats/xlsb) |
+| [XYZ](/formats/xyz) | `.xyz` | Text | Yes | ✅ | ✅ | - | [Details](/formats/xyz) |
 | [Zipxml](/formats/zipxml) | `.zipxml` | Binary | No | ✅ | ❌ | - | [Details](/formats/zipxml) |
 
 ## Compression Support

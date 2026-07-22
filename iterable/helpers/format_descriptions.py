@@ -5,6 +5,7 @@ from __future__ import annotations
 
 # Registry id -> doc filename when they differ (mirrors dev/scripts/generate_format_doc_stubs.py)
 DOC_FILENAMES: dict[str, str] = {
+    "123": "lotus123.md",
     "arc": "warc.md",
     "ckpt": "flink.md",
     "copy": "pgcopy.md",
@@ -87,6 +88,12 @@ FORMAT_DESCRIPTIONS: dict[str, str] = {
     "kml": "KML (Keyhole Markup Language) is an XML-based format for representing geographic data.",
     "kmz": "Compressed KML archive (ZIP) for geographic placemarks, paths, and overlays.",
     "lance": "Lance is a modern columnar data format designed to optimize machine learning and data science workflows.",
+    "paimon": "Apache Paimon catalog tables for streaming-first lakehouse workloads.",
+    "ducklake": "DuckLake stores table metadata in a SQL catalog and data in Parquet files.",
+    "paimon_row": "Apache Paimon Row (.row) is a row-oriented format optimized for O(1) access by row number.",
+    "paimon_mosaic": "Apache Paimon Mosaic is a columnar-bucket hybrid format optimized for wide tables.",
+    "mosaic": "Apache Paimon Mosaic is a columnar-bucket hybrid format optimized for wide tables.",
+    "row": "Apache Paimon Row (.row) is a row-oriented format optimized for O(1) access by row number.",
     "ldif": "LDIF (LDAP Data Interchange Format) is a text format for representing LDAP directory entries.",
     "libsvm": "LIBSVM sparse feature vector format for machine learning training data.",
     "log": "Apache Log format is used by Apache HTTP Server for logging HTTP requests.",
@@ -134,6 +141,27 @@ FORMAT_DESCRIPTIONS: dict[str, str] = {
     "xls": "XLS is the binary file format used by Microsoft Excel versions 97-2003.",
     "xlsb": "Excel Binary Workbook (.xlsb) for large spreadsheet data.",
     "yml": "YAML (YAML Ain't Markup Language) is a human-readable data serialization format.",
+    "123": "Lotus 1-2-3 / WK1 spreadsheet rows.",
+    "asc": "Esri ASCII Grid raster as cell or row records.",
+    "bag": "BAG bathymetric HDF5 product as sample/cell records.",
+    "cif": "Crystallographic Information File atom_site loop rows.",
+    "czml": "Cesium CZML JSON document packets.",
+    "e00": "ArcInfo Interchange (.e00) experimental coverage/feature export reader.",
+    "edi": "EDI X12/EDIFACT segment streams.",
+    "fgdb": "ESRI File Geodatabase multi-layer geospatial store read via Fiona OpenFileGDB.",
+    "fst": "R fst columnar on-disk data frames.",
+    "grib2": "GRIB2 meteorological messages.",
+    "hdt": "RDF HDT compact triple stores.",
+    "iati": "IATI aid-transparency activity XML.",
+    "las": "LAS LiDAR point cloud (one record per point).",
+    "mat": "MATLAB .mat variables as array row streams.",
+    "mdb": "Microsoft Access database tables.",
+    "mif": "MapInfo Interchange Format (MIF/MID) vector features.",
+    "mseed": "miniSEED seismological waveform windows.",
+    "pdb": "Protein Data Bank ATOM/HETATM structure records.",
+    "segy": "SEG-Y seismic traces.",
+    "webdataset": "WebDataset TAR shards grouped into sample dicts.",
+    "xyz": "XYZ molecular/point coordinate tables.",
 }
 
 

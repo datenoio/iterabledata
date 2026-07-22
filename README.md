@@ -31,6 +31,7 @@ This library simplifies data processing and conversion between formats while pre
 - **Performance Regression Gate**: CI-enforced baselines for representative read/convert workloads
 - **Container Formats**: Stream records from TAR archives without extracting members to disk
 - **Type Hints and Type Safety**: Complete type annotations with typed helper functions for dataclasses and Pydantic models
+- **Lakehouse Tables**: Read and write Delta Lake, Iceberg, and DuckLake; read Hudi; experimental Apache Paimon tables plus Row/Mosaic file formats
 
 ## Supported File Types
 
@@ -68,9 +69,13 @@ This library simplifies data processing and conversion between formats while pre
 - **GeoParquet** - GeoParquet metadata-aware Parquet profile with geometry/CRS preservation
 - **Lance** - Modern columnar format optimized for ML and vector search
 - **Vortex** - Modern columnar format with fast random access
-- **Delta Lake** - Delta Lake format
-- **Iceberg** - Apache Iceberg format
-- **Hudi** - Apache Hudi format
+- **Paimon Row** - Apache Paimon row format for O(1) row-number access
+- **Paimon Mosaic** - Apache Paimon columnar-bucket format for wide tables
+- **Paimon** - Apache Paimon warehouse/catalog tables
+- **Delta Lake** - Delta Lake format (read & write)
+- **Iceberg** - Apache Iceberg format (read & write)
+- **DuckLake** - DuckLake lakehouse tables (read & write)
+- **Hudi** - Apache Hudi format (read; writes deferred)
 
 ### Database Formats
 
@@ -86,8 +91,11 @@ This library simplifies data processing and conversion between formats while pre
 - **Stata** - Stata data files
 - **SPSS** - SPSS data files
 - **R Data** - R RDS and RData files
+- **fst** - R fst columnar on-disk frames (`fst` extra; experimental)
 - **PX** - PC-Axis format
 - **ARFF** - Attribute-Relation File Format (Weka format)
+- **LIBSVM** - Sparse labeled feature vectors (read & write)
+- **NumPy** - `.npy` / `.npz` array rows (read & write; `npy` extra)
 
 ### Scientific Formats
 
@@ -95,6 +103,13 @@ This library simplifies data processing and conversion between formats while pre
 - **CDF** - NASA Common Data Format (space science)
 - **HDF5** - Hierarchical Data Format
 - **Zarr** - Chunked array stores (`zarr` extra; experimental)
+- **XYZ** - Molecular/point coordinate tables
+- **CIF** - Crystallographic Information File (`atom_site` loops; experimental)
+- **PDB** - Protein Data Bank ATOM/HETATM records
+- **MATLAB MAT** - MATLAB `.mat` variables (`mat` extra; experimental)
+- **SEG-Y** - Seismic traces (`geophysical` extra; experimental)
+- **GRIB2** - Meteorological messages (`geophysical` extra; experimental)
+- **miniSEED** - Seismological waveform windows (`geophysical` extra; experimental)
 
 ### Geospatial Formats
 
@@ -106,6 +121,13 @@ This library simplifies data processing and conversion between formats while pre
 - **KMZ** - KML Zipped (ZIP archive containing KML)
 - **GPX** - GPS Exchange Format (waypoints, routes, tracks)
 - **Shapefile** - ESRI Shapefile format
+- **File Geodatabase** - ESRI FileGDB layers via Fiona (`geospatial` extra; experimental)
+- **MapInfo MIF** - MapInfo Interchange Format (`geospatial` extra; experimental)
+- **Esri ASCII Grid** - Raster grids as cell or row records (`.asc`)
+- **ArcInfo E00** - Interchange exports (experimental subset)
+- **LAS** - LiDAR point clouds (`lidar` extra; experimental)
+- **BAG** - Bathymetric Attributed Grid (`hdf5` extra; experimental)
+- **CZML** - Cesium CZML document packets
 - **FlatGeobuf** - Streaming geospatial features with optional spatial-index filtering
 - **MVT/PBF** - Mapbox Vector Tiles
 - **TopoJSON** - Topology-preserving GeoJSON extension
@@ -120,6 +142,7 @@ This library simplifies data processing and conversion between formats while pre
 - **TriG** - RDF Triple Graph format
 - **N3** - Notation3 RDF format
 - **TriX** - XML Triple RDF format
+- **HDT** - Header-Dictionary-Triples compact RDF (`rdf` extra; experimental)
 
 ### Feed Formats
 
@@ -160,6 +183,13 @@ This library simplifies data processing and conversion between formats while pre
 - **XLS/XLSX** - Microsoft Excel files
 - **XLSB** - Excel Binary format
 - **ODS** - OpenDocument Spreadsheet
+- **Microsoft Access** - Access `.mdb` / `.accdb` tables (`access` extra; experimental)
+- **Lotus 1-2-3** - Legacy WK1 / `.123` spreadsheets (experimental)
+
+### Business & Exchange Formats
+
+- **EDI** - X12 / EDIFACT segment streams (experimental)
+- **IATI** - Aid-transparency activity XML (`xml` extra; experimental)
 
 ### CAD Formats
 
@@ -191,6 +221,7 @@ This library simplifies data processing and conversion between formats while pre
 - **RecordIO** - RecordIO format
 - **SequenceFile** - Hadoop SequenceFile
 - **TFRecord** - TensorFlow Record format
+- **WebDataset** - TAR shards grouped into ML sample dicts (`format="webdataset"`; experimental)
 
 ### Protocol & Serialization Formats
 
@@ -210,6 +241,8 @@ This library simplifies data processing and conversion between formats while pre
 - **iCal** - iCalendar format
 - **LDIF** - LDAP Data Interchange Format
 - **TXT** - Plain text files
+
+See the [formats documentation](https://datenoio.github.io/iterabledata/formats/) (or `docs/docs/formats/` in this repo) for per-format parameters, record shapes, and extras.
 
 ## Supported Compression Codecs
 
@@ -271,14 +304,37 @@ pip install iterabledata[bio]
 # Zarr chunked array stores
 pip install iterabledata[zarr]
 
-# GeoParquet and FlatGeobuf support
+# GeoParquet, FlatGeobuf, FileGDB, MapInfo MIF
 pip install iterabledata[parquet,geospatial]
+
+# LiDAR LAS point clouds
+pip install iterabledata[lidar]
+
+# MATLAB .mat files
+pip install iterabledata[mat]
+
+# SEG-Y, GRIB2, miniSEED
+pip install iterabledata[geophysical]
+
+# Microsoft Access (.mdb/.accdb)
+pip install iterabledata[access]
+
+# R fst frames (requires a suitable fst/rfst binding)
+pip install iterabledata[fst]
 
 # OpenTelemetry JSON and Protobuf export profiles
 pip install iterabledata[otlp]
 
-# Lakehouse table formats (Delta Lake, Apache Iceberg, Lance, Apache Hudi)
+# Lakehouse table formats (Delta, Iceberg, Lance, Hudi, DuckLake)
 pip install iterabledata[lakehouse]
+
+# Apache Paimon (tables + Row + Mosaic file formats; separate from lakehouse)
+pip install iterabledata[paimon]
+# Or individually:
+# pip install iterabledata[paimon-table]
+# pip install iterabledata[paimon-row]
+# pip install iterabledata[paimon-mosaic]
+# pip install iterabledata[ducklake]
 
 # Individual format extras (one per format family), for example:
 pip install iterabledata[avro]     # Apache Avro
@@ -286,7 +342,7 @@ pip install iterabledata[npy]      # NumPy .npy/.npz
 pip install iterabledata[ods]      # OpenDocument spreadsheets
 pip install iterabledata[rdata]    # R RData/RDS
 pip install iterabledata[ics]      # iCalendar
-# Also available: ubj, vcf, capnp, thrift, fbs, edn, hocon, der, bencode, ldif
+# Also available: ubj, vcf, capnp, thrift, fbs, edn, hocon, der, bencode, ldif, hdf5, xml, rdf
 
 # All optional dependencies
 pip install iterabledata[all]
@@ -301,6 +357,11 @@ pip install iterabledata[all]
 
 **Genomic formats** (`[bio]`): Enables genomic VCF/BCF, CRAM, BED, GFF3, and GTF support. Alignment formats use `pysam` and may require a reference file.
 
+**Geospatial / scientific extras**: `[geospatial]` covers FileGDB and MapInfo MIF (plus existing GeoPackage/Shapefile stack). `[lidar]`, `[mat]`, and `[geophysical]` enable LAS, MATLAB MAT, and SEG-Y/GRIB2/miniSEED respectively. Many structure formats (XYZ, CIF, PDB, ASCII Grid, CZML, EDI, WebDataset, Lotus WK1) need no extra.
+
+**Lakehouse** (`[lakehouse]`): Delta Lake, Apache Iceberg, Lance, Apache Hudi, and DuckLake. Delta, Iceberg, and DuckLake support bounded writes; Hudi is read-only for now.
+
+**Paimon** (`[paimon]`): Apache Paimon warehouse tables plus Row and Mosaic file formats. Install `[paimon-table]`, `[paimon-row]`, or `[paimon-mosaic]` individually if you only need one surface. DuckLake alone is also available as `[ducklake]`.
 See the [API documentation](https://datenoio.github.io/iterabledata/) for details on these features.
 
 For AI agents and LLM tooling, see **[llms.txt](llms.txt)** (machine-readable index) and [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -1441,6 +1502,15 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
+
+### Unreleased
+
+- **Open-data formats (experimental)**: FileGDB, MapInfo MIF, ASCII Grid, E00, LAS, BAG, CZML, XYZ, CIF, PDB, MATLAB MAT, SEG-Y, GRIB2, miniSEED, EDI, Access MDB, Lotus 1-2-3, WebDataset, R fst, HDT, IATI
+- **Extras**: `[lidar]`, `[mat]`, `[geophysical]`, `[access]`, `[fst]` (plus existing `[geospatial]`, `[hdf5]`, `[xml]`, `[rdf]`)
+- **New lakehouse formats**: Apache Paimon Row/Mosaic files and Paimon catalog tables; DuckLake (`ducklake` / `lakehouse` extras)
+- **Lakehouse writes**: Bounded create/append/overwrite for Delta Lake and Iceberg; DuckLake and Paimon table writes; Hudi writes deferred
+- **Extras (lakehouse)**: `[paimon]`, `[paimon-table]`, `[paimon-row]`, `[paimon-mosaic]`, and `[ducklake]`; DuckLake folded into `[lakehouse]`
+- **Docs**: All format stub pages expanded; formats index and sidebars updated; Delta/Iceberg write docs corrected
 
 ### Version 1.0.17 (2026-07-16)
 

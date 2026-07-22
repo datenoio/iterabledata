@@ -268,6 +268,7 @@ def detect_file_type(filename: str, fileobj: IO[bytes] | None = None, debug: boo
         "otlp.pb": "otlp-protobuf",
         "otlp.protobuf": "otlp-protobuf",
         "geoparquet": "geoparquet",
+        "iati.xml": "iati",
     }
     for suffix, format_id in compound_formats.items():
         if filename.lower().endswith(f".{suffix}"):

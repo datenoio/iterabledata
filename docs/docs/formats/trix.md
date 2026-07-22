@@ -1,11 +1,11 @@
 ---
-title: TRIX Format
-description: TRIX format support in IterableData
+title: TriX Format
+description: TriX RDF XML triples in IterableData
 ---
 
-# TRIX Format
+# TriX Format
 
-> Registry-generated stub. Expand with parameters, examples, and limitations.
+Read TriX RDF/XML triples as subject/predicate/object records (via rdflib).
 
 ## Overview
 
@@ -14,27 +14,32 @@ description: TRIX format support in IterableData
 | Format id | `trix` |
 | Class | `TriXIterable` |
 | Extensions | `.trix` |
-| Text format | Yes |
-| Flat rows | No |
 | Read | Yes |
 | Write | No |
+| Extra | `rdf` (`rdflib`) |
+| Maturity | stable |
+
+## Record shape
+
+```python
+{"subject": "...", "predicate": "...", "object": "..."}
+```
 
 ## Usage
 
 ```python
 from iterable.helpers.detect import open_iterable
 
-with open_iterable("data.trix") as source:
-    for row in source:
-        print(row)
+with open_iterable("graph.trix") as source:
+    for triple in source:
+        print(triple["subject"], triple["predicate"], triple["object"])
 ```
 
-## Installation
-
-```bash
-pip install 'iterabledata[rdf]'
-```
+Install with `pip install iterabledata[rdf]`.
 
 ## See also
 
+- [N3](/formats/n3) — Notation3 triples
+- [TriG](/formats/trig) — named-graph quads
+- [RDF/XML](/formats/rdfxml) — RDF/XML
 - [Supported formats](/formats/)

@@ -1,40 +1,52 @@
 ---
 title: MVT Format
-description: MVT format support in IterableData
+description: Mapbox Vector Tile features in IterableData
 ---
 
 # MVT Format
 
-> Registry-generated stub. Expand with parameters, examples, and limitations.
+Read Mapbox Vector Tiles (`.mvt` / `.pbf`) as flattened layer features.
 
 ## Overview
 
 | Property | Value |
 |----------|-------|
-| Format id | `mvt` |
+| Format id | `mvt` (alias `pbf`) |
 | Class | `MVTIterable` |
 | Extensions | `.mvt`, `.pbf` |
-| Text format | No |
-| Flat rows | No |
 | Read | Yes |
 | Write | No |
+| Extra | `mvt` (`mapbox-vector-tile`) |
+| Maturity | stable |
+
+## Record shape
+
+```python
+{
+    "layer": "roads",
+    "geometry": {...},
+    "properties": {"name": "Main St"},
+    "type": 3,
+    "id": 42,
+}
+```
+
+`totals()` returns the feature count across layers. The tile is decoded in memory.
 
 ## Usage
 
 ```python
 from iterable.helpers.detect import open_iterable
 
-with open_iterable("data.mvt") as source:
-    for row in source:
-        print(row)
+with open_iterable("tile.mvt") as source:
+    for feat in source:
+        print(feat["layer"], feat["properties"])
 ```
 
-## Installation
-
-```bash
-pip install 'iterabledata[mvt]'
-```
+Install with `pip install iterabledata[mvt]`.
 
 ## See also
 
+- [GeoJSON](/formats/geojson) — JSON geographic features
+- [TopoJSON](/formats/topojson) — topology-encoded maps
 - [Supported formats](/formats/)

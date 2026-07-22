@@ -128,6 +128,11 @@ except ImportError:
     pass
 
 try:
+    from .ducklake import DuckLakeIterable
+except ImportError:
+    pass
+
+try:
     from .edn import EDNIterable
 except ImportError:
     pass
@@ -279,6 +284,21 @@ except ImportError:
 
 try:
     from .lance import LanceIterable
+except ImportError:
+    pass
+
+try:
+    from .paimon import PaimonTableIterable
+except ImportError:
+    pass
+
+try:
+    from .paimon_mosaic import PaimonMosaicIterable
+except ImportError:
+    pass
+
+try:
+    from .paimon_row import PaimonRowIterable
 except ImportError:
     pass
 
@@ -523,6 +543,111 @@ except ImportError:
     pass
 
 try:
+    from .asciigrid import ASCIIGridIterable
+except ImportError:
+    pass
+
+try:
+    from .bag import BAGIterable
+except ImportError:
+    pass
+
+try:
+    from .cif import CIFIterable
+except ImportError:
+    pass
+
+try:
+    from .czml import CZMLIterable
+except ImportError:
+    pass
+
+try:
+    from .e00 import E00Iterable
+except ImportError:
+    pass
+
+try:
+    from .edi import EDIIterable
+except ImportError:
+    pass
+
+try:
+    from .filegdb import FileGDBIterable
+except ImportError:
+    pass
+
+try:
+    from .fst import FSTIterable
+except ImportError:
+    pass
+
+try:
+    from .grib2 import GRIB2Iterable
+except ImportError:
+    pass
+
+try:
+    from .hdt import HDTIterable
+except ImportError:
+    pass
+
+try:
+    from .iati import IATIIterable
+except ImportError:
+    pass
+
+try:
+    from .las import LASIterable
+except ImportError:
+    pass
+
+try:
+    from .lotus123 import Lotus123Iterable
+except ImportError:
+    pass
+
+try:
+    from .mat import MATIterable
+except ImportError:
+    pass
+
+try:
+    from .mdb import AccessMDBIterable
+except ImportError:
+    pass
+
+try:
+    from .mif import MapInfoIterable
+except ImportError:
+    pass
+
+try:
+    from .mseed import MiniSEEDIterable
+except ImportError:
+    pass
+
+try:
+    from .pdb import PDBIterable
+except ImportError:
+    pass
+
+try:
+    from .segy import SEGYIterable
+except ImportError:
+    pass
+
+try:
+    from .webdataset import WebDatasetIterable
+except ImportError:
+    pass
+
+try:
+    from .xyz import XYZIterable
+except ImportError:
+    pass
+
+try:
     from .zipxml import ZIPXMLSource
 except ImportError:
     pass
@@ -568,6 +693,7 @@ __all__ = [
     "DeltaIterable",
     "DOTIterable",
     "DuckDBIterable",
+    "DuckLakeIterable",
     "DXFIterable",
     "EDNIterable",
     "EMLIterable",
@@ -599,6 +725,9 @@ __all__ = [
     "KMLIterable",
     "KMZIterable",
     "LanceIterable",
+    "PaimonTableIterable",
+    "PaimonMosaicIterable",
+    "PaimonRowIterable",
     "LDIFIterable",
     "MBOXIterable",
     "MessagePackIterable",
@@ -649,5 +778,25 @@ __all__ = [
     "XLSXIterable",
     "XMLIterable",
     "YAMLIterable",
-    "ZIPXMLSource",
+    "ZIPXMLSource",    "ASCIIGridIterable",
+    "BAGIterable",
+    "CIFIterable",
+    "CZMLIterable",
+    "E00Iterable",
+    "EDIIterable",
+    "FileGDBIterable",
+    "FSTIterable",
+    "GRIB2Iterable",
+    "HDTIterable",
+    "IATIIterable",
+    "LASIterable",
+    "Lotus123Iterable",
+    "MATIterable",
+    "AccessMDBIterable",
+    "MapInfoIterable",
+    "MiniSEEDIterable",
+    "PDBIterable",
+    "SEGYIterable",
+    "WebDatasetIterable",
+    "XYZIterable",
 ]

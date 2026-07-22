@@ -1,11 +1,11 @@
 ---
 title: KMZ Format
-description: KMZ format support in IterableData
+description: Zipped KML placemarks in IterableData
 ---
 
 # KMZ Format
 
-> Registry-generated stub. Expand with parameters, examples, and limitations.
+Read KMZ archives (ZIP containing KML) as GeoJSON-like Placemark features.
 
 ## Overview
 
@@ -14,27 +14,29 @@ description: KMZ format support in IterableData
 | Format id | `kmz` |
 | Class | `KMZIterable` |
 | Extensions | `.kmz` |
-| Text format | Yes |
-| Flat rows | No |
 | Read | Yes |
 | Write | No |
+| Extra | `geospatial` (requires `lxml`) |
+| Maturity | stable |
+
+## Record shape
+
+Same GeoJSON-like features as KML (`type`, `geometry`, `properties`). Placemarks without geometry are skipped. `totals()` returns the feature count.
 
 ## Usage
 
 ```python
 from iterable.helpers.detect import open_iterable
 
-with open_iterable("data.kmz") as source:
-    for row in source:
-        print(row)
+with open_iterable("places.kmz") as source:
+    for feature in source:
+        print(feature["geometry"], feature.get("properties"))
 ```
 
-## Installation
-
-```bash
-pip install 'iterabledata[geospatial]'
-```
+Install with `pip install iterabledata[geospatial]` (parsing also needs `lxml`, e.g. `pip install iterabledata[xml]`).
 
 ## See also
 
+- [KML](/formats/kml) — uncompressed KML
+- [GPX](/formats/gpx) — GPS tracks
 - [Supported formats](/formats/)

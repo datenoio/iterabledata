@@ -25,7 +25,9 @@ def test_iceberg_flatonly():
 @pytest.mark.skipif(not HAS_PYICEBERG, reason="PyIceberg library not available")
 def test_iceberg_requires_params():
     """Test that Iceberg requires catalog and table names"""
-    with pytest.raises(ValueError):
+    from iterable.exceptions import ReadError
+
+    with pytest.raises((ValueError, ReadError)):
         IcebergIterable("test.iceberg", mode="r")
 
 

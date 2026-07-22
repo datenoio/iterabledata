@@ -232,7 +232,7 @@ See [Database Engines](/api/database-engines) for comprehensive database engine 
 
 ## Supported Formats
 
-The function supports 80+ formats. See [Supported Formats](/formats/) for a complete list.
+The function supports 140+ formats. See [Supported Formats](/formats/) for a complete list.
 
 ## Supported Compression Codecs
 
@@ -375,6 +375,8 @@ Binary formats are identified by their unique "magic numbers" - specific byte se
 | Parquet | `PAR1` | First 4 bytes |
 | ORC | `ORC` | First 3 bytes |
 | Vortex | `VTXF` | First 4 bytes |
+| Paimon Row | `ROWS` | Last 4 bytes of 32-byte footer |
+| Paimon Mosaic | `MOSA` | Last 4 bytes of 32-byte footer |
 | PCAP | `\xa1\xb2\xc3\xd4` or `\xd4\xc3\xb2\xa1` | First 4 bytes (big/little-endian) |
 | PCAPNG | `\x0a\x0d\x0d\x0a` | First 4 bytes |
 | Arrow/Feather | `ARROW1` | First 6 bytes |

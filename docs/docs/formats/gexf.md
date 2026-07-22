@@ -1,11 +1,11 @@
 ---
 title: GEXF Format
-description: GEXF format support in IterableData
+description: GEXF network graphs as node/edge records in IterableData
 ---
 
 # GEXF Format
 
-> Registry-generated stub. Expand with parameters, examples, and limitations.
+Read GEXF graphs as node records followed by edge records (via NetworkX).
 
 ## Overview
 
@@ -14,27 +14,34 @@ description: GEXF format support in IterableData
 | Format id | `gexf` |
 | Class | `GEXFIterable` |
 | Extensions | `.gexf` |
-| Text format | Yes |
-| Flat rows | No |
 | Read | Yes |
 | Write | No |
+| Extra | `graph` (`networkx`) |
+| Maturity | stable |
+
+## Record shape
+
+```python
+{"_type": "node", "id": "n0", "label": "A"}
+{"_type": "edge", "source": "n0", "target": "n1", "weight": 1.0}
+```
+
+Node/edge attributes from the file are merged into each record.
 
 ## Usage
 
 ```python
 from iterable.helpers.detect import open_iterable
 
-with open_iterable("data.gexf") as source:
-    for row in source:
-        print(row)
+with open_iterable("network.gexf") as source:
+    for rec in source:
+        print(rec["_type"], rec)
 ```
 
-## Installation
-
-```bash
-pip install 'iterabledata[graph]'
-```
+Install with `pip install iterabledata[graph]`.
 
 ## See also
 
+- [GraphML](/formats/graphml) — GraphML graphs
+- [DOT / Graphviz](/formats/gv) — DOT graphs
 - [Supported formats](/formats/)

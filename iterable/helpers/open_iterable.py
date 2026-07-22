@@ -223,7 +223,7 @@ def _content_detect(filename: str, is_cloud_uri: bool, cloud_stream: Any, debug:
 
 
 def _apply_explicit_format(result: FileTypeResult, iterableargs: IterableArgs) -> None:
-    """Populate ``result`` from an explicit ``format`` hint when detection failed."""
+    """Override detection with an explicit ``format`` hint when provided."""
     explicit_format = iterableargs.get("format")
     if not explicit_format:
         return
@@ -300,8 +300,8 @@ def _detect_source_format(
             f"File not found: '{filename}'. Please check that the file exists and the path is correct."
         )
 
-    if not result["success"]:
-        _apply_explicit_format(result, iterableargs)
+    # Explicit format always wins (e.g. format=ducklake on a .duckdb catalog path).
+    _apply_explicit_format(result, iterableargs)
 
     if not result["success"]:
         from ..exceptions import FormatNotSupportedError

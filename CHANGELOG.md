@@ -8,6 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Open-data format pack (experimental)**: File Geodatabase (`fgdb`/`gdb`), MapInfo MIF, Esri ASCII Grid (`asc`), ArcInfo E00, LAS LiDAR, BAG bathymetry, CZML, XYZ, CIF, PDB, MATLAB MAT, SEG-Y, GRIB2, miniSEED, EDI, Microsoft Access (`mdb`/`accdb`), Lotus 1-2-3 (`123`/`wk1`), WebDataset, R fst, RDF HDT, and IATI activity XML.
+- **Optional extras**: `lidar`, `mat`, `geophysical`, `access`, and `fst` (plus reuse of `geospatial`, `hdf5`, `xml`, and `rdf` where applicable).
+- **Fixtures and tests**: Golden samples for XYZ/CIF/PDB/ASCII Grid/CZML/E00/EDI/WK1/WebDataset/IATI and focused test modules (optional-deps skipped when missing).
+- **Apache Paimon Row (`paimon_row`)**: Experimental read/write support for Paimon `.row` files with O(1) row-number access; optional `paimon-row` extra.
+- **Apache Paimon Mosaic (`paimon_mosaic`)**: Experimental read/write support for Mosaic columnar-bucket files (wide tables / projection); optional `paimon-mosaic` extra.
+- **Apache Paimon tables (`paimon`)**: Experimental catalog/warehouse table iterable via `pypaimon`, with `list_tables()`, append writes for create-able tables, and optional `paimon-table` / convenience `paimon` extras.
+- **DuckLake (`ducklake`)**: Experimental lakehouse tables (SQL catalog + Parquet data) via `pyducklake`, with bounded read/write, `list_tables()`, and optional `ducklake` extra (also included in `lakehouse`).
+- **Lakehouse write helpers**: Shared Arrow batch conversion utilities for table writers (`iterable/helpers/lakehouse_write.py`).
+- **Format docs and fixtures**: Documentation for Paimon Row/Mosaic/tables and DuckLake; golden `.row` / `.mosaic` fixtures and focused tests.
+
+### Changed
+- **Delta Lake writes**: `DeltaIterable` now supports bounded create/append/overwrite via `deltalake` (`write_mode`: `append`, `overwrite`, `error`, `ignore`).
+- **Iceberg writes**: `IcebergIterable` now supports bounded append (and create where catalog APIs allow) via PyIceberg.
+- **`lakehouse` extra**: Includes DuckLake (`pyducklake`, `duckdb`) alongside Delta, Iceberg, Lance, and Hudi.
+- **Capability metadata**: Delta and Iceberg marked writable with bounded read/write memory; Hudi remains read-only with writes deferred pending Python SDK support.
+
+### Documentation
+- Expanded all registry-generated format stubs into full pages (overview, record shape, usage, extras); no stub callouts remain under `docs/docs/formats/`.
+- Formats index table merged into one continuous listing; category overview and Docusaurus sidebars updated (including Graph and expanded Scientific / Geospatial / RDF groups).
+- Delta and Iceberg format docs corrected to match write support; Hudi remains documented as read-only with deferred writes.
+- `docs/docs/development/type-stubs.md` updated for new optional packages without stubs (laspy, segyio, obspy, pypaimon, pyducklake, and related).
+- README format list and optional-extras section updated for the open-data format pack, Paimon, DuckLake, and lakehouse write capability notes.
+
 ## [1.0.17] - 2026-07-16
 
 ### Added

@@ -1,39 +1,43 @@
 ---
 title: PCAP Format
-description: PCAP format support in IterableData
+description: PCAP/PCAP-NG packet captures in IterableData
 ---
 
 # PCAP Format
 
-> Registry-generated stub. Expand with parameters, examples, and limitations.
+Stream PCAP / PCAP-NG packet captures as timestamped raw frames.
 
 ## Overview
 
 | Property | Value |
 |----------|-------|
-| Format id | `pcap` |
+| Format id | `pcap` (alias `pcapng`) |
 | Class | `PCAPIterable` |
 | Extensions | `.pcap`, `.pcapng` |
-| Text format | No |
-| Flat rows | No |
 | Read | Yes |
 | Write | No |
+| Extra | `pcap` (`dpkt`) |
+| Maturity | stable |
+
+## Record shape
+
+```python
+{"timestamp": 1700000000.123, "data": b"..."}
+```
+
+Packets are decoded incrementally (streaming). Auto-detects classic PCAP vs PCAP-NG.
 
 ## Usage
 
 ```python
 from iterable.helpers.detect import open_iterable
 
-with open_iterable("data.pcap") as source:
-    for row in source:
-        print(row)
+with open_iterable("capture.pcap") as source:
+    for pkt in source:
+        print(pkt["timestamp"], len(pkt["data"]))
 ```
 
-## Installation
-
-```bash
-pip install 'iterabledata[pcap]'
-```
+Install with `pip install iterabledata[pcap]`.
 
 ## See also
 

@@ -1,34 +1,41 @@
 ---
-title: FA Format
-description: FA format support in IterableData
+title: FASTA Format
+description: FASTA biological sequences in IterableData
 ---
 
-# FA Format
+# FASTA Format
 
-> Registry-generated stub. Expand with parameters, examples, and limitations.
+Read FASTA sequence files as one record per sequence (stdlib; no extra).
 
 ## Overview
 
 | Property | Value |
 |----------|-------|
-| Format id | `fa` |
+| Format id | `fa` (aliases `fasta`, `fna`, `faa`) |
 | Class | `FASTAIterable` |
 | Extensions | `.fa`, `.fasta`, `.fna`, `.faa` |
-| Text format | Yes |
-| Flat rows | Yes |
 | Read | Yes |
 | Write | No |
+| Extra | none (stdlib) |
+| Maturity | stable |
+
+## Record shape
+
+```python
+{"id": "seq1", "description": "example protein", "sequence": "MKTAYIAK..."}
+```
 
 ## Usage
 
 ```python
 from iterable.helpers.detect import open_iterable
 
-with open_iterable("data.fa") as source:
-    for row in source:
-        print(row)
+with open_iterable("genes.fa") as source:
+    for rec in source:
+        print(rec["id"], len(rec["sequence"]))
 ```
 
 ## See also
 
+- [FASTQ](/formats/fq) — sequences with quality scores
 - [Supported formats](/formats/)

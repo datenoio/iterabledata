@@ -7,6 +7,47 @@ from typing import IO, BinaryIO
 
 from .format_registry import match_magic_prefix
 
+_PAIMON_FOOTER_SIZE = 32
+_PAIMON_ROW_MAGIC = b"ROWS"
+_PAIMON_MOSAIC_MAGIC = b"MOSA"
+
+
+def _detect_paimon_footer_magic(fileobj: BinaryIO | IO[bytes]) -> tuple[str, float, str] | None:
+    """Detect Paimon Row/Mosaic from the trailing 32-byte footer magic.
+
+    Both formats store magic at the end of the file (``ROWS`` / ``MOSA``), so
+    they cannot be matched by the leading-byte signature table.
+    """
+    original_pos = None
+    try:
+        if hasattr(fileobj, "seekable") and not fileobj.seekable():
+            return None
+        original_pos = fileobj.tell()
+        fileobj.seek(0, 2)
+        size = fileobj.tell()
+        if size < _PAIMON_FOOTER_SIZE:
+            fileobj.seek(original_pos)
+            return None
+        fileobj.seek(size - _PAIMON_FOOTER_SIZE)
+        footer = fileobj.read(_PAIMON_FOOTER_SIZE)
+        fileobj.seek(original_pos)
+        if not isinstance(footer, (bytes, bytearray)) or len(footer) != _PAIMON_FOOTER_SIZE:
+            return None
+        magic = bytes(footer[-4:])
+        if magic == _PAIMON_ROW_MAGIC:
+            # Light validation: reserved bytes must be zero (bytes 25..27 after version).
+            if footer[25:28] == b"\x00\x00\x00":
+                return ("paimon_row", 0.95, "magic_number")
+        if magic == _PAIMON_MOSAIC_MAGIC:
+            return ("paimon_mosaic", 0.95, "magic_number")
+    except Exception:
+        if original_pos is not None:
+            try:
+                fileobj.seek(original_pos)
+            except Exception:
+                pass
+    return None
+
 
 def _detect_geojsonseq(text: str) -> tuple[str, float, str] | None:
     """Detect GeoJSON Text Sequences: JSON Feature objects, one per line."""
@@ -82,6 +123,11 @@ def detect_file_type_from_content(
         # matched by the prefix table above.
         if len(peek) >= 262 and peek[257:262] == b"ustar":
             return ("tar", 0.95, "magic_number")
+
+        # Paimon Row/Mosaic: magic lives in the trailing 32-byte footer.
+        paimon = _detect_paimon_footer_magic(fileobj)
+        if paimon is not None:
+            return paimon
 
         try:
             text = peek.decode("utf-8", errors="ignore")

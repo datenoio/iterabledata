@@ -21,7 +21,25 @@ The Iceberg implementation:
 
 ### Writing
 
-Writing is not currently supported for Iceberg format.
+Writes use PyIceberg `append` against a SQL (or other) catalog. Pass catalog properties and set `create_table=True` when the table may not exist yet:
+
+```python
+catalog = {
+    "type": "sql",
+    "uri": "sqlite:///catalog.db",
+    "warehouse": "file:///path/to/warehouse",
+}
+with open_iterable("/path/to/warehouse", mode="w", iterableargs={
+    "format": "iceberg",
+    "catalog_name": "default",
+    "table_name": "demo.people",
+    "catalog": catalog,
+    "create_table": True,
+}) as dest:
+    dest.write_bulk([{"id": 1, "name": "Alice"}])
+```
+
+Requires `pyiceberg` with SQL catalog extras (e.g. `sqlalchemy` / `pyiceberg[sql-sqlite]`).
 
 ### Key Features
 
@@ -111,11 +129,11 @@ print(f"All tables: {all_tables}")
 
 ## Limitations
 
-1. **Read-only**: Iceberg format does not support writing
-2. **pyiceberg dependency**: Requires `pyiceberg` package
-3. **Catalog required**: Must have catalog and table names
-4. **Flat data only**: Only supports tabular data
-5. **Configuration**: Requires proper catalog configuration
+1. **pyiceberg dependency**: Requires `pyiceberg` (SQL catalog extras for local catalogs, e.g. `pyiceberg[sql-sqlite]`)
+2. **Catalog required**: Must have catalog and table names
+3. **Flat data only**: Only supports tabular data
+4. **Configuration**: Requires proper catalog configuration
+5. **Write**: Appends via PyIceberg; set `create_table=True` when the table may not exist yet
 
 ## Compression Support
 

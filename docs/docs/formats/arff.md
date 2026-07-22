@@ -1,11 +1,11 @@
 ---
 title: ARFF Format
-description: ARFF format support in IterableData
+description: Weka ARFF attribute-relation tables in IterableData
 ---
 
 # ARFF Format
 
-> Registry-generated stub. Expand with parameters, examples, and limitations.
+Read Weka ARFF (Attribute-Relation File Format) datasets as flat attribute dictionaries.
 
 ## Overview
 
@@ -14,27 +14,34 @@ description: ARFF format support in IterableData
 | Format id | `arff` |
 | Class | `ARFFIterable` |
 | Extensions | `.arff` |
-| Text format | Yes |
-| Flat rows | Yes |
 | Read | Yes |
 | Write | No |
+| Extra | `arff` (`liac-arff`) |
+| Maturity | stable |
+
+## Record shape
+
+Attribute names become keys; missing values (`?`) are `None`. The relation name is included as `_relation`:
+
+```python
+{"outlook": "sunny", "temperature": 85, "play": "no", "_relation": "weather"}
+```
+
+Sparse ARFF rows are densified before yield. The full file is loaded into memory.
 
 ## Usage
 
 ```python
 from iterable.helpers.detect import open_iterable
 
-with open_iterable("data.arff") as source:
+with open_iterable("weather.arff") as source:
     for row in source:
         print(row)
 ```
 
-## Installation
-
-```bash
-pip install 'iterabledata[arff]'
-```
+Install with `pip install iterabledata[arff]`.
 
 ## See also
 
+- [LIBSVM](/formats/libsvm) — sparse ML feature vectors
 - [Supported formats](/formats/)
