@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.18] - 2026-07-22
+
 ### Added
 - **Open-data format pack (experimental)**: File Geodatabase (`fgdb`/`gdb`), MapInfo MIF, Esri ASCII Grid (`asc`), ArcInfo E00, LAS LiDAR, BAG bathymetry, CZML, XYZ, CIF, PDB, MATLAB MAT, SEG-Y, GRIB2, miniSEED, EDI, Microsoft Access (`mdb`/`accdb`), Lotus 1-2-3 (`123`/`wk1`), WebDataset, R fst, RDF HDT, and IATI activity XML.
 - **Optional extras**: `lidar`, `mat`, `geophysical`, `access`, and `fst` (plus reuse of `geospatial`, `hdf5`, `xml`, and `rdf` where applicable).

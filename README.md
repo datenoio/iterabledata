@@ -1503,7 +1503,7 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
-### Unreleased
+### Version 1.0.18 (2026-07-22)
 
 - **Open-data formats (experimental)**: FileGDB, MapInfo MIF, ASCII Grid, E00, LAS, BAG, CZML, XYZ, CIF, PDB, MATLAB MAT, SEG-Y, GRIB2, miniSEED, EDI, Access MDB, Lotus 1-2-3, WebDataset, R fst, HDT, IATI
 - **Extras**: `[lidar]`, `[mat]`, `[geophysical]`, `[access]`, `[fst]` (plus existing `[geospatial]`, `[hdf5]`, `[xml]`, `[rdf]`)
