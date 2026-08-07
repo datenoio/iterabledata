@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.20] - 2026-08-07
+
+### Added
+- **Agent skill documentation block (`agent_skill`)**: LLM-backed block that produces a
+  portable agent-skill document (YAML frontmatter with `name`/`description`, plus Markdown
+  body for when-to-use, dataset facts, workflow, safety constraints, example steps, and
+  caveats). Included in the default `generate_blocks()` set; also selectable via
+  `blocks=["agent_skill"]`. Structured payload via `AgentSkillBlock`; deterministic facts
+  (file name, format, fields, record count) are injected from profile context.
+
+### Changed
+- **Examples block prompt**: Usage-example generation now requires `language` to be
+  `python`/`r`/`sql`, tells models to query SQL table `dataset` (not the source filename),
+  and spells out read-only safety constraints so downstream validators discard fewer samples.
+- **Legacy `doc.generate` prompt**: SQL usage examples are instructed to query table
+  `dataset` rather than the source filename (Python/R still use the real local path).
+- **Schema field examples**: Nested array/object (and other non-string) provider `example`
+  values are coerced to display strings so structured-output validation no longer fails.
+
 ## [1.0.18] - 2026-07-22
 
 ### Added

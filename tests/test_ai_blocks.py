@@ -43,6 +43,16 @@ class FakeProvider:
             return {"examples": [{"tool": "DuckDB", "language": "sql", "code": "SELECT 1", "description": "q"}]}
         if "codebook" in schema_name:
             return {"entries": []}
+        if "agent_skill" in schema_name:
+            return {
+                "name": "mock-dataset-skill",
+                "description": "Use when analyzing the mock dataset.",
+                "when_to_use": "When the user asks about this file.",
+                "workflow_steps": ["Load the file", "Inspect columns"],
+                "safety_constraints": ["Read-only analysis only"],
+                "dataset_caveats": ["Small fixture"],
+                "example_steps": ["Count rows by col1"],
+            }
         return {}
 
 
@@ -185,13 +195,43 @@ class TestProgress:
 
 class TestBlockModels:
     def test_block_schema_available(self):
-        for name in ("general", "schema", "quality", "examples", "codebook"):
+        for name in ("general", "schema", "quality", "examples", "codebook", "agent_skill"):
             assert block_json_schema(name) is not None
             assert block_model_for(name) is not None
 
     def test_statistics_has_no_llm_schema(self):
         # statistics is computed, not LLM-modeled.
         assert block_json_schema("statistics") is None
+
+    def test_schema_field_example_coerces_nested_values(self):
+        model = block_model_for("schema")
+        assert model is not None
+        validated = model.model_validate(
+            {
+                "fields": [
+                    {
+                        "name": "DocTypes",
+                        "type": "array",
+                        "example": [
+                            {
+                                "Text": "Приказ",
+                                "Value": "2dddb344-d3e2-4785-a899-7aa12bd47b6f",
+                            }
+                        ],
+                    },
+                    {"name": "Count", "example": 42},
+                    {"name": "Name", "example": "plain"},
+                    {"name": "Empty", "example": None},
+                ]
+            }
+        )
+        fields = {field.name: field.example for field in validated.fields}
+        assert fields["DocTypes"] == (
+            '[{"Text":"Приказ","Value":"2dddb344-d3e2-4785-a899-7aa12bd47b6f"}]'
+        )
+        assert fields["Count"] == "42"
+        assert fields["Name"] == "plain"
+        assert fields["Empty"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -203,10 +243,35 @@ class TestGenerateBlocks:
     def test_default_blocks(self, fake_provider):
         with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
             result = doc.generate_blocks(CSV_FIXTURE)
-        assert set(["general", "schema", "quality", "examples", "statistics"]).issubset(result["blocks"].keys())
+        assert set(
+            ["general", "schema", "quality", "examples", "statistics", "agent_skill"]
+        ).issubset(result["blocks"].keys())
         assert "full_document_markdown" in result
         assert result["source"]["format"] == "csv"
         assert result["source"]["sha256"]
+        skill_md = result["blocks"]["agent_skill"]["markdown"]
+        assert skill_md.startswith("---\n")
+        assert "name:" in skill_md
+
+    def test_agent_skill_explicit(self, fake_provider):
+        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+            result = doc.generate_blocks(CSV_FIXTURE, blocks=["agent_skill"])
+        block = result["blocks"]["agent_skill"]
+        md = block["markdown"]
+        data = block["data"]
+        assert md.startswith("---\n")
+        assert "name: mock-dataset-skill" in md
+        assert "description:" in md
+        assert data["name"] == "mock-dataset-skill"
+        assert data["fields"]
+        assert "agent_skill" in fake_provider.calls[0] or any("agent_skill" in c for c in fake_provider.calls)
+
+    def test_agent_skill_language(self, fake_provider):
+        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+            result = doc.generate_blocks(CSV_FIXTURE, blocks=["agent_skill"], language="Russian")
+        md = result["blocks"]["agent_skill"]["markdown"]
+        assert "## Факты о наборе данных" in md
+        assert "## Dataset facts" not in md
 
     def test_block_structure(self, fake_provider):
         with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
@@ -231,6 +296,23 @@ class TestGenerateBlocks:
             result = doc.generate_blocks(CSV_FIXTURE, blocks=["statistics"])
         assert "statistics" in result["blocks"]
         assert result["blocks"]["statistics"]["data"]["fields"]
+
+    def test_examples_prompt_requires_safe_sql_and_languages(self, fake_provider):
+        prompts: list[str] = []
+        original = fake_provider.generate_structured
+
+        def capture(prompt, json_schema, **kwargs):
+            prompts.append(prompt)
+            return original(prompt, json_schema, **kwargs)
+
+        fake_provider.generate_structured = capture
+        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+            doc.generate_blocks(CSV_FIXTURE, blocks=["examples"])
+        prompt = next(text for text in prompts if "usage code examples" in text.lower() or "practical usage" in text.lower())
+        assert "language` to exactly one of: python, r, sql" in prompt or "exactly one of: python, r, sql" in prompt
+        assert "`dataset`" in prompt
+        assert "not the filename" in prompt
+        assert "read_parquet" in prompt
 
     def test_context_threaded(self, fake_provider):
         ctx = {"title": "Population", "territory": "Russia", "tags": ["demography"]}

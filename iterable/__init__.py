@@ -1,5 +1,5 @@
 __author__ = "Ivan Begtin"
-__version__ = "1.0.18"
+__version__ = "1.0.20"
 __licence__ = "MIT"
 __doc__ = "Iterable data processing Python library"
 

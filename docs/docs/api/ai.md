@@ -76,7 +76,7 @@ from iterable.ai import doc
 
 result = doc.generate_blocks(
     "data.csv",
-    blocks=["general", "schema", "quality", "examples", "statistics"],
+    blocks=["general", "schema", "quality", "examples", "statistics", "agent_skill"],
     provider="openai",
     context={"title": "Population", "territory": "Russia", "tags": ["demography"]},
     progress=lambda event: print(event.stage.value, event.progress),
@@ -102,13 +102,14 @@ print(result["blocks"]["schema"]["data"]["fields"])
 }
 ```
 
-**Available blocks:** `general`, `schema`, `quality`, `examples`, `statistics`, `codebook`.
-The `lineage` and `geo_coverage` blocks are registered but deferred (they return a
-`{"status": "not_implemented"}` marker). The `statistics` block is computed deterministically
-and does not call an LLM.
+**Available blocks:** `general`, `schema`, `quality`, `examples`, `statistics`, `agent_skill`, `codebook`.
+The `agent_skill` block produces a portable agent-skill document (YAML frontmatter with
+`name`/`description`, plus Markdown body). The `lineage` and `geo_coverage` blocks are
+registered but deferred (they return a `{"status": "not_implemented"}` marker). The
+`statistics` block is computed deterministically and does not call an LLM.
 
 **Key parameters:**
-- `blocks`: Block names to generate (default: general, schema, quality, examples, statistics)
+- `blocks`: Block names to generate (default: general, schema, quality, examples, statistics, agent_skill)
 - `context`: User-provided context (title, description, tags, territory, source_url, card metadata) merged into prompts and the `general` block
 - `tables`: Table/sheet selection for multi-table inputs (XLS/XLSX) — produces a `schema:<table>` block per table
 - `progress`: Callback receiving `ProgressEvent` objects as each stage runs

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class UsageInfo(BaseModel):
@@ -55,6 +56,23 @@ class GeneralBlock(BaseModel):
     tags: list[str] | None = None
 
 
+def _stringify_schema_example(value: Any) -> str | None:
+    """Coerce nested/scalar provider examples to a display string.
+
+    Structured-output models often return arrays/objects for nested JSON fields
+    even though the contract stores ``example`` as text for markdown tables.
+    """
+
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    except (TypeError, ValueError):
+        return str(value)
+
+
 class SchemaFieldModel(BaseModel):
     """A single field in the ``schema`` documentation block."""
 
@@ -66,6 +84,11 @@ class SchemaFieldModel(BaseModel):
     description: str | None = None
     example: str | None = None
     nullable: bool | None = None
+
+    @field_validator("example", mode="before")
+    @classmethod
+    def _coerce_example(cls, value: Any) -> str | None:
+        return _stringify_schema_example(value)
 
 
 class SchemaBlock(BaseModel):
@@ -128,12 +151,27 @@ class CodebookBlock(BaseModel):
     entries: list[CodebookEntry] = Field(default_factory=list)
 
 
+class AgentSkillBlock(BaseModel):
+    """Structured data for the optional ``agent_skill`` documentation block."""
+
+    model_config = ConfigDict(extra="allow")
+
+    name: str
+    description: str
+    when_to_use: str | None = None
+    workflow_steps: list[str] = Field(default_factory=list)
+    safety_constraints: list[str] = Field(default_factory=list)
+    dataset_caveats: list[str] = Field(default_factory=list)
+    example_steps: list[str] = Field(default_factory=list)
+
+
 _BLOCK_MODELS: dict[str, type[BaseModel]] = {
     "general": GeneralBlock,
     "schema": SchemaBlock,
     "quality": QualityBlock,
     "examples": ExamplesBlock,
     "codebook": CodebookBlock,
+    "agent_skill": AgentSkillBlock,
 }
 
 

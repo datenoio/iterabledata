@@ -786,9 +786,13 @@ def _build_documentation_prompt(context: dict[str, Any], language: str = "Englis
         "",
     ]
 
-    # Tell the model which filename to use in usage examples (so generated samples match the source)
+    # Tell the model which filename to use in Python/R usage examples (SQL should use table `dataset`)
     if "filename" in context:
-        prompt_parts.append(f"Use this exact filename in all usage examples and code samples: {context['filename']!r}")
+        prompt_parts.append(
+            f"In Python/R usage examples, read the local file {context['filename']!r}. "
+            "In SQL examples, query the table named `dataset` (do not use the filename or "
+            "read_parquet/read_csv table functions)."
+        )
         prompt_parts.append("")
 
     # Add user-provided context (title, description, tags, territory, source, card metadata)

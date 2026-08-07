@@ -62,8 +62,15 @@ _LABELS_EN: dict[str, str] = {
     "examples": "Usage Examples",
     "statistics": "Statistics",
     "codebook": "Codebook",
+    "agent_skill": "Agent Skill",
     "lineage": "Lineage",
     "geo_coverage": "Geographic Coverage",
+    "when_to_use": "When to use",
+    "dataset_facts": "Dataset facts",
+    "workflow": "Workflow",
+    "safety": "Safety constraints",
+    "example_steps": "Example analysis steps",
+    "caveats": "Dataset caveats",
     "property": "Property",
     "value": "Value",
     "format": "Format",
@@ -109,8 +116,15 @@ _LABELS_RU: dict[str, str] = {
     "examples": "Примеры использования",
     "statistics": "Статистика",
     "codebook": "Справочник кодов",
+    "agent_skill": "Навык агента",
     "lineage": "Происхождение",
     "geo_coverage": "Географическое покрытие",
+    "when_to_use": "Когда использовать",
+    "dataset_facts": "Факты о наборе данных",
+    "workflow": "Рабочий процесс",
+    "safety": "Ограничения безопасности",
+    "example_steps": "Примеры шагов анализа",
+    "caveats": "Оговорки по данным",
     "property": "Свойство",
     "value": "Значение",
     "format": "Формат",
@@ -156,8 +170,15 @@ _LABELS_FR: dict[str, str] = {
     "examples": "Exemples d'utilisation",
     "statistics": "Statistiques",
     "codebook": "Dictionnaire de codes",
+    "agent_skill": "Compétence d'agent",
     "lineage": "Traçabilité",
     "geo_coverage": "Couverture géographique",
+    "when_to_use": "Quand l'utiliser",
+    "dataset_facts": "Faits sur le jeu de données",
+    "workflow": "Flux de travail",
+    "safety": "Contraintes de sécurité",
+    "example_steps": "Exemples d'étapes d'analyse",
+    "caveats": "Avertissements sur les données",
     "property": "Propriété",
     "value": "Valeur",
     "format": "Format",
@@ -203,8 +224,15 @@ _LABELS_ES: dict[str, str] = {
     "examples": "Ejemplos de uso",
     "statistics": "Estadísticas",
     "codebook": "Libro de códigos",
+    "agent_skill": "Habilidad de agente",
     "lineage": "Linaje",
     "geo_coverage": "Cobertura geográfica",
+    "when_to_use": "Cuándo usar",
+    "dataset_facts": "Hechos del conjunto de datos",
+    "workflow": "Flujo de trabajo",
+    "safety": "Restricciones de seguridad",
+    "example_steps": "Pasos de análisis de ejemplo",
+    "caveats": "Advertencias sobre los datos",
     "property": "Propiedad",
     "value": "Valor",
     "format": "Formato",
@@ -613,13 +641,25 @@ def _render_quality_md(data: dict[str, Any], language: str | None = None) -> str
 def generate_examples(ctx: BlockContext) -> BlockResult:
     """Examples block: usage code samples appropriate to the format."""
     filename = ctx.file_meta.get("file_name") or ctx.source or "data"
+    field_names = ctx.field_names()
+    fields_line = ", ".join(field_names) if field_names else "(none)"
     prompt = "\n\n".join(
         p
         for p in [
             f"Generate practical usage code examples for this dataset in {ctx.language}.",
-            f"Use the exact file name {filename!r} in code samples. Include SQL (DuckDB) and "
-            "Python (pandas) examples; add R when relevant. Each example must have a tool, a "
-            "language, runnable code, and a short description.",
+            "Return 2-4 examples. Include SQL (DuckDB) and Python (pandas); add R when relevant.",
+            "Each example must have `tool`, `language`, runnable `code`, and a short `description`.",
+            "Set `language` to exactly one of: python, r, sql. Never put a tool name (pandas, DuckDB, "
+            "jsonlite, etc.) in the `language` field.",
+            "Safety and validity rules — examples that violate these are discarded:",
+            f"- Python and R: read only the local file {filename!r}. No remote URLs, no shell/"
+            "system calls, no package installation, and no writing or exporting files "
+            "(no to_csv/to_excel/to_parquet/to_json/write_* / save).",
+            "- SQL: exactly one read-only SELECT or WITH query against the table named `dataset` "
+            "(not the filename, and not read_parquet/read_csv/read_json). Quote real column names "
+            "when needed. Do not use CREATE, INSERT, UPDATE, DELETE, COPY, ATTACH, INSTALL, LOAD, "
+            "PIVOT, DESCRIBE, SHOW, or multiple statements.",
+            f"- Use only these field names: {fields_line}.",
             _context_section(ctx),
             _schema_section(ctx, 1200),
         ]
@@ -668,6 +708,139 @@ def _render_statistics_md(stats: dict[str, dict[str, Any]], language: str | None
             f"{s.get('unique_count', '')} | {is_dict} |"
         )
     return "\n".join(lines)
+
+
+def generate_agent_skill(ctx: BlockContext) -> BlockResult:
+    """Optional agent-skill block: portable YAML-frontmatter + Markdown instructions."""
+    filename = ctx.file_meta.get("file_name") or ctx.source or "data"
+    field_names = ctx.field_names()
+    fmt = ctx.format or ctx.file_meta.get("format") or "unknown"
+    prompt = "\n\n".join(
+        p
+        for p in [
+            f"Create a portable AI agent skill for working with this specific dataset file in {ctx.language}.",
+            "Return structured fields only (not full markdown). Rules:",
+            f"- `name`: a short kebab-case skill id derived from the file ({filename!r}), ASCII preferred.",
+            "- `description`: one or two sentences summarizing when an agent should load this skill.",
+            f"- Write `when_to_use`, `workflow_steps`, `safety_constraints`, `dataset_caveats`, and "
+            f"`example_steps` in {ctx.language}.",
+            "- Workflow and example steps MUST use only real field names from the schema.",
+            "- Safety constraints MUST include read-only analysis, no network calls, and no "
+            "modification of the source file.",
+            "- Do not invent columns, formats, or external APIs.",
+            f"Known format: {fmt}. Known fields: {', '.join(field_names) if field_names else '(none)'}.",
+            _context_section(ctx),
+            _schema_section(ctx, 1500),
+            _samples_section(ctx, 800),
+            _stats_section(ctx, 1200),
+        ]
+        if p
+    )
+    data = _structured(ctx, prompt, "agent_skill")
+    data = _finalize_agent_skill_data(data, ctx)
+    return {"markdown": _render_agent_skill_md(data, ctx.language), "data": data}
+
+
+def _finalize_agent_skill_data(data: dict[str, Any], ctx: BlockContext) -> dict[str, Any]:
+    """Inject deterministic dataset facts and fill safe defaults for missing LLM fields."""
+    result = dict(data) if isinstance(data, dict) else {}
+    filename = ctx.file_meta.get("file_name") or ctx.source or "dataset"
+    stem = str(filename).rsplit("/", 1)[-1]
+    stem = stem.rsplit(".", 1)[0] if "." in stem else stem
+    slug = "".join(ch.lower() if ch.isalnum() else "-" for ch in stem).strip("-") or "dataset"
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+
+    if not result.get("name"):
+        result["name"] = f"{slug}-dataset-skill"
+    if not result.get("description"):
+        result["description"] = f"Use this skill when analyzing the dataset file {filename}."
+    result["file_name"] = ctx.file_meta.get("file_name") or filename
+    result["format"] = ctx.format or ctx.file_meta.get("format")
+    result["fields"] = ctx.field_names()
+    result["record_count"] = ctx.record_count
+    if not result.get("safety_constraints"):
+        result["safety_constraints"] = [
+            "Treat the dataset as read-only; do not modify or overwrite the source file.",
+            "Do not make network requests while analyzing this dataset unless the user explicitly asks.",
+            "Do not invent field names that are not present in the schema.",
+        ]
+    return result
+
+
+def _yaml_scalar(value: str) -> str:
+    """Quote a YAML scalar when needed for a minimal frontmatter emitter."""
+    text = value.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not text:
+        return '""'
+    if any(ch in text for ch in (":", "#", "{", "}", "[", "]", ",", "&", "*", "?", "|", ">", "!", "%", "@", "`")):
+        escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+    if "\n" in text or text.startswith(("-", "'", '"')):
+        escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+    return text
+
+
+def _render_agent_skill_md(data: dict[str, Any], language: str | None = None) -> str:
+    """Render a neutral agent-skill document (YAML frontmatter + Markdown body)."""
+    lbl = get_labels(language)
+    name = str(data.get("name") or "dataset-skill")
+    description = str(data.get("description") or "")
+    lines = [
+        "---",
+        f"name: {_yaml_scalar(name)}",
+        f"description: {_yaml_scalar(description)}",
+        "---",
+        "",
+        f"# {name}",
+        "",
+    ]
+    if data.get("when_to_use"):
+        lines.extend([f"## {lbl['when_to_use']}", "", str(data["when_to_use"]), ""])
+
+    lines.extend([f"## {lbl['dataset_facts']}", ""])
+    if data.get("file_name"):
+        lines.append(f"- **{lbl['file_name']}:** `{data['file_name']}`")
+    if data.get("format"):
+        lines.append(f"- **{lbl['format']}:** `{data['format']}`")
+    if data.get("record_count") is not None:
+        lines.append(f"- **{lbl['records']}:** {data['record_count']}")
+    fields = data.get("fields") or []
+    if fields:
+        field_list = ", ".join(f"`{name}`" for name in fields)
+        lines.append(f"- **{lbl['field']}s:** {field_list}")
+    lines.append("")
+
+    caveats = [item for item in (data.get("dataset_caveats") or []) if isinstance(item, str) and item.strip()]
+    if caveats:
+        lines.extend([f"## {lbl['caveats']}", ""])
+        for item in caveats:
+            lines.append(f"- {item}")
+        lines.append("")
+
+    steps = [item for item in (data.get("workflow_steps") or []) if isinstance(item, str) and item.strip()]
+    if steps:
+        lines.extend([f"## {lbl['workflow']}", ""])
+        for index, item in enumerate(steps, start=1):
+            lines.append(f"{index}. {item}")
+        lines.append("")
+
+    safety = [item for item in (data.get("safety_constraints") or []) if isinstance(item, str) and item.strip()]
+    if safety:
+        lines.extend([f"## {lbl['safety']}", ""])
+        for item in safety:
+            lines.append(f"- {item}")
+        lines.append("")
+
+    examples = [item for item in (data.get("example_steps") or []) if isinstance(item, str) and item.strip()]
+    if examples:
+        lines.extend([f"## {lbl['example_steps']}", ""])
+        for index, item in enumerate(examples, start=1):
+            lines.append(f"{index}. {item}")
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def generate_codebook(ctx: BlockContext) -> BlockResult:
@@ -756,6 +929,9 @@ BLOCK_REGISTRY: dict[str, BlockSpec] = {
     "examples": BlockSpec("examples", generate_examples, requires_llm=True, title="Usage Examples"),
     "statistics": BlockSpec("statistics", generate_statistics, requires_llm=False, title="Statistics"),
     "codebook": BlockSpec("codebook", generate_codebook, requires_llm=True, title="Codebook"),
+    "agent_skill": BlockSpec(
+        "agent_skill", generate_agent_skill, requires_llm=True, title="Agent Skill"
+    ),
     "lineage": BlockSpec("lineage", _deferred_block("lineage"), requires_llm=False, deferred=True, title="Lineage"),
     "geo_coverage": BlockSpec(
         "geo_coverage", _deferred_block("geo_coverage"), requires_llm=False, deferred=True, title="Geographic Coverage"
@@ -763,7 +939,7 @@ BLOCK_REGISTRY: dict[str, BlockSpec] = {
 }
 
 # Default v1 block set.
-DEFAULT_BLOCKS = ["general", "schema", "quality", "examples", "statistics"]
+DEFAULT_BLOCKS = ["general", "schema", "quality", "examples", "statistics", "agent_skill"]
 
 
 def available_blocks() -> list[str]:

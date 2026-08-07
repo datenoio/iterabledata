@@ -455,7 +455,7 @@ plus an assembled full document.
 
 #### Scenario: Default block set
 - **WHEN** `ai.doc.generate_blocks()` is called without an explicit `blocks` list
-- **THEN** the default v1 blocks are generated (general, schema, quality, examples, statistics)
+- **THEN** the default v1 blocks are generated (general, schema, quality, examples, statistics, agent_skill)
 - **AND** unknown block names raise a clear error
 
 #### Scenario: Deferred blocks are registered but not implemented
@@ -574,4 +574,28 @@ LLM context limits, aggregating field results across batches.
 - **WHEN** a dataset has more than 100 columns
 - **THEN** the schema block is generated in column batches
 - **AND** the resulting `fields` are merged into a single schema block
+
+### Requirement: Agent skill documentation block
+The system SHALL provide an LLM-backed documentation block named `agent_skill`
+that produces structured skill data and a neutral agent-skill Markdown document
+(YAML frontmatter with at least `name` and `description`, plus a Markdown body).
+The block MUST be registered and MUST be included in the default block set used
+when `blocks` is omitted.
+
+#### Scenario: Default generation includes agent skill
+- **WHEN** `ai.doc.generate_blocks()` is called without an explicit `blocks` list
+- **THEN** the result contains an `agent_skill` block entry with `markdown` and `data`
+- **AND** the markdown begins with YAML frontmatter containing `name` and `description`
+
+#### Scenario: Explicit generation
+- **WHEN** `ai.doc.generate_blocks()` is called with `blocks` including `agent_skill`
+- **THEN** the result contains an `agent_skill` block entry with `markdown` and `data`
+
+#### Scenario: Skill language follows block context
+- **WHEN** `agent_skill` is generated with a non-English `language` on the block context
+- **THEN** skill prose fields in the structured data and rendered markdown use that language
+
+#### Scenario: Structured schema is available
+- **WHEN** a caller requests the JSON Schema for the `agent_skill` block
+- **THEN** a schema describing the structured skill payload is returned
 

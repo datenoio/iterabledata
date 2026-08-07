@@ -388,7 +388,7 @@ analysis = inspect.analyze("data.csv", autodoc=True, autodoc_provider="openai")
 print(analysis["documentation"])
 ```
 
-Need structured, machine-readable output? Use `generate_blocks()` to get independent documentation blocks (`general`, `schema`, `quality`, `examples`, `statistics`, `codebook`) plus the assembled markdown:
+Need structured, machine-readable output? Use `generate_blocks()` to get independent documentation blocks (`general`, `schema`, `quality`, `examples`, `statistics`, `agent_skill`; plus opt-in `codebook`) plus the assembled markdown:
 
 ```python
 from iterable.ai import doc
@@ -400,8 +400,11 @@ result = doc.generate_blocks(
     progress=lambda event: print(event.stage, event.detail),
 )
 print(result["blocks"]["schema"]["data"])     # structured JSON
+print(result["blocks"]["agent_skill"]["markdown"])  # portable agent skill (YAML + Markdown)
 print(result["full_document_markdown"])        # assembled markdown
 ```
+
+The `agent_skill` block emits a portable skill document (YAML frontmatter + Markdown) that AI agents can load for dataset-specific load/query/safety guidance.
 
 Install AI support: `pip install iterabledata[ai]`. See [examples/ai/](examples/ai/) and [docs/docs/api/ai.md](docs/docs/api/ai.md).
 
@@ -1502,6 +1505,12 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
+
+### Version 1.0.20 (2026-08-07)
+
+- **Agent skill block (`agent_skill`)**: Default `generate_blocks()` now includes a portable agent-skill document (YAML frontmatter + Markdown) with dataset facts, workflow, and safety guidance
+- **Safer usage examples**: Examples / legacy autodoc prompts require `python`/`r`/`sql`, SQL against table `dataset`, and read-only constraints
+- **Schema examples**: Nested provider `example` values are coerced to strings for structured-output validation
 
 ### Version 1.0.18 (2026-07-22)
 
