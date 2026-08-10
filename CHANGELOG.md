@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.21] - 2026-08-10
+
 ### Added
 - **Nested field projection**: Opt-in `flatten_nested=True` on `schema.infer()` and
   `stats.compute()` unfolds dict / array-of-dict nests into dotted paths such as

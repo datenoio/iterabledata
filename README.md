@@ -1525,7 +1525,7 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
-### Unreleased
+### Version 1.0.21 (2026-08-10)
 
 - **Nested schema/stats**: Opt-in `flatten_nested=True` on `schema.infer()` / `stats.compute()` for dotted paths like `capital_city.lat`
 - **Bounded table profiling**: `iterable.ai.table_profile.profile_selected_table()` with row/time budgets for multi-table sources
