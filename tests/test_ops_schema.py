@@ -36,15 +36,64 @@ class TestSchema:
         assert sch["constraints"]["price"]["min"] == 10.0
         assert sch["constraints"]["price"]["max"] == 30.0
 
-    def test_infer_with_nulls(self):
-        """Test schema inference with null values."""
+    def test_infer_flatten_nested_capital_city(self):
+        """Nested dict fields unfold to dotted paths when requested."""
         rows = [
-            {"name": "John", "age": 30},
-            {"name": "Jane", "age": None},
+            {
+                "country": "FR",
+                "capital_city": {"name": "Paris", "lat": 48.8566, "lng": 2.3522},
+            },
+            {
+                "country": "JP",
+                "capital_city": {"name": "Tokyo", "lat": 35.6762, "lng": 139.6503},
+            },
         ]
+        sch = schema.infer(rows, flatten_nested=True)
+        fields = sch["fields"]
+        assert "capital_city" in fields
+        assert fields["capital_city"]["type"] == "dict"
+        assert "capital_city.name" in fields
+        assert fields["capital_city.name"]["type"] == "string"
+        assert "capital_city.lat" in fields
+        assert fields["capital_city.lat"]["type"] == "float"
+        assert "capital_city.lng" in fields
+        assert fields["capital_city.lng"]["type"] == "float"
+        assert fields["capital_city.name"]["sample_values"][0] == "Paris"
+
+    def test_infer_without_flatten_keeps_parent_only(self):
+        rows = [{"capital_city": {"name": "Paris", "lat": 48.8}}]
         sch = schema.infer(rows)
-        assert sch["fields"]["age"]["nullable"] is True
-        assert sch["fields"]["name"]["nullable"] is False
+        assert "capital_city" in sch["fields"]
+        assert "capital_city.name" not in sch["fields"]
+
+    def test_infer_flatten_array_of_dicts(self):
+        rows = [
+            {
+                "id": 1,
+                "tags": [{"code": "a", "label": "Alpha"}, {"code": "b", "label": "Beta"}],
+            }
+        ]
+        sch = schema.infer(rows, flatten_nested=True)
+        assert "tags" in sch["fields"]
+        assert sch["fields"]["tags"]["type"] == "array"
+        assert "tags.code" in sch["fields"]
+        assert "tags.label" in sch["fields"]
+        assert sch["fields"]["tags.code"]["sample_values"][0] == ["a", "b"]
+
+    def test_infer_flatten_array_upgrades_after_empty_first_rows(self):
+        rows = [
+            {"id": 1, "items": []},
+            {"id": 2, "items": None},
+            {"id": 3, "items": [{"name": "a", "score": 1}]},
+            {"id": 4, "items": [{"name": "b", "score": 2}, {"name": "c", "score": 3}]},
+        ]
+        sch = schema.infer(rows, flatten_nested=True)
+        assert sch["fields"]["items"]["type"] == "array"
+        assert sch["fields"]["items"].get("subtype") == "dict"
+        assert "items.name" in sch["fields"]
+        assert "items.score" in sch["fields"]
+        assert sch["fields"]["items.name"]["type"] == "string"
+        assert sch["fields"]["items.score"]["type"] == "integer"
 
     def test_to_jsonschema(self):
         """Test JSON Schema conversion."""

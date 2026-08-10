@@ -38,6 +38,38 @@ class TestStats:
         assert summary["value"]["count"] == 2
         assert summary["value"]["null_count"] == 1
 
+    def test_compute_flatten_nested(self):
+        rows = [
+            {"capital_city": {"name": "Paris", "lat": 48.8}},
+            {"capital_city": {"name": "Tokyo", "lat": 35.6}},
+            {"capital_city": None},
+        ]
+        summary = stats.compute(rows, flatten_nested=True)
+        assert "capital_city" in summary
+        assert "capital_city.name" in summary
+        assert "capital_city.lat" in summary
+        assert summary["capital_city.name"]["count"] == 2
+        assert summary["capital_city.name"]["null_count"] == 1
+        assert summary["capital_city.lat"]["min"] == 35.6
+        assert summary["capital_city.lat"]["max"] == 48.8
+
+    def test_compute_flatten_array_of_dicts_counts_all_elements(self):
+        rows = [
+            {"languages": [{"code": "rus"}, {"code": "tgk"}]},
+            {"languages": [{"code": "eng"}]},
+            {"languages": []},
+        ]
+        summary = stats.compute(rows, flatten_nested=True)
+        assert summary["languages.code"]["count"] == 3
+        assert summary["languages.code"]["unique_count"] == 3
+        assert summary["languages.code"]["null_count"] == 1
+
+    def test_compute_without_flatten_keeps_parent_only(self):
+        rows = [{"capital_city": {"name": "Paris", "lat": 48.8}}]
+        summary = stats.compute(rows)
+        assert "capital_city" in summary
+        assert "capital_city.name" not in summary
+
     def test_frequency_single_field(self):
         """Test frequency analysis for single field."""
         rows = [

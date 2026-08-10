@@ -9,9 +9,15 @@ from __future__ import annotations
 
 import collections.abc
 import json
+from collections.abc import Mapping
 from typing import Any
 
 from ..helpers.detect import open_iterable
+from ..helpers.nested import (
+    DEFAULT_MAX_NESTED_DEPTH,
+    nested_field_value,
+    unfold_nested_schema_fields,
+)
 from ..helpers.schema import schema_from_list_of_dicts
 from ..helpers.utils import hashable_repr
 from ..types import Row
@@ -22,6 +28,10 @@ def infer(
     detect_dates: bool = False,
     detect_constraints: bool = False,
     sample_size: int = 10000,
+    *,
+    flatten_nested: bool = False,
+    max_nested_depth: int = DEFAULT_MAX_NESTED_DEPTH,
+    keep_nested_parents: bool = True,
 ) -> dict[str, Any]:
     """
     Infer schema from an iterable dataset.
@@ -33,6 +43,10 @@ def infer(
         detect_dates: Whether to detect date and datetime fields (default: False)
         detect_constraints: Whether to detect constraints (min/max, length, etc.) (default: False)
         sample_size: Number of rows to sample for inference (default: 10000)
+        flatten_nested: When True, unfold dict / array-of-dict nests into dotted
+            paths such as ``capital_city.lat`` (default: False)
+        max_nested_depth: Maximum nest depth to unfold when ``flatten_nested``
+        keep_nested_parents: Keep parent ``dict``/``array`` fields alongside children
 
     Returns:
         Dictionary containing schema information:
@@ -44,6 +58,7 @@ def infer(
         >>> sch = schema.infer("data.csv", detect_dates=True)  # doctest: +SKIP
         >>> print(sch["fields"]["price"]["type"])  # doctest: +SKIP
     """
+    del detect_dates  # reserved for future date-shape detection
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
 
@@ -59,6 +74,21 @@ def infer(
 
     # Use existing schema inference
     inferred_schema = schema_from_list_of_dicts(sample_rows)
+    if flatten_nested:
+        field_entries = unfold_nested_schema_fields(
+            inferred_schema,
+            max_depth=max_nested_depth,
+            keep_parents=keep_nested_parents,
+        )
+    else:
+        field_entries = []
+        for name, info in inferred_schema.items():
+            if not isinstance(info, dict):
+                continue
+            meta: dict[str, Any] = {"type": info.get("type", "string")}
+            if "subtype" in info:
+                meta["subtype"] = info["subtype"]
+            field_entries.append((str(name), meta))
 
     # Convert to our format
     fields: dict[str, dict[str, Any]] = {}
@@ -66,26 +96,44 @@ def infer(
 
     total_rows = len(sample_rows)
 
-    for field_name, field_info in inferred_schema.items():
+    for field_name, field_info in field_entries:
         fields[field_name] = {
             "type": field_info.get("type", "string"),
             "nullable": True,  # Determined from data below
             "sample_values": [],
         }
+        if "subtype" in field_info:
+            fields[field_name]["subtype"] = field_info["subtype"]
 
         # Determine nullability from the sampled data. A field is nullable if any
         # sampled row has a None value for it or omits the field entirely.
-        present_values = [row.get(field_name) for row in sample_rows if field_name in row]
-        null_count = sum(1 for v in present_values if v is None)
-        missing_count = total_rows - len(present_values)
-        fields[field_name]["nullable"] = (null_count + missing_count) > 0
+        if flatten_nested or "." in field_name:
+            present_values = [nested_field_value(row, field_name) for row in sample_rows]
+            null_count = sum(
+                1 for value in present_values if value is None or value == []
+            )
+            fields[field_name]["nullable"] = null_count > 0
+            values = []
+            for value in present_values:
+                if isinstance(value, list) and (
+                    not value or not isinstance(value[0], Mapping)
+                ):
+                    values.extend(value)
+                elif value is not None and value != []:
+                    values.append(value)
+            sample_values = present_values[:5]
+        else:
+            present_values = [row.get(field_name) for row in sample_rows if field_name in row]
+            null_count = sum(1 for v in present_values if v is None)
+            missing_count = total_rows - len(present_values)
+            fields[field_name]["nullable"] = (null_count + missing_count) > 0
+            values = [row.get(field_name) for row in sample_rows if field_name in row]
+            sample_values = [row.get(field_name) for row in sample_rows[:5] if field_name in row]
 
         # Detect constraints if requested
         if detect_constraints:
             field_constraints: dict[str, Any] = {}
             # Collect values for constraint detection
-            values = [row.get(field_name) for row in sample_rows if field_name in row]
-
             if values:
                 non_null_values = [v for v in values if v is not None]
 
@@ -121,7 +169,6 @@ def infer(
                 constraints[field_name] = field_constraints
 
         # Add sample values
-        sample_values = [row.get(field_name) for row in sample_rows[:5] if field_name in row]
         fields[field_name]["sample_values"] = sample_values[:5]
 
     result: dict[str, Any] = {"fields": fields}

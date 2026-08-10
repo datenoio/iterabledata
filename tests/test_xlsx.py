@@ -139,3 +139,90 @@ class TestXLSX:
         finally:
             if os.path.exists(temp_file):
                 os.unlink(temp_file)
+
+    def test_open_table_uses_page_index_not_ignored_table_option(self, tmp_path):
+        """Excel must open the named sheet; table= must not silently keep page 0."""
+
+        from openpyxl import Workbook
+
+        from iterable.ai.fileinfo import open_table
+
+        path = tmp_path / "sheets.xlsx"
+        book = Workbook()
+        book.active.title = "Disclaimer"
+        book.active["A1"] = "notice"
+        data = book.create_sheet("Data")
+        data["A1"] = "id"
+        data["B1"] = "name"
+        data["A2"] = 1
+        data["B2"] = "alpha"
+        book.save(path)
+
+        opened = open_table(str(path), "Data")
+        try:
+            assert opened.page == 1
+            assert opened.keys == ["id", "name"]
+            assert opened.read()["name"] == "alpha"
+        finally:
+            opened.close()
+
+    def test_reset_dimensions_reads_past_wrong_a1_dimension(self, tmp_path):
+        """Workbooks with dimension ref=A1 must still stream full rows."""
+
+        import re
+        import zipfile
+
+        from openpyxl import Workbook
+
+        raw = tmp_path / "raw.xlsx"
+        path = tmp_path / "bad_dims.xlsx"
+        book = Workbook()
+        sheet = book.active
+        sheet.title = "Data"
+        sheet.append(["Entity", "Week", "Flights"])
+        sheet.append(["Albania", 40, 214])
+        sheet.append(["Belgium", 41, 300])
+        book.save(raw)
+
+        with zipfile.ZipFile(raw, "r") as zin, zipfile.ZipFile(path, "w") as zout:
+            for item in zin.infolist():
+                data = zin.read(item.filename)
+                if item.filename.startswith("xl/worksheets/sheet") and b"Entity" in data:
+                    text = data.decode()
+                    text, count = re.subn(
+                        r'<dimension ref="[^"]*"/>',
+                        '<dimension ref="A1"/>',
+                        text,
+                        count=1,
+                    )
+                    assert count == 1
+                    data = text.encode()
+                zout.writestr(item, data)
+
+        iterable = XLSXIterable(str(path))
+        try:
+            assert iterable.keys == ["Entity", "Week", "Flights"]
+            assert iterable.read()["Entity"] == "Albania"
+            assert iterable.read()["Entity"] == "Belgium"
+        finally:
+            iterable.close()
+
+    def test_skips_leading_blank_rows_before_header(self, tmp_path):
+        from openpyxl import Workbook
+
+        path = tmp_path / "leading_blank.xlsx"
+        book = Workbook()
+        sheet = book.active
+        sheet.title = "Metadata"
+        sheet["A2"] = "Column name"
+        sheet["B2"] = "Description"
+        sheet["A3"] = "Entity"
+        sheet["B3"] = "Name of the State"
+        book.save(path)
+
+        iterable = XLSXIterable(str(path))
+        try:
+            assert iterable.keys == ["Column name", "Description"]
+            assert iterable.read()["Column name"] == "Entity"
+        finally:
+            iterable.close()

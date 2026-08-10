@@ -69,13 +69,31 @@ class SQLiteIterable(BaseFileIterable):
         self.reset()
         pass
 
+    def _connect(self) -> sqlite3.Connection:
+        """Open the database; read mode uses a read-only URI when possible."""
+
+        if self.mode in ["w", "wr"]:
+            return sqlite3.connect(self.filename)
+        # Prefer immutable read-only open so documentation never mutates sources.
+        absolute = os.path.abspath(self.filename)
+        uri = f"file:{absolute}?mode=ro"
+        try:
+            return sqlite3.connect(uri, uri=True)
+        except sqlite3.Error:
+            # Fallback for environments that reject URI opens.
+            return sqlite3.connect(self.filename)
+
+    @staticmethod
+    def _quote_ident(name: str) -> str:
+        return '"' + name.replace('"', '""') + '"'
+
     def reset(self):
         """Reset iterable"""
         super().reset()
         if self.connection is not None:
             self.connection.close()
 
-        self.connection = sqlite3.connect(self.filename)
+        self.connection = self._connect()
         self.connection.row_factory = sqlite3.Row  # Return rows as dict-like objects
 
         if self.mode in ["w", "wr"]:
@@ -94,7 +112,8 @@ class SQLiteIterable(BaseFileIterable):
                 self.cursor = self.connection.execute(self.query)
             elif self.table:
                 # Query specific table
-                self.cursor = self.connection.execute(f"SELECT * FROM {self.table}")
+                quoted = self._quote_ident(self.table)
+                self.cursor = self.connection.execute(f"SELECT * FROM {quoted}")
             else:
                 # Get first table
                 cursor = self.connection.execute(
@@ -108,7 +127,8 @@ class SQLiteIterable(BaseFileIterable):
                     self.keys = []
                     return
                 self.table = first_table[0]
-                self.cursor = self.connection.execute(f"SELECT * FROM {self.table}")
+                quoted = self._quote_ident(self.table)
+                self.cursor = self.connection.execute(f"SELECT * FROM {quoted}")
 
             # Get column names from cursor description
             if self.cursor.description:

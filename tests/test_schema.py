@@ -87,7 +87,7 @@ class TestSchema:
         obj = {"items": []}
         schema = get_schema(obj)
         assert schema["items"]["type"] == "array"
-        assert schema["items"]["subtype"] == "string"  # Empty arrays default to string
+        assert "subtype" not in schema["items"]  # Empty arrays stay upgradeable
 
     def test_get_schema_with_value(self):
         """Test get_schema with novalue=False"""
@@ -149,6 +149,31 @@ class TestSchema:
         assert result["items"]["subtype"] == "dict"
         assert "name" in result["items"]["schema"]
         assert "price" in result["items"]["schema"]
+
+    def test_merge_schemes_upgrades_empty_array_to_array_of_dicts(self):
+        schema1 = {"items": {"type": "array"}}
+        schema2 = {
+            "items": {
+                "type": "array",
+                "subtype": "dict",
+                "schema": {"name": {"type": "string"}},
+            }
+        }
+        result = merge_schemes([schema1, schema2])
+        assert result["items"]["subtype"] == "dict"
+        assert result["items"]["schema"]["name"]["type"] == "string"
+
+    def test_merge_schemes_upgrades_null_placeholder_to_dict(self):
+        schema1 = {"capital_city": {"type": "string"}}
+        schema2 = {
+            "capital_city": {
+                "type": "dict",
+                "schema": {"name": {"type": "string"}},
+            }
+        }
+        result = merge_schemes([schema1, schema2])
+        assert result["capital_city"]["type"] == "dict"
+        assert "name" in result["capital_city"]["schema"]
 
     def test_schema2fieldslist_simple(self):
         """Test schema2fieldslist with simple schema"""

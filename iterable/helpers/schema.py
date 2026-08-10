@@ -40,6 +40,43 @@ def _bson_type_name(value: Any) -> str | None:
     return None
 
 
+def _is_weak_field_schema(info: dict[str, Any]) -> bool:
+    """Return True when ``info`` is a placeholder that later rows may upgrade."""
+
+    field_type = info.get("type")
+    if field_type == "string":
+        # ``None`` values are recorded as string placeholders.
+        return True
+    if field_type == "array" and info.get("subtype") != "dict":
+        # Empty arrays omit subtype; scalar arrays may later see dict items.
+        return True
+    if field_type == "array" and info.get("subtype") == "dict" and "schema" not in info:
+        return True
+    return False
+
+
+def _should_upgrade_field_schema(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    """Upgrade only null/empty placeholders into structured dict/array shapes."""
+
+    if not _is_weak_field_schema(left):
+        return False
+    right_type = right.get("type")
+    if right_type == "dict" and isinstance(right.get("schema"), dict):
+        return True
+    if right_type == "array" and (
+        right.get("subtype") == "dict" or isinstance(right.get("schema"), dict)
+    ):
+        return True
+    if (
+        left.get("type") == "array"
+        and left.get("subtype") is None
+        and right_type == "array"
+        and right.get("subtype")
+    ):
+        return True
+    return False
+
+
 def merge_schemes(alist, novalue=True):
     """Merges schemes of list of objects and generates final data schema"""
     if len(alist) == 0:
@@ -51,25 +88,61 @@ def merge_schemes(alist, novalue=True):
             #            print(obj[k]['type'])
             if k not in okeys:
                 obj[k] = item[k]
-            elif obj[k]["type"] in ["integer", "float", "string", "datetime"]:
+                continue
+
+            left = obj[k]
+            right = item[k]
+            if not isinstance(left, dict) or not isinstance(right, dict):
+                continue
+
+            # Null placeholders and empty arrays start weak; upgrade when a later
+            # row observes a richer dict / array-of-dict shape.
+            if _should_upgrade_field_schema(left, right):
+                upgraded = copy(right)
+                if (
+                    left.get("type") == "array"
+                    and upgraded.get("type") == "array"
+                    and isinstance(left.get("schema"), dict)
+                    and isinstance(upgraded.get("schema"), dict)
+                ):
+                    upgraded["schema"] = merge_schemes([left["schema"], upgraded["schema"]])
+                elif (
+                    left.get("type") == "dict"
+                    and upgraded.get("type") == "dict"
+                    and isinstance(left.get("schema"), dict)
+                    and isinstance(upgraded.get("schema"), dict)
+                ):
+                    upgraded["schema"] = merge_schemes([left["schema"], upgraded["schema"]])
+                if not novalue and "value" in left and "value" in upgraded:
+                    upgraded["value"] = left["value"] + right.get("value", 0)
+                obj[k] = upgraded
+                continue
+
+            if left["type"] in ["integer", "float", "string", "datetime"]:
                 if not novalue:
-                    obj[k]["value"] += item[k]["value"]
-            elif obj[k]["type"] == "dict":
+                    left["value"] += right["value"]
+            elif left["type"] == "dict":
                 if not novalue:
-                    obj[k]["value"] += item[k]["value"]
-                if "schema" in item[k].keys():
-                    obj[k]["schema"] = merge_schemes([obj[k]["schema"], item[k]["schema"]])
-            elif obj[k]["type"] == "array":
-                #                if 'subtype' not in obj[k].keys():
-                #                   logging.info(str(obj[k]))
-                if "subtype" in obj[k].keys() and obj[k]["subtype"] == "dict":
-                    if not novalue:
-                        obj[k]["value"] += item[k]["value"]
-                    if "schema" in item[k].keys():
-                        obj[k]["schema"] = merge_schemes([obj[k]["schema"], item[k]["schema"]])
-                else:
-                    if not novalue:
-                        obj[k]["value"] += item[k]["value"]
+                    left["value"] += right["value"]
+                if "schema" in right and "schema" in left:
+                    left["schema"] = merge_schemes([left["schema"], right["schema"]])
+                elif "schema" in right and "schema" not in left:
+                    left["schema"] = right["schema"]
+            elif left["type"] == "array":
+                if not novalue:
+                    left["value"] += right["value"]
+                if right.get("subtype") == "dict" and "schema" in right:
+                    if left.get("subtype") != "dict" or "schema" not in left:
+                        left["subtype"] = "dict"
+                        left["schema"] = right["schema"]
+                    else:
+                        left["schema"] = merge_schemes([left["schema"], right["schema"]])
+                elif (
+                    left.get("subtype") == "dict"
+                    and "schema" in left
+                    and "schema" in right
+                ):
+                    left["schema"] = merge_schemes([left["schema"], right["schema"]])
     return obj
 
 
@@ -104,7 +177,9 @@ def get_schema(obj: dict, novalue=True):
         elif isinstance(obj[k], list):
             result[k] = {"type": "array", "value": 1}
             if len(obj[k]) == 0:
-                result[k]["subtype"] = "string"
+                # Leave subtype unset so later non-empty rows can upgrade the
+                # array to array-of-dict (or a concrete scalar subtype).
+                pass
             else:
                 found = False
                 for otype, oname in OTYPES_MAP:

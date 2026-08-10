@@ -7,6 +7,17 @@ from openpyxl import load_workbook
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
 
+_BLANK_HEADER_TOKENS = frozenset({"", "none", "null", "<na>", "nan"})
+
+
+def _is_blank_header(value: object) -> bool:
+    """Return True when a header cell is missing or a non-name placeholder."""
+
+    if value is None:
+        return True
+    text = str(value).strip()
+    return not text or text.casefold() in _BLANK_HEADER_TOKENS
+
 
 def read_row_keys(rownum, ncols, sheet):
     """Read single row by row num"""
@@ -52,16 +63,34 @@ class XLSXIterable(BaseFileIterable):
         self.workbook = load_workbook(self.filename, read_only=True)
         self.sheet = self.workbook[self.workbook.sheetnames[self.page]]
         self.pos = self.start_line
+        # Some workbooks advertise incorrect dimensions (e.g. ref="A1").
+        # Unbounded iter_rows() then returns a single cell; reset so openpyxl
+        # discovers the real used range while streaming.
+        reset_dimensions = getattr(self.sheet, "reset_dimensions", None)
+        if callable(reset_dimensions):
+            reset_dimensions()
         self.cursor = self.sheet.iter_rows()
         if self.pos > 1:
             self.skip(self.pos - 1)
         if self.extracted_keys:
             self.keys = list()
             try:
-                row = next(self.cursor)
-                for cell in row:
-                    self.keys.append(str(cell.value))
-                self.pos += 1
+                # Skip leading blank rows (common before metadata tables), then
+                # take the first non-blank row as headers. Sheets that never
+                # produce a real header stay empty and are skipped upstream.
+                blank_skips = 0
+                while True:
+                    row = next(self.cursor)
+                    self.pos += 1
+                    raw_keys = [cell.value for cell in row]
+                    if not raw_keys or all(_is_blank_header(value) for value in raw_keys):
+                        blank_skips += 1
+                        if blank_skips >= 100:
+                            self.keys = []
+                            break
+                        continue
+                    self.keys = [str(value) for value in raw_keys]
+                    break
             except StopIteration:
                 # Empty sheet, use empty keys
                 self.keys = []

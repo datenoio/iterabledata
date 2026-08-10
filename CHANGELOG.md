@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Nested field projection**: Opt-in `flatten_nested=True` on `schema.infer()` and
+  `stats.compute()` unfolds dict / array-of-dict nests into dotted paths such as
+  `capital_city.lat` (parents kept by default; depth via `max_nested_depth`).
+- **`iterable.helpers.nested`**: Shared helpers to unfold nested schemas and project
+  rows onto dotted paths for schema/stats consumers.
+- **Bounded multi-table profiling (`iterable.ai.table_profile`)**: Streaming-safe
+  `profile_selected_table()` with explicit row/time budgets and completeness flags;
+  schema/stats facets enable nested flattening for documentation adapters.
+
+### Changed
+- **Schema merge upgrades**: Null/string placeholders and empty arrays can upgrade to
+  richer dict / array-of-dict shapes when later sample rows observe nested structure.
+- **Excel sheet selection (`open_table`)**: Named sheets open via `page` index; Excel
+  formats no longer silently ignore a `table=` option and stay on page 0.
+- **XLSX header discovery**: Skips leading blank/placeholder header rows and resets
+  incorrect sheet dimensions (e.g. `ref="A1"`) so streaming reads the real used range.
+- **SQLite read path**: Prefer read-only URI opens for documentation/analysis, and
+  quote table identifiers safely when selecting a named table.
+
 ## [1.0.20] - 2026-08-07
 
 ### Added

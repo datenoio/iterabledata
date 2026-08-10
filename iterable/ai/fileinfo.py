@@ -143,13 +143,26 @@ def file_metadata(
 def open_table(source: str, table: str) -> Any:
     """Open a specific table/sheet of a multi-table file by name.
 
-    Falls back to opening the default table when the name cannot be resolved.
+    Sheets are opened by ``page`` index. SQLite tables are opened by ``table``
+    name. Falls back to the default open when the name cannot be resolved.
+
+    Important: Excel formats ignore unknown ``table=`` options and silently open
+    page 0, so we must not try ``table`` before ``page`` for sheet-based files.
     """
     tables = list_tables(source)
     if tables and table in tables:
         index = tables.index(table)
+        probe = open_iterable(source)
         try:
+            datatype_id = type(probe).id()
+        finally:
+            close = getattr(probe, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:
+                    pass
+        if datatype_id in {"xlsx", "xls", "ods"}:
             return open_iterable(source, iterableargs={"page": index})
-        except Exception:
-            pass
+        return open_iterable(source, iterableargs={"table": table})
     return open_iterable(source)

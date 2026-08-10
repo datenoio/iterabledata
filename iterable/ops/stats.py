@@ -10,9 +10,11 @@ from __future__ import annotations
 import collections.abc
 import os
 from collections import Counter
+from collections.abc import Mapping
 from typing import Any
 
 from ..helpers.detect import open_iterable
+from ..helpers.nested import DEFAULT_MAX_NESTED_DEPTH, project_row_nested
 from ..helpers.utils import hashable_key, hashable_repr
 from ..types import Row
 
@@ -41,6 +43,10 @@ def compute(
     include_top_values: bool = False,
     top_n: int = 10,
     dict_threshold: float | None = None,
+    *,
+    flatten_nested: bool = False,
+    max_nested_depth: int = DEFAULT_MAX_NESTED_DEPTH,
+    keep_nested_parents: bool = True,
 ) -> dict[str, dict[str, Any]]:
     """
     Compute comprehensive statistics for all fields in an iterable dataset.
@@ -57,6 +63,10 @@ def compute(
         top_n: Number of top values to include when ``include_top_values`` is True
         dict_threshold: Unique-to-total ratio at/below which a field is flagged as a
             dictionary (lookup) field. Defaults to the ``DICT_THRESHOLD`` env var or 0.1.
+        flatten_nested: When True, project nested dict / array-of-dict values onto
+            dotted paths such as ``capital_city.lat`` before aggregating
+        max_nested_depth: Maximum nest depth to project when ``flatten_nested``
+        keep_nested_parents: Keep parent ``dict``/``array`` fields alongside children
 
     Returns:
         Dictionary mapping field names to their statistics:
@@ -74,6 +84,7 @@ def compute(
         >>> summary = stats.compute("data.csv", detect_dates=True)  # doctest: +SKIP
         >>> print(summary["price"]["mean"])  # doctest: +SKIP
     """
+    del detect_dates, engine  # reserved for DuckDB / date pushdown
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
 
@@ -84,16 +95,49 @@ def compute(
 
     for row in iterable:
         row_count += 1
-        for field_name, value in row.items():
+        working: Mapping[str, Any] | Row
+        if flatten_nested:
+            working = project_row_nested(
+                row,
+                max_depth=max_nested_depth,
+                keep_parents=keep_nested_parents,
+            )
+        else:
+            working = row
+        for field_name, value in working.items():
             if field_name not in field_stats:
                 field_stats[field_name] = {
                     "count": 0,
                     "null_count": 0,
                     "values": [],
                     "numeric_values": [],
+                    "rows_seen": 0,
                 }
 
             stats = field_stats[field_name]
+            stats["rows_seen"] += 1
+
+            # Dotted paths under arrays of objects are projected as scalar lists;
+            # count each element so languages.code stats include every language.
+            explode = (
+                flatten_nested
+                and "." in str(field_name)
+                and isinstance(value, list)
+                and (not value or not isinstance(value[0], Mapping))
+            )
+            if explode:
+                if not value:
+                    stats["null_count"] += 1
+                    continue
+                for item in value:
+                    if item is None:
+                        stats["null_count"] += 1
+                        continue
+                    stats["count"] += 1
+                    stats["values"].append(item)
+                    if isinstance(item, (int, float)):
+                        stats["numeric_values"].append(item)
+                continue
 
             if value is None:
                 stats["null_count"] += 1
@@ -104,6 +148,13 @@ def compute(
                 # Collect numeric values for statistical computation
                 if isinstance(value, (int, float)):
                     stats["numeric_values"].append(value)
+
+    if flatten_nested:
+        # Rows that omit a nested path never visit the key; treat those as null.
+        for stats in field_stats.values():
+            missing_rows = row_count - int(stats.get("rows_seen", 0))
+            if missing_rows > 0:
+                stats["null_count"] += missing_rows
 
     # Compute final statistics
     result: dict[str, dict[str, Any]] = {}

@@ -408,6 +408,21 @@ The `agent_skill` block emits a portable skill document (YAML frontmatter + Mark
 
 Install AI support: `pip install iterabledata[ai]`. See [examples/ai/](examples/ai/) and [docs/docs/api/ai.md](docs/docs/api/ai.md).
 
+### Nested schema and stats (opt-in)
+
+```python
+from iterable.ops import schema, stats
+
+sch = schema.infer("nested.jsonl", flatten_nested=True)
+print(sch["fields"]["capital_city.lat"]["type"])
+
+summary = stats.compute("nested.jsonl", flatten_nested=True)
+print(summary["capital_city.lat"]["mean"])
+```
+
+For multi-table workbooks/databases, `iterable.ai.table_profile.profile_selected_table()`
+profiles one named sheet/table under row/time budgets (nested flattening enabled).
+
 ### Format catalog (agents)
 
 ```python
@@ -1087,6 +1102,7 @@ memory, row-group, and fallback behavior.
 
 ```python
 from iterable.helpers.detect import open_iterable
+from iterable.ai.fileinfo import open_table
 
 # Read Excel file (specify sheet or page)
 xls_file = open_iterable('data.xlsx', iterableargs={'page': 0})
@@ -1095,8 +1111,11 @@ for row in xls_file:
     print(row)
 xls_file.close()
 
-# Read specific sheet in XLSX
-xlsx_file = open_iterable('data.xlsx', iterableargs={'page': 'Sheet2'})
+# Open a named sheet (uses page index under the hood)
+sheet = open_table('data.xlsx', 'Sheet2')
+for row in sheet:
+    print(row)
+sheet.close()
 ```
 
 ### XML Processing
@@ -1505,6 +1524,12 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
+
+### Unreleased
+
+- **Nested schema/stats**: Opt-in `flatten_nested=True` on `schema.infer()` / `stats.compute()` for dotted paths like `capital_city.lat`
+- **Bounded table profiling**: `iterable.ai.table_profile.profile_selected_table()` with row/time budgets for multi-table sources
+- **Excel/SQLite hardening**: Correct named-sheet opens, skip blank header rows, recover bad XLSX dimensions; SQLite prefers read-only opens and quotes table names
 
 ### Version 1.0.20 (2026-08-07)
 
