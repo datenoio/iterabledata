@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from iterable.ai import doc
 from iterable.tools import (
     analyze_dataset,
     compute_stats,
@@ -163,13 +164,11 @@ class TestDocumentationModels:
         assert model.documentation == "# Title"
 
     def test_doc_generate_validate_output(self):
-        with patch("iterable.ai.doc.get_provider") as mock_get:
+        with patch.object(doc, "get_provider") as mock_get:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Doc"
             mock_provider.get_usage_info.return_value = {"total_tokens": 5}
             mock_get.return_value = mock_provider
-
-            from iterable.ai import doc
 
             result = doc.generate(
                 [{"id": 1}],

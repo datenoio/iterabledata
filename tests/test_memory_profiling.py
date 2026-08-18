@@ -156,11 +156,14 @@ class TestStreamingFormatMemory:
         """Test memory usage of bulk read operations"""
 
         def read_bulk():
-            chunks = []
             with open_iterable(medium_csv_file) as source:
-                for chunk in source.read_bulk(num=1000):
-                    chunks.extend(chunk)
-            return len(chunks)
+                rows = []
+                while True:
+                    chunk = source.read_bulk(num=1000)
+                    if not chunk:
+                        break
+                    rows.extend(chunk)
+                return len(rows)
 
         memory_delta, count = measure_memory_delta(read_bulk)
 
@@ -221,11 +224,14 @@ class TestMemoryComparison:
             return count
 
         def bulk_read():
-            chunks = []
             with open_iterable(large_csv_file) as source:
-                for chunk in source.read_bulk(num=10000):
-                    chunks.extend(chunk)
-            return sum(len(chunk) for chunk in chunks)
+                rows = []
+                while True:
+                    chunk = source.read_bulk(num=10000)
+                    if not chunk:
+                        break
+                    rows.extend(chunk)
+                return len(rows)
 
         streaming_delta, streaming_count = measure_memory_delta(streaming_read)
         bulk_delta, bulk_count = measure_memory_delta(bulk_read)
@@ -250,7 +256,10 @@ class TestMemoryComparison:
             output_file2 = tmp_path / "output2.csv"
             with open_iterable(output_file2, "w") as dest:
                 with open_iterable(medium_csv_file) as source:
-                    for chunk in source.read_bulk(num=1000):
+                    while True:
+                        chunk = source.read_bulk(num=1000)
+                        if not chunk:
+                            break
                         dest.write_bulk(chunk)
 
         individual_delta, _ = measure_memory_delta(write_individual)

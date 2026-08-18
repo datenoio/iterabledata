@@ -67,6 +67,8 @@ class TestGetFormatCapabilities:
     def test_xlsx_capabilities(self):
         """Test XLSX format capabilities."""
         caps = get_format_capabilities("xlsx")
+        if caps["readable"] is None:
+            pytest.skip("excel extra not installed")
 
         assert caps["readable"] is True
         assert caps["tables"] is True  # XLSX supports multiple sheets

@@ -4,25 +4,26 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from iterable.ai import providers as providers_mod
 from iterable.ai.providers import get_provider
 
 
 @pytest.mark.ai
 class TestNativeProviders:
     def test_get_anthropic_provider(self):
-        with patch("iterable.ai.providers.AnthropicProvider") as mock_cls:
+        with patch.object(providers_mod, "AnthropicProvider") as mock_cls:
             mock_cls.return_value = MagicMock()
             get_provider("anthropic", api_key="test-key")
             mock_cls.assert_called_once_with(api_key="test-key")
 
     def test_get_gemini_provider(self):
-        with patch("iterable.ai.providers.GeminiProvider") as mock_cls:
+        with patch.object(providers_mod, "GeminiProvider") as mock_cls:
             mock_cls.return_value = MagicMock()
             get_provider("gemini", api_key="test-key")
             mock_cls.assert_called_once_with(api_key="test-key")
 
     def test_get_azure_provider(self):
-        with patch("iterable.ai.providers.AzureOpenAIProvider") as mock_cls:
+        with patch.object(providers_mod, "AzureOpenAIProvider") as mock_cls:
             mock_cls.return_value = MagicMock()
             get_provider("azure", api_key="test-key")
             mock_cls.assert_called_once_with(api_key="test-key", base_url=None)

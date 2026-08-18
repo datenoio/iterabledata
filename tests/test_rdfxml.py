@@ -1,6 +1,10 @@
 import os
 
-from iterable.datatypes import RDFXMLIterable
+import pytest
+
+pytest.importorskip("lxml", reason="lxml is required for RDF/XML support")
+
+from iterable.datatypes import RDFXMLIterable  # noqa: E402
 
 
 class TestRDFXML:

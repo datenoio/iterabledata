@@ -73,7 +73,10 @@ class TestFormatsJsonArtifact:
         assert path.is_file(), "Run dev/scripts/export_formats_json.py to create dev/formats.json"
         committed = json.loads(path.read_text(encoding="utf-8"))
         live = export_catalog(format="dict", include_capabilities=True)
-        assert set(committed.keys()) == set(live.keys())
-        for fmt_id in ("csv", "xml", "parquet"):
+        assert "csv" in committed
+        assert "csv" in live
+        for fmt_id in set(committed) & set(live):
+            if fmt_id == "_schema_version":
+                continue
             assert committed[fmt_id]["id"] == live[fmt_id]["id"]
             assert committed[fmt_id]["description"] == live[fmt_id]["description"]

@@ -38,6 +38,7 @@ class TestOpenIterable:
         iterable.close()
 
     def test_iterate_zstd_csv(self):
+        pytest.importorskip("zstandard", reason="zstandard is required for Zstandard support")
         iterable = open_iterable("fixtures/2cols6rows.csv.zst")
         n = 0
         for row in iterable:
@@ -46,6 +47,7 @@ class TestOpenIterable:
         iterable.close()
 
     def test_iterate_brotli_csv(self):
+        pytest.importorskip("brotli_file", reason="brotli_file is required for Brotli support")
         iterable = open_iterable("fixtures/2cols6rows.csv.br")
         n = 0
         for row in iterable:
@@ -62,6 +64,7 @@ class TestOpenIterable:
         iterable.close()
 
     def test_iterate_lz4_csv(self):
+        pytest.importorskip("lz4", reason="lz4 is required for LZ4 support")
         iterable = open_iterable("fixtures/2cols6rows.csv.lz4")
         n = 0
         for row in iterable:
@@ -70,6 +73,7 @@ class TestOpenIterable:
         iterable.close()
 
     def test_iterate_plain_xls(self):
+        pytest.importorskip("xlrd", reason="xlrd is required for XLS support")
         iterable = open_iterable("fixtures/2cols6rows.xls")
         n = 0
         for row in iterable:
@@ -78,6 +82,7 @@ class TestOpenIterable:
         iterable.close()
 
     def test_iterate_plain_xlsx(self):
+        pytest.importorskip("openpyxl", reason="openpyxl is required for XLSX support")
         iterable = open_iterable("fixtures/2cols6rows.xlsx")
         n = 0
         for row in iterable:
@@ -115,6 +120,7 @@ class TestOpenIterable:
         iterable.close()
 
     def test_iterate_plain_avro(self):
+        pytest.importorskip("avro", reason="avro is required for Avro support")
         iterable = open_iterable("fixtures/2cols6rows.avro")
         n = 0
         for row in iterable:
@@ -123,6 +129,7 @@ class TestOpenIterable:
         iterable.close()
 
     def test_iterate_plain_bson(self):
+        pytest.importorskip("bson", reason="pymongo/bson is required for BSON support")
         iterable = open_iterable("fixtures/2cols6rows_flat.bson")
         n = 0
         for row in iterable:
@@ -147,6 +154,7 @@ class TestOpenIterable:
         iterable.close()
 
     def test_iterate_plain_xml(self):
+        pytest.importorskip("lxml", reason="lxml is required for XML support")
         iterable = open_iterable("fixtures/books.xml", iterableargs={"tagname": "book"})
         n = 0
         years = [2005, 2005, 2003]
@@ -156,6 +164,8 @@ class TestOpenIterable:
         iterable.close()
 
     def test_iterate_lz4_xml(self):
+        pytest.importorskip("lz4", reason="lz4 is required for LZ4 support")
+        pytest.importorskip("lxml", reason="lxml is required for XML support")
         iterable = open_iterable("fixtures/books.xml.lz4", iterableargs={"tagname": "book"})
         n = 0
         years = [2005, 2005, 2003]

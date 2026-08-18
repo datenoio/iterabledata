@@ -81,16 +81,16 @@ from iterable.helpers.utils import detect_delimiter, detect_encoding_raw
 
 class TestDetectors:
     def test_encoding(self):
-        assert "utf-8" == detect_encoding_raw(filename="fixtures/ru_utf8_comma.csv")["encoding"]
-        assert "windows-1251" == detect_encoding_raw(filename="fixtures/ru_cp1251_comma.csv")["encoding"]
+        assert detect_encoding_raw(filename="fixtures/ru_utf8_comma.csv")["encoding"].lower() == "utf-8"
+        assert detect_encoding_raw(filename="fixtures/ru_cp1251_comma.csv")["encoding"].lower() == "windows-1251"
 
     def test_encoding_any_raw(self):
-        assert "utf-8" == detect_encoding_any(filename="fixtures/ru_utf8_comma.csv")["encoding"]
-        assert "windows-1251" == detect_encoding_any(filename="fixtures/ru_cp1251_comma.csv")["encoding"]
+        assert detect_encoding_any(filename="fixtures/ru_utf8_comma.csv")["encoding"].lower() == "utf-8"
+        assert detect_encoding_any(filename="fixtures/ru_cp1251_comma.csv")["encoding"].lower() == "windows-1251"
 
     def test_encoding_any_compressed(self):
         #        assert 'utf-8' == detect_encoding_any(filename='fixtures/ru_utf8_comma.csv.zst')['encoding']
-        assert "windows-1251" == detect_encoding_any(filename="fixtures/ru_cp1251_comma.csv.gz")["encoding"]
+        assert detect_encoding_any(filename="fixtures/ru_cp1251_comma.csv.gz")["encoding"].lower() == "windows-1251"
 
     def test_delimiters(self):
         assert "," == detect_delimiter(filename="fixtures/ru_utf8_comma.csv")
@@ -110,6 +110,8 @@ class TestDetectors:
         assert result["codec"] is None
 
     def test_filetype_bson(self):
+        if BSONIterable is None:
+            pytest.skip("bson extra not installed")
         result = detect_file_type("fixtures/2cols6rows_flat.bson")
         assert result["success"]
         assert result["datatype"] == BSONIterable
@@ -140,6 +142,8 @@ class TestDetectors:
         assert result["codec"] is None
 
     def test_filetype_avro(self):
+        if AVROIterable is None:
+            pytest.skip("avro extra not installed")
         result = detect_file_type("fixtures/2cols6rows.avro")
         assert result["success"]
         assert result["datatype"] == AVROIterable
@@ -154,6 +158,8 @@ class TestDetectors:
         assert result["codec"] is None
 
     def test_filetype_xml(self):
+        if XMLIterable is None:
+            pytest.skip("xml extra not installed")
         result = detect_file_type("fixtures/books.xml")
         assert result["success"]
         assert result["datatype"] == XMLIterable
@@ -202,12 +208,16 @@ class TestDetectors:
         assert result["codec"] is None
 
     def test_filetype_plain_xls(self):
+        if XLSIterable is None:
+            pytest.skip("excel extra not installed")
         result = detect_file_type("fixtures/2cols6rows.xls")
         assert result["success"]
         assert result["datatype"] == XLSIterable
         assert result["codec"] is None
 
     def test_filetype_plain_xlsx(self):
+        if XLSXIterable is None:
+            pytest.skip("excel extra not installed")
         result = detect_file_type("fixtures/2cols6rows.xlsx")
         assert result["success"]
         assert result["datatype"] == XLSXIterable

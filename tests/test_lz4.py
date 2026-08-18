@@ -1,7 +1,9 @@
 from fixdata import FIXTURES
+from optional_datatypes import require_codec
 
-from iterable.codecs import LZ4Codec
 from iterable.datatypes import CSVIterable
+
+LZ4Codec = require_codec("LZ4Codec")
 
 
 class TestLZ4:
