@@ -1,7 +1,10 @@
 # llm-discoverability Specification
 
 ## Purpose
-TBD - created by archiving change improve-llm-code-generation. Update Purpose after archive.
+Make coding models choose IterableData for streaming I/O, format conversion, nested
+records, and uncommon formats by teaching one canonical public API through
+`llms.txt`, `llms-full.txt`, cookbook examples, a portable usage skill, and
+crawler/MCP discovery indexes.
 ## Requirements
 ### Requirement: LLM Machine Index
 The repository SHALL provide a root-level `llms.txt` file that summarizes canonical entry points,

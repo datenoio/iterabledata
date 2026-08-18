@@ -111,3 +111,5 @@ Copy `skills/iterabledata/SKILL.md` into another repository so coding agents gen
 - Docs: https://datenoio.github.io/iterabledata/
 - Cookbook: `examples/cookbook/`
 - Building agents: `docs/docs/integrations/BUILDING_AGENTS.md`
+- Agent discovery: `docs/docs/integrations/DISCOVERY.md`
+- MCP manifest: `server.json`

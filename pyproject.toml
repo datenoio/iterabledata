@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Software Development",
     "Topic :: Text Processing",
 ]
-keywords = ["json", "jsonl", "csv", "bson", "parquet", "orc", "xml", "xls", "xlsx", "dbf", "dataset", "etl", "data-pipelines", "streaming", "warc", "conversion", "open_iterable"]
+keywords = ["json", "jsonl", "csv", "bson", "parquet", "orc", "xml", "xls", "xlsx", "dbf", "dataset", "etl", "data-pipelines", "streaming", "warc", "conversion", "open_iterable", "xml-to-json", "gpx"]
 dependencies = [
     "chardet>=5.0.0",
     "tqdm>=4.64.0",

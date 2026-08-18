@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+import iterable
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class TestMCPServer:
@@ -35,3 +41,15 @@ class TestMCPServer:
 
         _register_tools(mock_mcp)
         assert mock_mcp.tool.call_count >= 6
+
+    def test_server_json_manifest_matches_package(self):
+        manifest = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))
+        schema = "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json"
+        assert manifest["$schema"] == schema
+        assert manifest["name"] == "io.github.datenoio/iterabledata"
+        assert manifest["version"] == iterable.__version__
+        package = manifest["packages"][0]
+        assert package["registryType"] == "pypi"
+        assert package["identifier"] == "iterabledata"
+        assert package["version"] == iterable.__version__
+        assert package["transport"]["type"] == "stdio"

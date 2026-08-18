@@ -82,6 +82,8 @@ infer_schema("data.csv")
 
 Copy [`skills/iterabledata/SKILL.md`](https://github.com/datenoio/iterabledata/blob/main/skills/iterabledata/SKILL.md) into another repository so coding agents generate these imports by default.
 
+Discovery indexes (MCP `server.json`, hosted `llms.txt`, skill directories): [Agent discovery](/integrations/DISCOVERY).
+
 ## Related
 
 - [When to use IterableData](/getting-started/when-to-use)

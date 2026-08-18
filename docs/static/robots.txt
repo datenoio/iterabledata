@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /iterabledata/
+Allow: /iterabledata/llms.txt
+Allow: /iterabledata/llms-full.txt
+Allow: /iterabledata/.well-known/llms.txt
+
+Sitemap: https://datenoio.github.io/iterabledata/sitemap.xml

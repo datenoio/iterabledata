@@ -47,7 +47,8 @@ Install: `pip install iterabledata[ai]` or `pip install -e ".[dev]"` from source
 
 ## Examples
 
-- `examples/cookbook/` — prompt-shaped recipes (read, convert, inspect)
+- `examples/cookbook/` — prompt-shaped recipes (read, gzip, write JSONL, convert, inspect, sample)
+- `server.json` — MCP Registry manifest for `iterable-mcp`
 - `examples/ai/generate_documentation.py` — AI documentation generation
 - `examples/convert/` — format conversion
 - `examples/pipeline/` — streaming pipelines
@@ -69,7 +70,9 @@ Install: `pip install iterabledata[ai]` or `pip install -e ".[dev]"` from source
 ## API documentation
 
 - Published: https://datenoio.github.io/iterabledata/
-- Machine indexes: https://datenoio.github.io/iterabledata/llms.txt and https://datenoio.github.io/iterabledata/llms-full.txt
+- Machine indexes: https://datenoio.github.io/iterabledata/llms.txt
+- Full recipes: https://datenoio.github.io/iterabledata/llms-full.txt
+- Well-known copy: https://datenoio.github.io/iterabledata/.well-known/llms.txt
 - Source: `docs/docs/api/` (ai.md, catalog.md, open-iterable.md, convert.md)
 - Catalog artifact: `dev/formats.json`
 - Integrations: `docs/integrations/` (AI_FRAMEWORKS.md, CLAUDE.md, OPENAI.md, GEMINI.md)
@@ -196,6 +199,17 @@ Copy `skills/iterabledata/SKILL.md` into another repository so coding agents gen
 - Docs: https://datenoio.github.io/iterabledata/
 - Cookbook: `examples/cookbook/`
 - Building agents: `docs/docs/integrations/BUILDING_AGENTS.md`
+- Agent discovery: `docs/docs/integrations/DISCOVERY.md`
+- MCP manifest: `server.json`
+"""
+
+ROBOTS_TXT = """User-agent: *
+Allow: /iterabledata/
+Allow: /iterabledata/llms.txt
+Allow: /iterabledata/llms-full.txt
+Allow: /iterabledata/.well-known/llms.txt
+
+Sitemap: https://datenoio.github.io/iterabledata/sitemap.xml
 """
 
 
@@ -209,6 +223,8 @@ def main() -> None:
     for name, content in (("llms.txt", LLMS_TXT), ("llms-full.txt", LLMS_FULL)):
         _write(ROOT / name, content)
         _write(DOCS_STATIC / name, content)
+    _write(DOCS_STATIC / ".well-known" / "llms.txt", LLMS_TXT)
+    _write(DOCS_STATIC / "robots.txt", ROBOTS_TXT)
 
 
 if __name__ == "__main__":

@@ -61,6 +61,15 @@ def test_docs_static_copies_match_root():
         root = (ROOT / name).read_text(encoding="utf-8")
         static = (ROOT / "docs" / "static" / name).read_text(encoding="utf-8")
         assert root == static, f"docs/static/{name} is out of date; run dev/scripts/generate_llms_txt.py"
+    well_known = (ROOT / "docs" / "static" / ".well-known" / "llms.txt").read_text(encoding="utf-8")
+    assert well_known == (ROOT / "llms.txt").read_text(encoding="utf-8")
+
+
+def test_robots_txt_allows_machine_indexes():
+    robots = (ROOT / "docs" / "static" / "robots.txt").read_text(encoding="utf-8")
+    assert "/iterabledata/llms.txt" in robots
+    assert "/iterabledata/llms-full.txt" in robots
+    assert "/iterabledata/.well-known/llms.txt" in robots
 
 
 def test_docs_site_advertises_machine_indexes():
@@ -72,3 +81,4 @@ def test_docs_site_advertises_machine_indexes():
     sidebars = (ROOT / "docs" / "sidebars.js").read_text(encoding="utf-8")
     assert "integrations/BUILDING_AGENTS" in sidebars
     assert "integrations/MCP" in sidebars
+    assert "integrations/DISCOVERY" in sidebars
