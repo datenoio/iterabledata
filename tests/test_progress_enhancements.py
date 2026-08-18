@@ -177,7 +177,12 @@ class TestWithProgressHelper:
         assert "throughput" in last_stats
         assert last_stats["rows_read"] == 50
         assert last_stats["elapsed"] >= 0
-        assert last_stats["throughput"] is not None
+        # Windows time.time() can report 0s for a 50-row read; with_progress then
+        # sets throughput to None (same contract as convert/pipeline).
+        if last_stats["elapsed"] > 0:
+            assert last_stats["throughput"] is not None
+        else:
+            assert last_stats["throughput"] is None
 
     def test_with_progress_callback_error_handling(self, tmp_path):
         """Test that callback errors don't break iteration."""
