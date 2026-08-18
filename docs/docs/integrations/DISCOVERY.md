@@ -30,7 +30,7 @@ pip install iterabledata[mcp]
 iterable-mcp
 ```
 
-The release workflow publishes this file to the [MCP Registry](https://github.com/modelcontextprotocol/registry) after each tagged PyPI upload (`mcp-publisher login github-oidc`). Schema: `2025-12-11`. Server name: `io.github.datenoio/iterabledata`. PyPI ownership is the README marker `<!-- mcp-name: io.github.datenoio/iterabledata -->` (live after the next `v*` release). Setup docs: [MCP](/integrations/MCP).
+The release workflow publishes this file to the [MCP Registry](https://registry.modelcontextprotocol.io) after each tagged PyPI upload (`mcp-publisher login github-oidc`), retrying until PyPI indexes the new version. Schema: `2025-12-11`. Server name: `io.github.datenoio/iterabledata` (listed as of 1.0.23). PyPI ownership is the README marker `<!-- mcp-name: io.github.datenoio/iterabledata -->`. Setup docs: [MCP](/integrations/MCP).
 
 ## Portable skill
 
