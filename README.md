@@ -1,5 +1,7 @@
 # Iterable Data
 
+<!-- mcp-name: io.github.datenoio/iterabledata -->
+
 Iterable Data is a Python library for reading and writing data files row by row in a consistent, iterator-based interface. It provides a unified API for working with various data formats (CSV, JSON, Parquet, XML, etc.) similar to `csv.DictReader` but supporting many more formats.
 
 This library simplifies data processing and conversion between formats while preserving complex nested data structures (unlike pandas DataFrames which require flattening).

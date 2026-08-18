@@ -53,3 +53,15 @@ class TestMCPServer:
         assert package["identifier"] == "iterabledata"
         assert package["version"] == iterable.__version__
         assert package["transport"]["type"] == "stdio"
+
+    def test_readme_declares_mcp_registry_name(self):
+        manifest = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))
+        marker = f"<!-- mcp-name: {manifest['name']} -->"
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        assert marker in readme
+
+    def test_release_workflow_publishes_mcp_registry(self):
+        workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+        assert "mcp-publisher login github-oidc" in workflow
+        assert "mcp-publisher publish" in workflow
+        assert "id-token: write" in workflow
