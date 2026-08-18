@@ -13,7 +13,7 @@ surfaces crawlers and IDEs actually retrieve.
 | 3 | [add-agent-tool-surfaces](./archive/2026-06-17-add-agent-tool-surfaces/proposal.md) | iterable.tools, schemas, LangChain, MCP | `agent-tools`, `ai` |
 | 4 | [expand-ai-operations](./archive/2026-06-17-expand-ai-operations/proposal.md) | Providers, planning, transforms, NL filters | `ai`, `ops-filter` |
 | 5 | [improve-llm-code-generation](./archive/2026-08-18-improve-llm-code-generation/proposal.md) | Canonical imports, llms-full.txt, usage skill, cookbook | `llm-discoverability`, `examples` |
-| 6 | [distribute-agent-discovery](./distribute-agent-discovery/proposal.md) | MCP `server.json`, well-known llms.txt, prompt-eval, directory guide | `llm-discoverability`, `examples`, `agent-tools` |
+| 6 | [distribute-agent-discovery](./archive/2026-08-18-distribute-agent-discovery/proposal.md) | MCP `server.json`, well-known llms.txt, prompt-eval, directory guide | `llm-discoverability`, `examples`, `agent-tools` |
 
 ## Dependency graph
 
@@ -42,5 +42,5 @@ add-agent-tool-surfaces    expand-ai-operations
 ## Validation
 
 ```bash
-openspec validate distribute-agent-discovery --strict
+openspec validate --specs --strict
 ```
