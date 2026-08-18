@@ -2,7 +2,12 @@
 
 from pathlib import Path
 
-import tomllib
+import pytest
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    tomllib = pytest.importorskip("tomli")
 
 from iterable.helpers.detect import (
     DATATYPE_REGISTRY,

@@ -186,7 +186,7 @@ jobs:
             extras: "parquet"
             tests: "tests/test_parquet.py tests/test_arrow.py"
           - family: geospatial
-            extras: "geospatial"
+            extras: "geospatial,parquet"
             tests: "tests/test_geoparquet.py"
           - family: bio
             extras: "alignment,bio"

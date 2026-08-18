@@ -1,6 +1,7 @@
 from fixdata import FIXTURES_TYPES
+from optional_datatypes import require_datatype
 
-from iterable.datatypes import XLSIterable
+XLSIterable = require_datatype("XLSIterable")
 
 
 class TestXLS:

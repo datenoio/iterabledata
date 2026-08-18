@@ -2,8 +2,11 @@
 
 import os
 
-from iterable.datatypes import GPXIterable
+from optional_datatypes import require_datatype
+
 from iterable.helpers.detect import detect_file_type, open_iterable
+
+GPXIterable = require_datatype("GPXIterable")
 
 # Minimal GPX 1.1 with one waypoint, one route point, one track point
 SAMPLE_GPX = """<?xml version="1.0" encoding="UTF-8"?>

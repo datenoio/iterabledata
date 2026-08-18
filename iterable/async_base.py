@@ -211,7 +211,7 @@ class AsyncBaseFileIterable(AsyncBaseIterable):
         sync = self._sync
 
         def _read_bulk() -> list[Row]:
-            return cast(list[Row], sync.read_bulk(num))
+            return sync.read_bulk(num)
 
         return cast(list[Row], await loop.run_in_executor(None, _read_bulk))
 

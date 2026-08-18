@@ -1,7 +1,8 @@
 import pytest
 from fixdata import FIXTURES
+from optional_datatypes import require_datatype
 
-from iterable.datatypes import AVROIterable
+AVROIterable = require_datatype("AVROIterable")
 
 
 class TestAVRO:

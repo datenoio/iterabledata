@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 
 import pytest
 
@@ -6,8 +7,6 @@ from iterable.datatypes import (
     CSVIterable,
     JSONIterable,
     JSONLinesIterable,
-    XLSIterable,
-    XLSXIterable,
 )
 
 
@@ -33,8 +32,8 @@ def _optional_param(class_name, dep, path, kwargs, header_may_affect_totals):
         pytest.param(CSVIterable, "fixtures/2cols6rows.csv", {}, True),
         pytest.param(JSONIterable, "fixtures/2cols6rows_tag.json", {"tagname": "persons"}, True),
         pytest.param(JSONLinesIterable, "fixtures/2cols6rows_flat.jsonl", {}, True),
-        pytest.param(XLSIterable, "fixtures/2cols6rows.xls", {}, True),
-        pytest.param(XLSXIterable, "fixtures/2cols6rows.xlsx", {}, True),
+        _optional_param("XLSIterable", "xlrd", "fixtures/2cols6rows.xls", {}, True),
+        _optional_param("XLSXIterable", "openpyxl", "fixtures/2cols6rows.xlsx", {}, True),
         _optional_param("ORCIterable", "pyorc", "fixtures/2cols6rows.orc", {}, True),
         _optional_param("ParquetIterable", "pyarrow", "fixtures/2cols6rows.parquet", {}, True),
         _optional_param("DBFIterable", "dbfread", "fixtures/2cols6rows.dbf", {}, False),
