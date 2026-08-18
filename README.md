@@ -1504,6 +1504,10 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
+### Version 1.0.23 (2026-08-18)
+
+- **MCP Registry**: Shorten `server.json` description to the 100-character registry limit
+
 ### Version 1.0.22 (2026-08-18)
 
 - **Coding agents**: Canonical `open_iterable` / `convert` imports, `llms-full.txt`, portable skill, cookbook
