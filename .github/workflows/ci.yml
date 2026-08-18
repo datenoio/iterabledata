@@ -212,7 +212,22 @@ jobs:
           cache: pip
       - name: Install compression system libraries
         if: matrix.family == 'codecs'
-        run: sudo apt-get update && sudo apt-get install -y liblzo2-dev libsnappy-dev
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          # Azure Ubuntu mirrors occasionally stall apt-get for tens of minutes.
+          for attempt in 1 2 3; do
+            echo "apt-get attempt ${attempt}"
+            if sudo timeout 60 apt-get -o Acquire::Retries=2 update \
+              && sudo timeout 60 apt-get -o Acquire::Retries=2 install -y --no-install-recommends liblzo2-dev libsnappy-dev; then
+              exit 0
+            fi
+            echo "apt-get attempt ${attempt} failed or timed out; retrying"
+            sleep 3
+          done
+          echo "apt-get failed after retries" >&2
+          exit 1
       - run: python -m pip install --upgrade pip && pip install -e ".[dev,${{ matrix.extras }}]"
       - name: Run family tests (missing extras must skip, failures must be visible)
         run: pytest ${{ matrix.tests }} --no-cov

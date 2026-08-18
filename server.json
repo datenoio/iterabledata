@@ -8,13 +8,13 @@
     "url": "https://github.com/datenoio/iterabledata",
     "source": "github"
   },
-  "version": "1.0.21",
+  "version": "1.0.22",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "iterabledata",
-      "version": "1.0.21",
+      "version": "1.0.22",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

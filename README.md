@@ -1504,6 +1504,12 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
+### Version 1.0.22 (2026-08-18)
+
+- **Coding agents**: Canonical `open_iterable` / `convert` imports, `llms-full.txt`, portable skill, cookbook
+- **Discovery**: MCP `server.json`, `/.well-known/llms.txt`, prompt-eval; OIDC publish to the MCP Registry on tagged releases
+- **CI**: Windows file-lock and CSV newline fixes; optional extras skip cleanly in the base install
+
 ### Version 1.0.21 (2026-08-10)
 
 - **Nested schema/stats**: Opt-in `flatten_nested=True` on `schema.infer()` / `stats.compute()` for dotted paths like `capital_city.lat`
