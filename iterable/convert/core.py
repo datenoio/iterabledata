@@ -513,6 +513,9 @@ def convert(
             )
 
         _report_progress(progress, metrics, it_in, use_totals)
+        # Windows cannot replace a file that still has an open handle.
+        _close_quietly(it_out, "Error closing output file", metrics.errors)
+        it_out = None
         _finalize_atomic_write(tofile, temp_file, metrics)
 
     except Exception as e:

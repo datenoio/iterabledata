@@ -174,7 +174,7 @@ class TestBoundaryConditions:
     def test_unicode_characters(self, tmp_path):
         """Test file with various Unicode characters"""
         unicode_file = tmp_path / "unicode.csv"
-        unicode_file.write_text("id,name\n1,测试\n2,🚀\n3,ñáéíóú\n")
+        unicode_file.write_text("id,name\n1,测试\n2,🚀\n3,ñáéíóú\n", encoding="utf-8")
 
         with open_iterable(unicode_file) as source:
             rows = list(source)

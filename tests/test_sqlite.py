@@ -38,7 +38,10 @@ def test_sqlite_read_write():
         assert total == 3
     finally:
         if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 def test_sqlite_has_tables():
@@ -90,7 +93,10 @@ def test_sqlite_list_tables():
         reader3.close()
     finally:
         if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 def test_sqlite_list_tables_empty():
@@ -112,7 +118,10 @@ def test_sqlite_list_tables_empty():
         reader.close()
     finally:
         if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 def test_sqlite_write():
@@ -136,7 +145,10 @@ def test_sqlite_write():
         assert results[0]["name"] == "Alice"
     finally:
         if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 def test_sqlite_write_bulk():
@@ -164,7 +176,10 @@ def test_sqlite_write_bulk():
         assert len(results) == 3
     finally:
         if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 def test_sqlite_query():
@@ -190,7 +205,10 @@ def test_sqlite_query():
         assert results[0]["name"] == "Alice"
     finally:
         if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 def test_sqlite_default_table_name():
@@ -217,7 +235,10 @@ def test_sqlite_default_table_name():
         assert results == [{"name": "Alice", "age": "30"}, {"name": "Bob", "age": "25"}]
     finally:
         if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 def test_sqlite_id():
@@ -248,4 +269,7 @@ def test_sqlite_list_tables_invalid_file():
         pass
     finally:
         if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass

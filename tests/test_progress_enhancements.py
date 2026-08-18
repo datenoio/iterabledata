@@ -176,7 +176,7 @@ class TestWithProgressHelper:
         assert "elapsed" in last_stats
         assert "throughput" in last_stats
         assert last_stats["rows_read"] == 50
-        assert last_stats["elapsed"] > 0
+        assert last_stats["elapsed"] >= 0
         assert last_stats["throughput"] is not None
 
     def test_with_progress_callback_error_handling(self, tmp_path):

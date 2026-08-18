@@ -1,10 +1,7 @@
-import os
-import tempfile
-
 from iterable.datatypes.psv import PSVIterable, SSVIterable
 
 
-def test_psv_read_write():
+def test_psv_read_write(tmp_path):
     """Test PSV (pipe-separated values) read and write"""
     test_data = [
         {"name": "Alice", "age": "30", "city": "New York"},
@@ -12,91 +9,59 @@ def test_psv_read_write():
         {"name": "Charlie", "age": "35", "city": "Tokyo"},
     ]
 
-    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".psv", encoding="utf-8") as tmp:
-        tmp_path = tmp.name
-        # Write header
-        tmp.write("name|age|city\n")
-        # Write data
-        for record in test_data:
-            tmp.write(f"{record['name']}|{record['age']}|{record['city']}\n")
+    src = tmp_path / "data.psv"
+    src.write_text("name|age|city\nAlice|30|New York\nBob|25|London\nCharlie|35|Tokyo\n", encoding="utf-8")
 
+    reader = PSVIterable(str(src), mode="r")
     try:
-        # Read data
-        reader = PSVIterable(tmp_path, mode="r")
-        results = []
-        for record in reader:
-            results.append(record)
+        results = list(reader)
+    finally:
         reader.close()
 
-        assert len(results) == 3
-        assert results[0]["name"] == "Alice"
-        assert results[0]["age"] == "30"
+    assert len(results) == 3
+    assert results[0]["name"] == "Alice"
+    assert results[0]["age"] == "30"
 
-        # Write data
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".psv", encoding="utf-8") as tmp2:
-            tmp2_path = tmp2.name
-
-        writer = PSVIterable(tmp2_path, mode="w", keys=["name", "age", "city"])
+    dest = tmp_path / "out.psv"
+    writer = PSVIterable(str(dest), mode="w", keys=["name", "age", "city"])
+    try:
         for record in test_data:
             writer.write(record)
+    finally:
         writer.close()
 
-        # Verify written data
-        with open(tmp2_path, encoding="utf-8") as f:
-            lines = f.readlines()
-            assert "name|age|city" in lines[0]
-            assert "Alice|30|New York" in lines[1]
-
-        if os.path.exists(tmp2_path):
-            os.unlink(tmp2_path)
-    finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+    lines = dest.read_text(encoding="utf-8").splitlines()
+    assert "name|age|city" in lines[0]
+    assert "Alice|30|New York" in lines[1]
 
 
-def test_ssv_read_write():
+def test_ssv_read_write(tmp_path):
     """Test SSV (semicolon-separated values) read and write"""
     test_data = [{"name": "Alice", "age": "30", "city": "New York"}, {"name": "Bob", "age": "25", "city": "London"}]
 
-    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".ssv", encoding="utf-8") as tmp:
-        tmp_path = tmp.name
-        # Write header
-        tmp.write("name;age;city\n")
-        # Write data
-        for record in test_data:
-            tmp.write(f"{record['name']};{record['age']};{record['city']}\n")
+    src = tmp_path / "data.ssv"
+    src.write_text("name;age;city\nAlice;30;New York\nBob;25;London\n", encoding="utf-8")
 
+    reader = SSVIterable(str(src), mode="r")
     try:
-        # Read data
-        reader = SSVIterable(tmp_path, mode="r")
-        results = []
-        for record in reader:
-            results.append(record)
+        results = list(reader)
+    finally:
         reader.close()
 
-        assert len(results) == 2
-        assert results[0]["name"] == "Alice"
+    assert len(results) == 2
+    assert results[0]["name"] == "Alice"
 
-        # Write data
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".ssv", encoding="utf-8") as tmp2:
-            tmp2_path = tmp2.name
-
-        writer = SSVIterable(tmp2_path, mode="w", keys=["name", "age", "city"])
+    dest = tmp_path / "out.ssv"
+    writer = SSVIterable(str(dest), mode="w", keys=["name", "age", "city"])
+    try:
         for record in test_data:
             writer.write(record)
+    finally:
         writer.close()
 
-        # Verify written data
-        with open(tmp2_path, encoding="utf-8") as f:
-            lines = f.readlines()
-            assert "name;age;city" in lines[0]
-            assert "Alice;30;New York" in lines[1]
-
-        if os.path.exists(tmp2_path):
-            os.unlink(tmp2_path)
-    finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+    lines = dest.read_text(encoding="utf-8").splitlines()
+    assert "name;age;city" in lines[0]
+    assert "Alice;30;New York" in lines[1]
 
 
 def test_psv_id():

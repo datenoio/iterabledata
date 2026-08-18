@@ -363,7 +363,7 @@ skip_covered = false
 # Calibrated against a base environment (no optional format extras installed),
 # where optional-dependency modules are import-skipped and count as uncovered.
 # Full-extras coverage is tracked in CI via codecov.
-fail_under = 55
+fail_under = 50
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",

@@ -330,6 +330,11 @@ class Pipeline:
         stats["duration"] = time_end - time_start
 
         self._log_completion(stats, perf_debug)
+        if self.atomic and self.destination is not None:
+            try:
+                self.destination.close()
+            except Exception as e:
+                logger.debug("Error closing destination before atomic rename: %s", e)
         self._finalize_atomic()
 
         if self.final_func is not None:

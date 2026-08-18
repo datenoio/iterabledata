@@ -72,6 +72,7 @@ class TestAsyncBaseFileIterable:
             sync_iterable = CSVIterable(filename=temp_filename)
             async_iterable = AsyncBaseFileIterable(sync_iterable=sync_iterable)
             assert async_iterable._sync == sync_iterable
+            sync_iterable.close()
         finally:
             os.unlink(temp_filename)
 
