@@ -3,7 +3,6 @@
 ## Purpose
 
 Provide runnable example scripts and READMEs for high-level features (ops, database reading, ingest, pipeline, validate, convert) under `examples/`, so users can discover and run usage patterns without reading API docs alone.
-
 ## Requirements
 ### Requirement: Runnable examples for high-level features
 
@@ -33,4 +32,23 @@ The project SHALL provide runnable example scripts for high-level features (ops,
 
 - **WHEN** a user looks under `examples/convert/` (or `examples/converter/`)
 - **THEN** they find documentation (README) for the convert API and how to run the existing converter example
+
+### Requirement: Prompt-shaped cookbook examples
+The project SHALL provide a cookbook of short runnable examples under `examples/cookbook/` that
+match common LLM generation prompts (read a file, convert formats, inspect a dataset). Cookbook
+scripts SHALL use canonical public imports and context managers.
+
+#### Scenario: Cookbook directory present
+- **WHEN** a user looks under `examples/cookbook/`
+- **THEN** they find at least one script each for reading, converting, and inspecting
+- **AND** a README that lists the prompt each script answers
+
+#### Scenario: Cookbook uses public imports
+- **WHEN** CI inspects Python files under `examples/cookbook/`
+- **THEN** those files import `open_iterable` from `iterable` or `convert` from `iterable.convert`
+- **AND** they do not import `open_iterable` from `iterable.helpers.detect`
+
+#### Scenario: Cookbook scripts run against fixtures
+- **WHEN** the cookbook smoke test runs
+- **THEN** the read and inspect examples complete successfully against a committed CSV fixture
 
