@@ -154,7 +154,7 @@ To use different connection settings, modify the connection string and `iterable
 You can filter documents using the `filter` parameter:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable(
     'mongodb://localhost:27017/',

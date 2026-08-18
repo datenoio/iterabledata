@@ -40,7 +40,7 @@ The first entry also includes `feed_title`, `feed_link`, and `feed_description`.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("blog.rss") as source:
     for entry in source:

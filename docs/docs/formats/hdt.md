@@ -38,7 +38,7 @@ Requires a filename path. Streaming via `HDTDocument.search_triples()`.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("graph.hdt", format="hdt") as source:
     for triple in source:

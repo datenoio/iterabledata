@@ -1,6 +1,7 @@
 from fixdata import FIXTURES
+from optional_datatypes import require_datatype
 
-from iterable.datatypes import BSONIterable
+BSONIterable = require_datatype("BSONIterable")
 
 
 class TestBSON:

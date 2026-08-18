@@ -34,7 +34,7 @@ Writing is not fully implemented - requires schema-specific generated code.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Note: FlatBuffers requires generated Python code from schema
 # This is a simplified example

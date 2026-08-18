@@ -39,7 +39,7 @@ Use IterableData to read data and send to Claude for analysis:
 
 ```python
 import anthropic
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 import json
 
 # Initialize Claude client
@@ -77,7 +77,7 @@ Use Claude to intelligently convert between formats:
 
 ```python
 import anthropic
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.convert import convert
 import json
 
@@ -128,7 +128,7 @@ Use Claude to infer and document data schemas:
 
 ```python
 import anthropic
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.helpers.schema import infer_schema
 import json
 
@@ -182,7 +182,7 @@ Use Claude to plan transformations, then apply them with an explicit, reviewable
 
 ```python
 import anthropic
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.pipeline import pipeline
 import json
 
@@ -250,7 +250,7 @@ Use Claude to analyze data quality:
 
 ```python
 import anthropic
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 import json
 
 client = anthropic.Anthropic(api_key="YOUR_API_KEY")
@@ -319,7 +319,7 @@ Use Claude's tools (function calling) feature for structured operations:
 
 ```python
 import anthropic
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.convert import convert
 import json
 
@@ -787,7 +787,7 @@ def parallel_claude_analysis(filenames: list[str], question: str) -> dict:
 
 ```python
 import anthropic
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.convert import convert
 from iterable.pipeline import pipeline
 import json

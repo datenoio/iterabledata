@@ -6,88 +6,78 @@ description: Get started with Iterable Data in minutes
 
 # Quick Start
 
-This guide will help you get started with Iterable Data quickly. In just a few minutes, you'll be reading and writing data files in various formats.
+Install the **iterabledata** package, then import **iterable**. One function opens CSV, JSONL, Parquet, XML, and 100+ other formats (compression included).
 
-## Basic Reading
-
-The simplest way to use Iterable Data is with the `open_iterable()` function, which automatically detects the file format and compression:
-
-```python
-from iterable.helpers.detect import open_iterable
-
-# Automatically detects format and compression
-source = open_iterable('data.csv.gz')
-for row in source:
-    print(row)
-    # Process your data here
-source.close()
+```bash
+pip install iterabledata
 ```
 
-The function automatically:
-- Detects the file format from the extension (`.csv`, `.jsonl`, `.parquet`, etc.)
-- Detects compression codec (`.gz`, `.bz2`, `.xz`, `.zst`, etc.)
-- Opens the file with appropriate settings
-
-## Writing Data
-
-Writing data is just as simple:
-
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
-# Write compressed JSONL file
-dest = open_iterable('output.jsonl.zst', mode='w')
-for item in my_data:
-    dest.write(item)
-dest.close()
+with open_iterable("data.csv.gz") as source:
+    for row in source:
+        print(row)
 ```
 
-## Reading Different Formats
+`open_iterable()` detects format and compression from the filename (and falls back to content when needed).
 
-Iterable Data supports 80+ formats. Here are some common examples:
+## Write a file
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
-# Read JSONL file
-jsonl_file = open_iterable('data.jsonl')
-for row in jsonl_file:
-    print(row)
-jsonl_file.close()
-
-# Read Parquet file
-parquet_file = open_iterable('data.parquet')
-for row in parquet_file:
-    print(row)
-parquet_file.close()
-
-# Read XML file (specify tag name)
-xml_file = open_iterable('data.xml', iterableargs={'tagname': 'item'})
-for row in xml_file:
-    print(row)
-xml_file.close()
-
-# Read Excel file
-xlsx_file = open_iterable('data.xlsx')
-for row in xlsx_file:
-    print(row)
-xlsx_file.close()
+with open_iterable("output.jsonl.zst", mode="w") as dest:
+    for item in rows:
+        dest.write(item)
 ```
 
-## Format Conversion
+Always use a `with` statement so files and codecs close automatically.
 
-Convert between formats easily:
+## Convert formats
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.convert.core import convert
+from iterable.convert import convert
 
-# Simple format conversion
-convert('input.jsonl.gz', 'output.parquet')
+convert("input.jsonl.gz", "output.parquet")
+```
+
+## Common formats
+
+```python
+from iterable import open_iterable
+
+with open_iterable("data.jsonl") as source:
+    for row in source:
+        print(row)
+
+with open_iterable("data.parquet") as source:
+    for row in source:
+        print(row)
+
+with open_iterable("data.xml", iterableargs={"tagname": "item"}) as source:
+    for row in source:
+        print(row)
+
+with open_iterable("data.xlsx") as source:
+    for row in source:
+        print(row)
+```
+
+XML needs a record tag name via `iterableargs={"tagname": "..."}`. Some formats need extras, for example `pip install iterabledata[parquet]` or `iterabledata[excel]`.
+
+## Inspect an unknown file
+
+```python
+from iterable.ops import inspect, schema
+
+print(inspect.analyze("data.csv"))
+print(schema.infer("data.csv"))
 ```
 
 ## What's Next?
 
-- [Basic Usage](/getting-started/basic-usage) - Learn more advanced patterns
-- [Use Cases](/use-cases/format-conversion) - See real-world examples
-- [API Reference](/api/open-iterable) - Explore the full API
+- [When to use IterableData](/getting-started/when-to-use) — vs pandas and the standard library
+- [Cookbook](/getting-started/cookbook) — prompt-shaped recipes
+- [Basic Usage](/getting-started/basic-usage) — compression, encoding, pipelines
+- [API Reference](/api/open-iterable) — `open_iterable()` details

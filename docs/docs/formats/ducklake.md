@@ -19,7 +19,7 @@ pip install iterabledata[ducklake]
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 meta = "meta.duckdb"
 data_path = "./data"

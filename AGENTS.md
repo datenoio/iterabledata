@@ -88,10 +88,12 @@ Instructions for AI coding agents working on the IterableData project.
 
 ## Import patterns
 
-- Main entry point: `from iterable.helpers.detect import open_iterable`
-- Format-specific: `from iterable.datatypes.csv import CSVIterable`
-- Codecs: `from iterable.codecs.gzipcodec import GZIPCodec`
+- Main entry point: `from iterable import open_iterable`
+- Convert: `from iterable.convert import convert`
+- Format-specific (advanced): `from iterable.datatypes.csv import CSVIterable`
+- Codecs (advanced): `from iterable.codecs.gzipcodec import GZIPCodec`
 - Always use `open_iterable()` for user-facing code; direct class usage is for advanced cases
+- PyPI package is `iterabledata`; import package is `iterable`. Do not document the internal `iterable.helpers.detect` path as the default import.
 
 ## File handling
 
@@ -165,7 +167,7 @@ Instructions for AI coding agents working on the IterableData project.
 
 ## Development tips
 
-- Use `iterable.helpers.detect.open_iterable()` for most use cases
+- Use `open_iterable()` for most use cases (`from iterable import open_iterable`)
 - Check existing format implementations for patterns
 - Look at `tests/test_*.py` files for usage examples
 - Test with compressed files (`.gz`, `.bz2`, `.xz`, `.zst`, etc.)
@@ -217,6 +219,7 @@ Skills are automatically applied by Cursor AI when relevant. See `.cursor/skills
 - Main documentation: See `README.md` and `docs/` directory
 - API reference: `docs/docs/api/`
 - Format documentation: `docs/docs/formats/`
-- Examples: `examples/` directory
+- Examples: `examples/` and `examples/cookbook/`
+- Portable usage skill: `skills/iterabledata/SKILL.md`
 - AI Integration guides: `docs/integrations/` directory
 

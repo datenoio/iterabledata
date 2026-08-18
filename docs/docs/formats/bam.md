@@ -42,7 +42,7 @@ Requires a filename (streams not supported).
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("alignments.bam", format="bam") as source:
     for aln in source:

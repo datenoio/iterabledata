@@ -39,7 +39,7 @@ Writing support:
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from my_proto_pb2 import MyMessage  # Generated from .proto file
 
 # Reading

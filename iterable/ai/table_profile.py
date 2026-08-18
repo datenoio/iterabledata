@@ -9,12 +9,11 @@ completeness flags. Full table materialization is never required.
 from __future__ import annotations
 
 import time
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-from iterable.ai import fileinfo
-from iterable.ai import sampling
+from iterable.ai import fileinfo, sampling
 from iterable.ops import schema as schema_ops
 from iterable.ops import stats as stats_ops
 from iterable.types import Row

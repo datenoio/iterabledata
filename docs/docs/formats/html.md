@@ -36,7 +36,7 @@ Writing is not currently supported for HTML format.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager (automatic cleanup)
 # Basic reading - first table
@@ -165,7 +165,7 @@ Tables are identified in `list_tables()` by:
 ## Error Handling
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 try:
     # Reading with error handling

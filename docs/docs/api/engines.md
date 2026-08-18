@@ -22,7 +22,7 @@ The internal engine uses pure Python implementations for all formats. It support
 ### Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Internal engine is the default
 # Recommended: Using context manager
@@ -72,7 +72,7 @@ pip install duckdb
 ### Basic Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager
 # Use DuckDB engine
@@ -91,7 +91,7 @@ with open_iterable('data.csv.gz', engine='duckdb') as source:
 Only read specific columns to reduce I/O and memory usage:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Only read 'name' and 'age' columns
 with open_iterable('data.csv', engine='duckdb', 
@@ -105,7 +105,7 @@ with open_iterable('data.csv', engine='duckdb',
 Filter rows at the database level for maximum performance:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # SQL string filter
 with open_iterable('data.csv', engine='duckdb',
@@ -125,7 +125,7 @@ with open_iterable('data.csv', engine='duckdb',
 Combine column projection and filtering for maximum efficiency:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Read only 'name' and 'age' columns, filtered by age > 18
 with open_iterable('data.csv', engine='duckdb',
@@ -142,7 +142,7 @@ with open_iterable('data.csv', engine='duckdb',
 Execute full SQL queries while maintaining the iterator interface:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Custom SQL query with ORDER BY and LIMIT
 with open_iterable('data.parquet', engine='duckdb',
@@ -228,7 +228,7 @@ for row in result:
 ## Error Handling
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 try:
     # Using DuckDB engine with error handling
@@ -310,7 +310,7 @@ pip install clickhouse-connect
 ### Basic Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Read from PostgreSQL database
 with open_iterable(
@@ -363,7 +363,7 @@ with open_iterable(
 #### PostgreSQL
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Read table
 with open_iterable(
@@ -391,7 +391,7 @@ with open_iterable(
 #### ClickHouse
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Read table
 with open_iterable(
@@ -437,7 +437,7 @@ with open_iterable(
 ### Error Handling
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 try:
     with open_iterable(

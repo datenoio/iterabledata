@@ -39,7 +39,7 @@ Use IterableData to read data and send to OpenAI for analysis:
 
 ```python
 from openai import OpenAI
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 import json
 
 # Initialize OpenAI client
@@ -78,7 +78,7 @@ Use OpenAI to intelligently convert between formats:
 
 ```python
 from openai import OpenAI
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.convert import convert
 import json
 
@@ -129,7 +129,7 @@ Use OpenAI to infer and document data schemas:
 
 ```python
 from openai import OpenAI
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.helpers.schema import infer_schema
 import json
 
@@ -183,7 +183,7 @@ Use OpenAI to plan transformations, then apply an explicit, reviewable function 
 
 ```python
 from openai import OpenAI
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.pipeline import pipeline
 import json
 
@@ -238,7 +238,7 @@ Use OpenAI to analyze data quality:
 
 ```python
 from openai import OpenAI
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 import json
 
 client = OpenAI(api_key="YOUR_API_KEY")
@@ -307,7 +307,7 @@ Use OpenAI's function calling feature for structured operations:
 
 ```python
 from openai import OpenAI
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.convert import convert
 import json
 
@@ -451,7 +451,7 @@ Use OpenAI's Assistants API for persistent, stateful data processing workflows:
 
 ```python
 from openai import OpenAI
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 import json
 
 client = OpenAI(api_key="YOUR_API_KEY")
@@ -530,7 +530,7 @@ Use OpenAI's structured outputs feature for consistent data analysis results:
 
 ```python
 from openai import OpenAI
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 import json
 from typing import List, Dict, Optional
 
@@ -965,7 +965,7 @@ def parallel_openai_analysis(filenames: list[str], question: str) -> dict:
 
 ```python
 from openai import OpenAI
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.convert import convert
 from iterable.pipeline import pipeline
 import json

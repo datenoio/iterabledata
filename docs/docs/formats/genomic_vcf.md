@@ -36,7 +36,7 @@ naming the `bio` extra.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("variants.vcf") as source:
     for variant in source:

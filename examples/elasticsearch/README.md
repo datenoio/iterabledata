@@ -153,7 +153,7 @@ To use different connection settings, modify the connection URL and `iterablearg
 You can filter documents using the `body` parameter with Elasticsearch query DSL:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable(
     'http://localhost:9200',
@@ -239,7 +239,7 @@ iterableargs={
 Configure timeouts to handle slow queries or network issues:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable(
     'http://localhost:9200',
@@ -312,7 +312,7 @@ There are several ways to authenticate with Elasticsearch clusters:
 Include credentials directly in the connection URL:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 connection_url = "https://username:password@localhost:9200"
 
@@ -338,7 +338,7 @@ The `api_key` parameter accepts either:
 - **Tuple format**: `(id, api_key)` if you have both
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Option A: API key as string (most common)
 with open_iterable(
@@ -378,7 +378,7 @@ with open_iterable(
 Pass username and password using `basic_auth`:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable(
     "https://localhost:9200",
@@ -402,7 +402,7 @@ Create an Elasticsearch client with authentication and pass it directly:
 
 ```python
 from elasticsearch import Elasticsearch
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Create client with API key (string or tuple format)
 es = Elasticsearch(
@@ -436,7 +436,7 @@ For security, you can load credentials from environment variables:
 
 ```python
 import os
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Option A: Just API key (most common)
 api_key = os.getenv("ELASTICSEARCH_API_KEY")

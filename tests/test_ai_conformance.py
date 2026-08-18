@@ -16,7 +16,7 @@ from iterable.ops import inspect
 class TestAIDocConformance:
     def test_generate_markdown_with_mock_openai(self):
         """Scenario: Generate markdown documentation."""
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Dataset Documentation\n\nOverview."
             mock_provider.get_usage_info.return_value = {"total_tokens": 100}
@@ -30,7 +30,7 @@ class TestAIDocConformance:
 
     def test_generate_json_format(self):
         """Scenario: Generate JSON documentation."""
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Docs"
             mock_provider.get_usage_info.return_value = {"total_tokens": 50}
@@ -44,7 +44,7 @@ class TestAIDocConformance:
 
     def test_missing_provider_dependency(self):
         """Scenario: Handle missing dependencies."""
-        with patch("iterable.ai.doc.get_provider", side_effect=ImportError("pip install openai")):
+        with patch.object(doc, "get_provider", side_effect=ImportError("pip install openai")):
             with pytest.raises(ImportError, match="pip install openai"):
                 doc.generate([{"id": 1}], provider="openai")
 
@@ -53,7 +53,7 @@ class TestAIDocConformance:
 class TestAutodocConformance:
     def test_autodoc_in_analyze(self):
         """Scenario: Autodoc in analyze function."""
-        with patch("iterable.ai.doc.generate") as mock_generate:
+        with patch.object(doc, "generate") as mock_generate:
             mock_generate.return_value = {
                 "documentation": "# Doc",
                 "usage": {"total_tokens": 10},
@@ -66,6 +66,6 @@ class TestAutodocConformance:
 
     def test_autodoc_missing_dependencies(self):
         """Scenario: Autodoc missing dependencies."""
-        with patch("iterable.ai.doc.generate", side_effect=ImportError("install iterabledata[ai]")):
+        with patch.object(doc, "generate", side_effect=ImportError("install iterabledata[ai]")):
             with pytest.raises(ImportError):
                 inspect.analyze("fixtures/2cols6rows.csv", autodoc=True)

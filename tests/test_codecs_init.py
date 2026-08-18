@@ -22,54 +22,10 @@ class TestCodecsInit:
 
     def test_optional_codecs_conditional(self):
         """Test that optional codecs are conditionally imported"""
-        # Try to import optional codecs - they may or may not be available
-        try:
-            from iterable.codecs import BrotliCodec
+        from iterable.codecs import BrotliCodec, LZ4Codec, LZOCodec, SnappyCodec, SZipCodec, ZSTDCodec
 
-            assert BrotliCodec is not None
-        except ImportError:
-            # Brotli codec not available - this is expected
-            pass
-
-        try:
-            from iterable.codecs import LZ4Codec
-
-            assert LZ4Codec is not None
-        except (ImportError, NameError):
-            # LZ4 codec not available - this is expected
-            pass
-
-        try:
-            from iterable.codecs import LZOCodec
-
-            assert LZOCodec is not None
-        except (ImportError, NameError):
-            # LZO codec not available - this is expected
-            pass
-
-        try:
-            from iterable.codecs import SnappyCodec
-
-            assert SnappyCodec is not None
-        except (ImportError, NameError):
-            # Snappy codec not available - this is expected
-            pass
-
-        try:
-            from iterable.codecs import ZSTDCodec
-
-            assert ZSTDCodec is not None
-        except (ImportError, NameError):
-            # ZSTD codec not available - this is expected
-            pass
-
-        try:
-            from iterable.codecs import SZipCodec
-
-            assert SZipCodec is not None
-        except (ImportError, NameError):
-            # SZip codec not available - this is expected
-            pass
+        for codec_cls in (BrotliCodec, LZ4Codec, LZOCodec, SnappyCodec, ZSTDCodec, SZipCodec):
+            assert codec_cls is None or hasattr(codec_cls, "fileexts")
 
     def test_gzip_codec_import(self):
         """Test GZIPCodec can be imported"""

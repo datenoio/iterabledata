@@ -1,6 +1,9 @@
+import pytest
 from fixdata import FIXTURES_BOOKS
 
-from iterable.datatypes import XMLIterable
+pytest.importorskip("lxml", reason="lxml is required for XML support")
+
+from iterable.datatypes import XMLIterable  # noqa: E402
 
 
 class TestXML:

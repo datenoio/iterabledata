@@ -13,7 +13,7 @@ class TestAIDoc:
     def test_generate_mock_openai(self):
         """Test documentation generation with mocked OpenAI provider."""
         # Mock get_provider so we don't need the openai package or API
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Dataset Documentation\n\nThis is test documentation."
             mock_provider.get_usage_info.return_value = {"total_tokens": 150}
@@ -31,7 +31,7 @@ class TestAIDoc:
     def test_generate_with_file_path(self):
         """Test generating documentation from file path."""
         # Mock the provider to avoid actual API calls
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Test Documentation"
             mock_provider.get_usage_info.return_value = {"total_tokens": 100}
@@ -54,7 +54,7 @@ class TestAIDoc:
             {"id": 2, "name": "Jane"},
         ]
 
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Test Documentation"
             mock_provider.get_usage_info.return_value = {"total_tokens": 100}
@@ -72,7 +72,7 @@ class TestAIDoc:
         """Test generating documentation in JSON format."""
         rows = [{"id": 1, "name": "Test"}]
 
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Test Documentation"
             mock_provider.get_usage_info.return_value = {"total_tokens": 100}
@@ -92,7 +92,7 @@ class TestAIDoc:
         """Test generating documentation in HTML format."""
         rows = [{"id": 1, "name": "Test"}]
 
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Test Documentation"
             mock_provider.get_usage_info.return_value = None
@@ -111,7 +111,7 @@ class TestAIDoc:
         """Test generating documentation without schema."""
         rows = [{"id": 1, "name": "Test"}]
 
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Test Documentation"
             mock_provider.get_usage_info.return_value = None
@@ -129,7 +129,7 @@ class TestAIDoc:
         """Test generating documentation without samples."""
         rows = [{"id": 1, "name": "Test"}]
 
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Test Documentation"
             mock_provider.get_usage_info.return_value = None
@@ -165,7 +165,7 @@ class TestAIDoc:
         """Test generating documentation in YAML format."""
         rows = [{"id": 1, "name": "Test"}]
 
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Test Documentation"
             mock_provider.get_usage_info.return_value = {"total_tokens": 100}
@@ -185,7 +185,7 @@ class TestAIDoc:
         """Test generating documentation in text format."""
         rows = [{"id": 1, "name": "Test"}]
 
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Test Documentation\n\nSome content."
             mock_provider.get_usage_info.return_value = None
@@ -207,7 +207,7 @@ class TestAIDoc:
             {"country": "USA", "region": "New York", "date": "2024-01-02"},
         ]
 
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Test Documentation"
             mock_provider.get_usage_info.return_value = None
@@ -228,7 +228,7 @@ class TestAIDoc:
         """Test generating documentation with field descriptions."""
         rows = [{"id": 1, "name": "Test"}]
 
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Test Documentation"
             mock_provider.get_fields_info.return_value = {"id": "Identifier", "name": "Name"}
@@ -248,7 +248,7 @@ class TestAIDoc:
         """Test generating documentation with statistics."""
         rows = [{"id": 1, "value": 10}, {"id": 2, "value": 20}]
 
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Test Documentation"
             mock_provider.get_usage_info.return_value = None
@@ -267,7 +267,7 @@ class TestAIDoc:
         """Test generating documentation without metadata extraction."""
         rows = [{"id": 1, "name": "Test"}]
 
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Test Documentation"
             mock_provider.get_usage_info.return_value = None
@@ -285,7 +285,7 @@ class TestAIDoc:
         """Test generating documentation with specific language."""
         rows = [{"id": 1, "name": "Test"}]
 
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = "# Test Documentation"
             mock_provider.get_usage_info.return_value = None

@@ -4,9 +4,11 @@ import os
 import zipfile
 
 import pytest
+from optional_datatypes import require_datatype
 
-from iterable.datatypes import KMZIterable
 from iterable.helpers.detect import open_iterable
+
+KMZIterable = require_datatype("KMZIterable")
 
 FIXTURE_KML = "fixtures/2cols6rows.kml"
 KMZ_OUT = "testdata/sample.kmz"

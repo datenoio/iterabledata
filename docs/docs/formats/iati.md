@@ -34,7 +34,7 @@ Streaming via `lxml` iterparse. Filename or stream supported.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("activities.iati.xml", format="iati") as source:
     for activity in source:

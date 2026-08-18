@@ -21,7 +21,7 @@ This guide helps you resolve common issues when using Iterable Data.
 
 ```python
 import os
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 file_path = 'data.csv.gz'
 if os.path.exists(file_path):
@@ -43,7 +43,7 @@ else:
 - Use encoding detection utilities
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.helpers.utils import detect_encoding
 
 # Detect encoding first
@@ -71,7 +71,7 @@ with open_iterable('data.csv', iterableargs={
 - Consider using DuckDB engine for large CSV/JSONL files
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Process in smaller batches
 with open_iterable('large_file.csv') as source:
@@ -118,7 +118,7 @@ print(f"Success: {result['success']}")
 - Verify CSV file has proper quoting for fields containing delimiters
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Auto-detect delimiter
 with open_iterable('data.csv', iterableargs={
@@ -157,7 +157,7 @@ with open_iterable('data.csv', iterableargs={
 
 ```python
 import json
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 try:
     with open_iterable('data.jsonl') as source:
@@ -280,7 +280,7 @@ with open_iterable('output.jsonl', mode='w') as dest:
 - Consider using pipeline for more control
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 convert(
     'input.jsonl.gz',
@@ -334,7 +334,7 @@ except ImportError:
 - Enable `debug=True` to see exceptions
 
 ```python
-from iterable.pipeline.core import pipeline
+from iterable.pipeline import pipeline
 
 def transform_record(record, state):
     # Must return dict or None
@@ -604,7 +604,7 @@ Debug mode provides comprehensive logging for troubleshooting format detection, 
 #### Using Debug Parameter
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Enable debug mode for a specific operation
 with open_iterable('data.csv', debug=True) as source:
@@ -662,7 +662,7 @@ Debug mode provides detailed logging for:
 #### Debug Mode in Pipelines
 
 ```python
-from iterable.pipeline.core import pipeline
+from iterable.pipeline import pipeline
 
 # Enable debug mode in pipeline
 result = pipeline(

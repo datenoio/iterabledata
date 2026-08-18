@@ -8,6 +8,12 @@ description: Convert data between different file formats
 
 The `convert()` function converts data between different file formats with automatic format detection, schema extraction, and efficient batch processing.
 
+Canonical import:
+
+```python
+from iterable.convert import convert
+```
+
 ## Signature
 
 ```python
@@ -112,7 +118,7 @@ Returns a `ConversionResult` object containing conversion metrics:
 ### Simple Conversion
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Convert JSONL to Parquet (handles compression automatically)
 convert('input.jsonl.gz', 'output.parquet')
@@ -121,7 +127,7 @@ convert('input.jsonl.gz', 'output.parquet')
 ### Conversion with Options
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Convert CSV with custom delimiter
 convert(
@@ -135,7 +141,7 @@ convert(
 ### Flattening Nested Structures
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Convert JSONL to CSV with flattening
 convert(
@@ -149,7 +155,7 @@ convert(
 ### With Progress Tracking
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Show progress during conversion
 convert(
@@ -163,7 +169,7 @@ convert(
 ### With Progress Callback
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 def progress_callback(stats):
     print(f"Progress: {stats['rows_read']} rows read, "
@@ -182,7 +188,7 @@ print(f"Conversion complete: {result.rows_out} rows in {result.elapsed_seconds:.
 ### With Progress Bar
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Show progress bar (uses tqdm if available)
 result = convert(
@@ -195,7 +201,7 @@ result = convert(
 ### Converting from Database to File
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Convert PostgreSQL table to Parquet
 convert(
@@ -250,7 +256,7 @@ print(f"Time: {result.elapsed_seconds:.2f} seconds")
 ### With Atomic Writes (Production Safety)
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Use atomic writes for production safety
 # Ensures output file is never left in partial state
@@ -267,7 +273,7 @@ result = convert(
 ### Accessing Conversion Metrics
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 result = convert('input.csv', 'output.jsonl')
 
@@ -282,7 +288,7 @@ else:
 ### Converting from Database to File
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Convert PostgreSQL table to Parquet
 convert(
@@ -346,7 +352,7 @@ You can convert between any supported formats:
 ## Error Handling
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 try:
     # Convert with error handling
@@ -509,7 +515,7 @@ Returns a `BulkConversionResult` object containing aggregated metrics:
 #### Convert Files Matching Glob Pattern
 
 ```python
-from iterable.convert.core import bulk_convert
+from iterable.convert import bulk_convert
 
 # Convert all compressed CSV files to Parquet
 result = bulk_convert(
@@ -525,7 +531,7 @@ print(f"Total rows: {result.total_rows_out}")
 #### Convert with Custom Filename Pattern
 
 ```python
-from iterable.convert.core import bulk_convert
+from iterable.convert import bulk_convert
 
 # Convert CSV files with custom pattern
 result = bulk_convert(
@@ -545,7 +551,7 @@ result = bulk_convert(
 #### Convert Entire Directory
 
 ```python
-from iterable.convert.core import bulk_convert
+from iterable.convert import bulk_convert
 
 # Convert all files in directory
 result = bulk_convert(
@@ -558,7 +564,7 @@ result = bulk_convert(
 #### Convert with All Parameters
 
 ```python
-from iterable.convert.core import bulk_convert
+from iterable.convert import bulk_convert
 
 # Convert with custom batch size and flattening
 result = bulk_convert(
@@ -574,7 +580,7 @@ result = bulk_convert(
 #### Handle Results and Errors
 
 ```python
-from iterable.convert.core import bulk_convert
+from iterable.convert import bulk_convert
 
 result = bulk_convert('data/*.csv', 'output/', to_ext='jsonl')
 
@@ -597,7 +603,7 @@ print(f"Total throughput: {result.throughput:.0f} rows/second")
 #### Progress Tracking
 
 ```python
-from iterable.convert.core import bulk_convert
+from iterable.convert import bulk_convert
 
 def progress_callback(stats):
     print(f"File {stats['file_index']}/{stats['total_files']}: "
@@ -616,7 +622,7 @@ result = bulk_convert(
 #### Parallel Conversion
 
 ```python
-from iterable.convert.core import bulk_convert
+from iterable.convert import bulk_convert
 
 # Convert multiple files in parallel for faster processing
 result = bulk_convert(
@@ -642,7 +648,7 @@ print(f"Total time: {result.total_elapsed_seconds:.2f}s")
 `bulk_convert()` continues processing remaining files even if one fails. Errors are collected in the result object:
 
 ```python
-from iterable.convert.core import bulk_convert
+from iterable.convert import bulk_convert
 
 result = bulk_convert('data/*.csv', 'output/', to_ext='jsonl')
 

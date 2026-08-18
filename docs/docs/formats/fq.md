@@ -33,7 +33,7 @@ Read FASTQ reads as one record per four-line block (stdlib; no extra).
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("reads.fq") as source:
     for rec in source:

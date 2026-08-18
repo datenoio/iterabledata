@@ -8,6 +8,12 @@ description: Main entry point for opening data files
 
 The `open_iterable()` function is the main entry point for reading and writing data files. It automatically detects the file format and compression codec from the filename.
 
+Canonical import (PyPI package `iterabledata`, import package `iterable`):
+
+```python
+from iterable import open_iterable
+```
+
 ## Signature
 
 ```python
@@ -123,7 +129,7 @@ Returns a `BaseIterable` object that can be iterated over or used for writing.
 ### Basic Reading
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Automatically detects format and compression
 with open_iterable('data.csv.gz') as source:
@@ -134,7 +140,7 @@ with open_iterable('data.csv.gz') as source:
 ### Writing Data
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable('output.jsonl.zst', mode='w') as dest:
     dest.write({'name': 'John', 'age': 30})
@@ -143,7 +149,7 @@ with open_iterable('output.jsonl.zst', mode='w') as dest:
 ### With Format-Specific Options
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # CSV with custom delimiter
 with open_iterable('data.csv', iterableargs={
@@ -171,7 +177,7 @@ with open_iterable('data.xlsx', iterableargs={
 ### Using DuckDB Engine
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Use DuckDB for fast queries
 with open_iterable('data.csv.gz', engine='duckdb') as source:
@@ -183,7 +189,7 @@ with open_iterable('data.csv.gz', engine='duckdb') as source:
 ### Using Database Engines
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Read from PostgreSQL database
 with open_iterable(
@@ -249,7 +255,7 @@ The function supports 140+ formats. See [Supported Formats](/formats/) for a com
 ## Error Handling
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager with error handling
 try:
@@ -308,7 +314,7 @@ The library uses a comprehensive exception hierarchy for better error handling:
 
 **Example Error Handling:**
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.exceptions import (
     FormatDetectionError,
     FormatNotSupportedError,
@@ -385,7 +391,7 @@ Binary formats are identified by their unique "magic numbers" - specific byte se
 
 **Example:**
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # File without extension but with Parquet magic number
 with open_iterable('data') as source:  # Contains PAR1 magic number
@@ -409,7 +415,7 @@ Text formats are identified using content heuristics that analyze the structure 
 
 **Example:**
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # File without extension but with JSON content
 with open_iterable('data') as source:  # Contains {"name": "test"}
@@ -446,7 +452,7 @@ Content-based detection is automatically used in these scenarios:
 If automatic detection fails or you want to override it, you can specify the format explicitly:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Specify format explicitly (bypasses detection)
 with open_iterable('data', iterableargs={'format': 'json'}) as source:
@@ -537,7 +543,7 @@ Read-ahead caching prefetches rows ahead of consumption to reduce I/O wait time,
 **Enable Read-Ahead:**
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Enable read-ahead with default settings (buffer size: 10 rows)
 with open_iterable(

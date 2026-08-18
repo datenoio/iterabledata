@@ -31,7 +31,7 @@ Requires NetworkX with pydot support for DOT parsing.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("graph.dot") as source:
     for rec in source:

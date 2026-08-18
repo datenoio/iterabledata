@@ -33,7 +33,7 @@ Writing is not currently supported for HOCON format.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Basic reading
 source = open_iterable('config.hocon')

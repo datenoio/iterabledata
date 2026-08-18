@@ -718,7 +718,7 @@ Suggest whitelisted transform operations for a goal (samples are redacted by def
 ```python
 from iterable.ai.suggest import suggest_transform
 from iterable.ops.transform import apply_spec
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("users.csv") as source:
     spec = suggest_transform(source, goal="normalize email addresses")
@@ -731,7 +731,7 @@ Parse a simple DSL into a safe filter AST and apply it:
 
 ```python
 from iterable.ai.filter import translate_filter, apply_ast
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 result = translate_filter("age > 30 and country = 'US'")
 with open_iterable("users.csv") as source:

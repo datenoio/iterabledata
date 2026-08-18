@@ -30,7 +30,7 @@ By default the first elevation dataset under `/BAG_root` is used. Override with 
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("survey.bag", format="bag") as source:
     for cell in source:

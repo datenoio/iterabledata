@@ -136,7 +136,7 @@ else:
 When attempting to write to a read-only format, you'll receive a `WriteNotSupportedError`:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.exceptions import WriteNotSupportedError
 
 try:
@@ -211,7 +211,7 @@ If you need to write data in a format that's currently read-only, consider:
 
 1. **Convert to a writable format**: Read from the read-only format and write to a writable one:
    ```python
-   from iterable.helpers.detect import open_iterable
+   from iterable import open_iterable
    
    # Read from read-only format
    with open_iterable("data.sas") as source:
@@ -409,7 +409,7 @@ print(f"Recommended format: {format_id}")
 #### Example 2: Adaptive Code Based on Capabilities
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.helpers.capabilities import get_capability
 
 def process_file(filename, format_id):

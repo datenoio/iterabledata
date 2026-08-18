@@ -35,7 +35,7 @@ Writing is not currently supported for MySQL Dump format.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Basic reading (all tables)
 source = open_iterable('dump.sql')

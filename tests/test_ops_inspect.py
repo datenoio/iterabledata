@@ -2,8 +2,11 @@
 Tests for ops.inspect module.
 """
 
+from unittest.mock import patch
+
 import pytest
 
+from iterable.ai import doc
 from iterable.ops import inspect
 
 
@@ -140,9 +143,8 @@ class TestInspect:
 
     def test_analyze_autodoc_enabled(self):
         """Test analyze with autodoc calls AI documentation generation."""
-        from unittest.mock import patch
 
-        with patch("iterable.ai.doc.generate") as mock_generate:
+        with patch.object(doc, "generate") as mock_generate:
             mock_generate.return_value = {
                 "documentation": "# Dataset Documentation\n\nOverview text.",
                 "usage": {"total_tokens": 42},
@@ -166,10 +168,9 @@ class TestInspect:
 
     def test_analyze_autodoc_iterable_input(self):
         """Test autodoc with in-memory iterable passes collected rows."""
-        from unittest.mock import patch
 
         rows = [{"a": 1, "b": "x"}, {"a": 2, "b": "y"}]
-        with patch("iterable.ai.doc.generate") as mock_generate:
+        with patch.object(doc, "generate") as mock_generate:
             mock_generate.return_value = {"documentation": "doc", "usage": {}}
             inspect.analyze(rows, autodoc=True)
 
@@ -177,8 +178,7 @@ class TestInspect:
 
     def test_analyze_autodoc_missing_dependencies(self):
         """Test autodoc propagates ImportError when AI dependencies are missing."""
-        from unittest.mock import patch
 
-        with patch("iterable.ai.doc.generate", side_effect=ImportError("pip install openai")):
+        with patch.object(doc, "generate", side_effect=ImportError("pip install openai")):
             with pytest.raises(ImportError, match="pip install openai"):
                 inspect.analyze("fixtures/2cols6rows.csv", autodoc=True)

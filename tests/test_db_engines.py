@@ -6,11 +6,18 @@ Tests database drivers, integration with open_iterable(), convert(), and pipelin
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+import iterable.db.clickhouse as clickhouse_mod
+import iterable.db.elasticsearch as elasticsearch_mod
+import iterable.db.mongo as mongo_mod
+import iterable.db.mssql as mssql_mod
+import iterable.db.mysql as mysql_mod
+import iterable.db.postgres as postgres_mod
 from iterable.db import get_driver, is_database_engine, list_drivers, register_driver
 from iterable.db.base import DBDriver
 from iterable.db.iterable import DatabaseIterable
@@ -47,12 +54,29 @@ except ImportError:
     ElasticsearchDriver = None  # type: ignore
 
 
+def _close_iterables_and_unlink(path: str, *iterables: object) -> None:
+    """Close write handles before deleting so Windows can unlink the temp file."""
+    for obj in iterables:
+        closer = getattr(obj, "close", None)
+        if closer is None:
+            continue
+        try:
+            closer()
+        except Exception:
+            pass
+    if os.path.exists(path):
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
 class TestPostgresDriver:
     """Test PostgreSQL driver implementation."""
 
     def test_connect_with_connection_string(self):
         """Test connection with connection string."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             mock_conn = MagicMock()
             mock_psycopg2.connect.return_value = mock_conn
 
@@ -94,7 +118,7 @@ class TestPostgresDriver:
 
     def test_connect_with_connect_args(self):
         """Test connection with additional connect_args."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             mock_conn = MagicMock()
             mock_psycopg2.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -112,7 +136,7 @@ class TestPostgresDriver:
 
     def test_read_only_transaction(self):
         """Test read-only transaction is set."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             isolation_level = mock_psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
 
             mock_conn = MagicMock()
@@ -171,7 +195,7 @@ class TestPostgresDriver:
 
     def test_iterate_with_server_side_cursor(self):
         """Test streaming iteration with server-side cursor."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             mock_conn = MagicMock()
             mock_psycopg2.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -194,7 +218,7 @@ class TestPostgresDriver:
 
     def test_iterate_with_regular_cursor(self):
         """Test iteration with regular cursor (no server-side)."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             mock_conn = MagicMock()
             mock_psycopg2.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -212,7 +236,7 @@ class TestPostgresDriver:
 
     def test_iterate_empty_result_set(self):
         """Test iteration with empty result set."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             mock_conn = MagicMock()
             mock_psycopg2.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -228,7 +252,7 @@ class TestPostgresDriver:
 
     def test_iterate_no_columns(self):
         """Test iteration with no column description."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             mock_conn = MagicMock()
             mock_psycopg2.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -245,7 +269,7 @@ class TestPostgresDriver:
 
     def test_metrics_tracking(self):
         """Test metrics are tracked during iteration."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             mock_conn = MagicMock()
             mock_psycopg2.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -266,7 +290,7 @@ class TestPostgresDriver:
 
     def test_list_tables(self):
         """Test list_tables() helper function."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             mock_conn = MagicMock()
             mock_psycopg2.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -284,7 +308,7 @@ class TestPostgresDriver:
 
     def test_list_tables_with_schema(self):
         """Test list_tables() with schema filter."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             mock_conn = MagicMock()
             mock_psycopg2.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -297,7 +321,7 @@ class TestPostgresDriver:
 
     def test_error_handling_raise(self):
         """Test error handling with 'raise' policy."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             mock_conn = MagicMock()
             mock_psycopg2.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -312,7 +336,7 @@ class TestPostgresDriver:
 
     def test_error_handling_skip(self):
         """Test error handling with 'skip' policy."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             mock_conn = MagicMock()
             mock_psycopg2.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -327,7 +351,7 @@ class TestPostgresDriver:
 
     def test_close_cleans_up_cursor(self):
         """Test close() cleans up cursor."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             mock_conn = MagicMock()
             mock_psycopg2.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -711,7 +735,6 @@ class TestPipelineIntegration:
                 mock_postgres_driver_class.return_value = mock_driver
                 mock_get_driver.return_value = mock_postgres_driver_class
 
-                import os
                 import tempfile
 
                 from iterable.helpers.detect import open_iterable
@@ -720,6 +743,8 @@ class TestPipelineIntegration:
                 with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as tmp:
                     tmp_path = tmp.name
 
+                source = None
+                dest = None
                 try:
                     source = open_iterable(
                         "postgresql://localhost/db",
@@ -733,8 +758,7 @@ class TestPipelineIntegration:
 
                     assert result.rows_processed > 0
                 finally:
-                    if os.path.exists(tmp_path):
-                        os.unlink(tmp_path)
+                    _close_iterables_and_unlink(tmp_path, dest, source)
 
     @pytest.mark.skipif(ClickHouseDriver is None, reason="clickhouse-connect not installed")
     def test_pipeline_with_clickhouse_source(self):
@@ -748,7 +772,6 @@ class TestPipelineIntegration:
                 mock_clickhouse_driver_class.return_value = mock_driver
                 mock_get_driver.return_value = mock_clickhouse_driver_class
 
-                import os
                 import tempfile
 
                 from iterable.helpers.detect import open_iterable
@@ -757,6 +780,8 @@ class TestPipelineIntegration:
                 with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as tmp:
                     tmp_path = tmp.name
 
+                source = None
+                dest = None
                 try:
                     source = open_iterable(
                         "clickhouse://localhost/db",
@@ -770,8 +795,7 @@ class TestPipelineIntegration:
 
                     assert result.rows_processed > 0
                 finally:
-                    if os.path.exists(tmp_path):
-                        os.unlink(tmp_path)
+                    _close_iterables_and_unlink(tmp_path, dest, source)
 
     @pytest.mark.skipif(ClickHouseDriver is None, reason="clickhouse-connect not installed")
     def test_pipeline_clickhouse_streaming(self):
@@ -785,7 +809,6 @@ class TestPipelineIntegration:
                 mock_clickhouse_driver_class.return_value = mock_driver
                 mock_get_driver.return_value = mock_clickhouse_driver_class
 
-                import os
                 import tempfile
 
                 from iterable.helpers.detect import open_iterable
@@ -794,6 +817,8 @@ class TestPipelineIntegration:
                 with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as tmp:
                     tmp_path = tmp.name
 
+                source = None
+                dest = None
                 try:
                     source = open_iterable(
                         "clickhouse://localhost/db",
@@ -807,8 +832,7 @@ class TestPipelineIntegration:
 
                     assert result.rows_processed == 10
                 finally:
-                    if os.path.exists(tmp_path):
-                        os.unlink(tmp_path)
+                    _close_iterables_and_unlink(tmp_path, dest, source)
 
     @pytest.mark.skipif(ClickHouseDriver is None, reason="clickhouse-connect not installed")
     def test_pipeline_clickhouse_error_handling(self):
@@ -822,7 +846,6 @@ class TestPipelineIntegration:
                 mock_clickhouse_driver_class.return_value = mock_driver
                 mock_get_driver.return_value = mock_clickhouse_driver_class
 
-                import os
                 import tempfile
 
                 from iterable.helpers.detect import open_iterable
@@ -831,6 +854,8 @@ class TestPipelineIntegration:
                 with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as tmp:
                     tmp_path = tmp.name
 
+                source = None
+                dest = None
                 try:
                     source = open_iterable(
                         "clickhouse://localhost/db",
@@ -843,8 +868,7 @@ class TestPipelineIntegration:
                     with pytest.raises(RuntimeError, match="Query failed"):
                         pipeline.run()
                 finally:
-                    if os.path.exists(tmp_path):
-                        os.unlink(tmp_path)
+                    _close_iterables_and_unlink(tmp_path, dest, source)
 
 
 class TestDataFrameBridges:
@@ -1048,7 +1072,7 @@ class TestEdgeCases:
 
     def test_connection_failure(self):
         """Test handling of connection failures."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             mock_psycopg2.connect.side_effect = Exception("Connection refused")
 
             driver = PostgresDriver("postgresql://localhost/db", query="users")
@@ -1057,7 +1081,7 @@ class TestEdgeCases:
 
     def test_invalid_query(self):
         """Test handling of invalid queries."""
-        with patch("iterable.db.postgres.psycopg2") as mock_psycopg2:
+        with patch.object(postgres_mod, "psycopg2") as mock_psycopg2:
             mock_conn = MagicMock()
             mock_psycopg2.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -1083,7 +1107,7 @@ class TestClickHouseDriver:
 
     def test_connect_with_connection_string(self):
         """Test connection with connection string."""
-        with patch("iterable.db.clickhouse.clickhouse_connect") as mock_ch:
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
             mock_client = MagicMock()
             mock_ch.get_client.return_value = mock_client
 
@@ -1123,7 +1147,7 @@ class TestClickHouseDriver:
 
     def test_connect_with_connect_args(self):
         """Test connection with additional connect_args."""
-        with patch("iterable.db.clickhouse.clickhouse_connect") as mock_ch:
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
             mock_client = MagicMock()
             mock_ch.get_client.return_value = mock_client
 
@@ -1138,7 +1162,7 @@ class TestClickHouseDriver:
 
     def test_read_only_validation(self):
         """Test read-only query validation."""
-        with patch("iterable.db.clickhouse.clickhouse_connect") as mock_ch:
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
             mock_client = MagicMock()
             mock_ch.get_client.return_value = mock_client
 
@@ -1150,7 +1174,7 @@ class TestClickHouseDriver:
 
     def test_read_only_validation_allows_select(self):
         """Test read-only validation allows SELECT queries."""
-        with patch("iterable.db.clickhouse.clickhouse_connect") as mock_ch:
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
             mock_client = MagicMock()
             mock_result = MagicMock()
             mock_result.column_names = ["id"]
@@ -1197,7 +1221,7 @@ class TestClickHouseDriver:
 
     def test_iterate_native_format(self):
         """Test iteration with native format."""
-        with patch("iterable.db.clickhouse.clickhouse_connect") as mock_ch:
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
             mock_client = MagicMock()
             mock_result = MagicMock()
             mock_result.column_names = ["id", "name"]
@@ -1215,7 +1239,7 @@ class TestClickHouseDriver:
 
     def test_iterate_json_each_row_format(self):
         """Test iteration with JSONEachRow format."""
-        with patch("iterable.db.clickhouse.clickhouse_connect") as mock_ch:
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
             mock_client = MagicMock()
             mock_result = MagicMock()
             mock_result.column_names = ["id", "name"]
@@ -1233,7 +1257,7 @@ class TestClickHouseDriver:
 
     def test_iterate_with_settings(self):
         """Test iteration with ClickHouse query settings."""
-        with patch("iterable.db.clickhouse.clickhouse_connect") as mock_ch:
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
             mock_client = MagicMock()
             mock_result = MagicMock()
             mock_result.column_names = ["id"]
@@ -1255,7 +1279,7 @@ class TestClickHouseDriver:
 
     def test_iterate_with_batch_size(self):
         """Test iteration with batch_size parameter."""
-        with patch("iterable.db.clickhouse.clickhouse_connect") as mock_ch:
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
             mock_client = MagicMock()
             mock_result = MagicMock()
             mock_result.column_names = ["id"]
@@ -1273,7 +1297,7 @@ class TestClickHouseDriver:
 
     def test_iterate_empty_result(self):
         """Test iteration with empty result set."""
-        with patch("iterable.db.clickhouse.clickhouse_connect") as mock_ch:
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
             mock_client = MagicMock()
             mock_result = MagicMock()
             mock_result.column_names = ["id"]
@@ -1289,7 +1313,7 @@ class TestClickHouseDriver:
 
     def test_close(self):
         """Test close() closes connection."""
-        with patch("iterable.db.clickhouse.clickhouse_connect") as mock_ch:
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
             mock_client = MagicMock()
             mock_ch.get_client.return_value = mock_client
 
@@ -1301,7 +1325,7 @@ class TestClickHouseDriver:
 
     def test_list_tables(self):
         """Test list_tables() helper function."""
-        with patch("iterable.db.clickhouse.clickhouse_connect") as mock_ch:
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
             mock_client = MagicMock()
             mock_result = MagicMock()
             mock_result.column_names = ["database", "table", "row_count"]
@@ -1318,7 +1342,7 @@ class TestClickHouseDriver:
 
     def test_list_tables_with_database(self):
         """Test list_tables() with database parameter."""
-        with patch("iterable.db.clickhouse.clickhouse_connect") as mock_ch:
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
             mock_client = MagicMock()
             mock_result = MagicMock()
             mock_result.column_names = ["database", "table", "row_count"]
@@ -1335,7 +1359,7 @@ class TestClickHouseDriver:
 
     def test_connection_failure(self):
         """Test handling of connection failures."""
-        with patch("iterable.db.clickhouse.clickhouse_connect") as mock_ch:
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
             mock_ch.get_client.side_effect = Exception("Connection refused")
 
             driver = ClickHouseDriver("clickhouse://localhost/db", query="users")
@@ -1344,7 +1368,7 @@ class TestClickHouseDriver:
 
     def test_invalid_query(self):
         """Test handling of invalid queries."""
-        with patch("iterable.db.clickhouse.clickhouse_connect") as mock_ch:
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
             mock_client = MagicMock()
             mock_client.query.side_effect = Exception("syntax error")
             mock_ch.get_client.return_value = mock_client
@@ -1367,7 +1391,7 @@ class TestMySQLDriver:
 
     def test_connect_with_connection_string(self):
         """Test connection with connection string."""
-        with patch("iterable.db.mysql.pymysql") as mock_pymysql:
+        with patch.object(mysql_mod, "pymysql") as mock_pymysql:
             mock_conn = MagicMock()
             mock_pymysql.connect.return_value = mock_conn
 
@@ -1414,7 +1438,7 @@ class TestMySQLDriver:
 
     def test_iterate_with_server_side_cursor(self):
         """Test iteration with server-side cursor."""
-        with patch("iterable.db.mysql.pymysql") as mock_pymysql:
+        with patch.object(mysql_mod, "pymysql") as mock_pymysql:
             mock_conn = MagicMock()
             mock_pymysql.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -1436,7 +1460,7 @@ class TestMySQLDriver:
 
     def test_list_tables(self):
         """Test list_tables() helper function."""
-        with patch("iterable.db.mysql.pymysql") as mock_pymysql:
+        with patch.object(mysql_mod, "pymysql") as mock_pymysql:
             mock_conn = MagicMock()
             mock_pymysql.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -1457,7 +1481,7 @@ class TestMSSQLDriver:
 
     def test_connect_with_connection_string(self):
         """Test connection with connection string."""
-        with patch("iterable.db.mssql.pyodbc") as mock_pyodbc:
+        with patch.object(mssql_mod, "pyodbc") as mock_pyodbc:
             mock_conn = MagicMock()
             mock_pyodbc.connect.return_value = mock_conn
 
@@ -1504,7 +1528,7 @@ class TestMSSQLDriver:
 
     def test_iterate(self):
         """Test iteration."""
-        with patch("iterable.db.mssql.pyodbc") as mock_pyodbc:
+        with patch.object(mssql_mod, "pyodbc") as mock_pyodbc:
             mock_conn = MagicMock()
             mock_pyodbc.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -1525,7 +1549,7 @@ class TestMSSQLDriver:
 
     def test_list_tables(self):
         """Test list_tables() helper function."""
-        with patch("iterable.db.mssql.pyodbc") as mock_pyodbc:
+        with patch.object(mssql_mod, "pyodbc") as mock_pyodbc:
             mock_conn = MagicMock()
             mock_pyodbc.connect.return_value = mock_conn
             mock_cursor = MagicMock()
@@ -1642,7 +1666,7 @@ class TestMongoDriver:
 
     def test_connect_with_connection_string(self):
         """Test connection with connection string."""
-        with patch("iterable.db.mongo.MongoClient") as mock_client:
+        with patch.object(mongo_mod, "MongoClient") as mock_client:
             mock_client_instance = MagicMock()
             mock_client.return_value = mock_client_instance
 
@@ -1680,7 +1704,7 @@ class TestMongoDriver:
 
     def test_iterate_with_find(self):
         """Test iteration with find()."""
-        with patch("iterable.db.mongo.MongoClient") as mock_client:
+        with patch.object(mongo_mod, "MongoClient") as mock_client:
             mock_client_instance = MagicMock()
             mock_client.return_value = mock_client_instance
             mock_collection = MagicMock()
@@ -1702,7 +1726,7 @@ class TestMongoDriver:
 
     def test_list_collections(self):
         """Test list_collections() helper function."""
-        with patch("iterable.db.mongo.MongoClient") as mock_client:
+        with patch.object(mongo_mod, "MongoClient") as mock_client:
             mock_client_instance = MagicMock()
             mock_client.return_value = mock_client_instance
             mock_db = MagicMock()
@@ -1720,7 +1744,7 @@ class TestElasticsearchDriver:
 
     def test_connect_with_url(self):
         """Test connection with URL."""
-        with patch("iterable.db.elasticsearch.Elasticsearch") as mock_es:
+        with patch.object(elasticsearch_mod, "Elasticsearch") as mock_es:
             mock_client = MagicMock()
             mock_es.return_value = mock_client
 
@@ -1758,7 +1782,7 @@ class TestElasticsearchDriver:
 
     def test_iterate_with_scroll(self):
         """Test iteration with scroll API."""
-        with patch("iterable.db.elasticsearch.Elasticsearch") as mock_es:
+        with patch.object(elasticsearch_mod, "Elasticsearch") as mock_es:
             mock_client = MagicMock()
             mock_es.return_value = mock_client
 
@@ -1789,7 +1813,7 @@ class TestElasticsearchDriver:
 
     def test_iterate_without_scroll(self):
         """Test iteration without scroll API."""
-        with patch("iterable.db.elasticsearch.Elasticsearch") as mock_es:
+        with patch.object(elasticsearch_mod, "Elasticsearch") as mock_es:
             mock_client = MagicMock()
             mock_es.return_value = mock_client
 

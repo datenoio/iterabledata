@@ -25,7 +25,7 @@ This guide provides comprehensive performance optimization strategies for Iterab
 **Always prefer bulk operations** (`read_bulk()`, `write_bulk()`) over individual operations (`read()`, `write()`) for better performance.
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # ✅ Recommended: Bulk operations
 with open_iterable('data.csv') as source:
@@ -350,7 +350,7 @@ Use the built-in benchmarking tools:
 
 ```python
 import time
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Measure read performance
 start = time.perf_counter()

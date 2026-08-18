@@ -38,7 +38,7 @@ Writing support:
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Basic reading (first sheet, headers from first row)
 source = open_iterable('data.xlsx')
@@ -93,7 +93,7 @@ dest.close()
 ## Error Handling
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 try:
     # Reading with error handling

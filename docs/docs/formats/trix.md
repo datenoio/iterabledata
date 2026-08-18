@@ -28,7 +28,7 @@ Read TriX RDF/XML triples as subject/predicate/object records (via rdflib).
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("graph.trix") as source:
     for triple in source:

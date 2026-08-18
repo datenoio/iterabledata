@@ -5,7 +5,7 @@ This example demonstrates how to convert an Elasticsearch index to a ZStandard-c
 JSONL file using maximum compression level and a progress bar.
 """
 
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from tqdm import tqdm
 
 

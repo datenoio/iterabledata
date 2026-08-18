@@ -38,7 +38,7 @@ Use IterableData to read data and send to Gemini for analysis:
 
 ```python
 import google.generativeai as genai
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 import json
 
 # Configure Gemini
@@ -74,7 +74,7 @@ Use Gemini to intelligently convert between formats:
 
 ```python
 import google.generativeai as genai
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.convert import convert
 import json
 
@@ -120,7 +120,7 @@ Use Gemini to infer and document data schemas:
 
 ```python
 import google.generativeai as genai
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.helpers.schema import infer_schema
 import json
 
@@ -170,7 +170,7 @@ Use Gemini for planning, then apply explicit transforms via `pipeline()` (do not
 
 ```python
 import google.generativeai as genai
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.pipeline import pipeline
 import json
 
@@ -216,7 +216,7 @@ Use Gemini to analyze data quality:
 
 ```python
 import google.generativeai as genai
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 import json
 
 genai.configure(api_key="YOUR_API_KEY")
@@ -281,7 +281,7 @@ Use Gemini's function calling feature for structured operations:
 
 ```python
 import google.generativeai as genai
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.convert import convert
 import json
 
@@ -635,7 +635,7 @@ def parallel_gemini_analysis(filenames: list[str], question: str) -> dict:
 
 ```python
 import google.generativeai as genai
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.convert import convert
 from iterable.pipeline import pipeline
 import json

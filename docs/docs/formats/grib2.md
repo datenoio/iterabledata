@@ -28,7 +28,7 @@ Backend preference: cfgrib (+ xarray) → pygrib → eccodes. All messages are l
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("forecast.grib2", format="grib2") as source:
     for msg in source:

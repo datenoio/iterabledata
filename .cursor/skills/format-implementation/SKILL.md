@@ -106,7 +106,7 @@ class NewCodec:
 
 ```python
 import pytest
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 class TestNewFormat:
     def test_read(self):

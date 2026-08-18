@@ -226,9 +226,7 @@ class TestBlockModels:
             }
         )
         fields = {field.name: field.example for field in validated.fields}
-        assert fields["DocTypes"] == (
-            '[{"Text":"Приказ","Value":"2dddb344-d3e2-4785-a899-7aa12bd47b6f"}]'
-        )
+        assert fields["DocTypes"] == ('[{"Text":"Приказ","Value":"2dddb344-d3e2-4785-a899-7aa12bd47b6f"}]')
         assert fields["Count"] == "42"
         assert fields["Name"] == "plain"
         assert fields["Empty"] is None
@@ -241,11 +239,11 @@ class TestBlockModels:
 
 class TestGenerateBlocks:
     def test_default_blocks(self, fake_provider):
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             result = doc.generate_blocks(CSV_FIXTURE)
-        assert set(
-            ["general", "schema", "quality", "examples", "statistics", "agent_skill"]
-        ).issubset(result["blocks"].keys())
+        assert set(["general", "schema", "quality", "examples", "statistics", "agent_skill"]).issubset(
+            result["blocks"].keys()
+        )
         assert "full_document_markdown" in result
         assert result["source"]["format"] == "csv"
         assert result["source"]["sha256"]
@@ -254,7 +252,7 @@ class TestGenerateBlocks:
         assert "name:" in skill_md
 
     def test_agent_skill_explicit(self, fake_provider):
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             result = doc.generate_blocks(CSV_FIXTURE, blocks=["agent_skill"])
         block = result["blocks"]["agent_skill"]
         md = block["markdown"]
@@ -267,14 +265,14 @@ class TestGenerateBlocks:
         assert "agent_skill" in fake_provider.calls[0] or any("agent_skill" in c for c in fake_provider.calls)
 
     def test_agent_skill_language(self, fake_provider):
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             result = doc.generate_blocks(CSV_FIXTURE, blocks=["agent_skill"], language="Russian")
         md = result["blocks"]["agent_skill"]["markdown"]
         assert "## Факты о наборе данных" in md
         assert "## Dataset facts" not in md
 
     def test_block_structure(self, fake_provider):
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             result = doc.generate_blocks(CSV_FIXTURE, blocks=["general", "schema"])
         for name in ("general", "schema"):
             assert "markdown" in result["blocks"][name]
@@ -285,14 +283,14 @@ class TestGenerateBlocks:
             doc.generate_blocks(CSV_FIXTURE, blocks=["does_not_exist"])
 
     def test_deferred_block(self, fake_provider):
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             result = doc.generate_blocks(CSV_FIXTURE, blocks=["geo_coverage", "lineage"])
         assert result["blocks"]["geo_coverage"]["data"]["status"] == "not_implemented"
         assert result["blocks"]["lineage"]["data"]["status"] == "not_implemented"
 
     def test_statistics_block_no_llm(self):
         # statistics-only generation must not require a provider.
-        with patch("iterable.ai.doc.get_provider", side_effect=AssertionError("should not be called")):
+        with patch.object(doc, "get_provider", side_effect=AssertionError("should not be called")):
             result = doc.generate_blocks(CSV_FIXTURE, blocks=["statistics"])
         assert "statistics" in result["blocks"]
         assert result["blocks"]["statistics"]["data"]["fields"]
@@ -306,9 +304,11 @@ class TestGenerateBlocks:
             return original(prompt, json_schema, **kwargs)
 
         fake_provider.generate_structured = capture
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             doc.generate_blocks(CSV_FIXTURE, blocks=["examples"])
-        prompt = next(text for text in prompts if "usage code examples" in text.lower() or "practical usage" in text.lower())
+        prompt = next(
+            text for text in prompts if "usage code examples" in text.lower() or "practical usage" in text.lower()
+        )
         assert "language` to exactly one of: python, r, sql" in prompt or "exactly one of: python, r, sql" in prompt
         assert "`dataset`" in prompt
         assert "not the filename" in prompt
@@ -316,7 +316,7 @@ class TestGenerateBlocks:
 
     def test_context_threaded(self, fake_provider):
         ctx = {"title": "Population", "territory": "Russia", "tags": ["demography"]}
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             result = doc.generate_blocks(CSV_FIXTURE, blocks=["general"], context=ctx)
         data = result["blocks"]["general"]["data"]
         assert data["title"] == "Population"
@@ -324,20 +324,20 @@ class TestGenerateBlocks:
 
     def test_progress_callback(self, fake_provider):
         events = []
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             doc.generate_blocks(CSV_FIXTURE, blocks=["general"], progress=lambda e: events.append(e.stage))
         assert Stage.COMPLETED in events
         assert Stage.GENERATING in events
 
     def test_iterable_input(self, fake_provider):
         rows = [{"a": 1, "b": "x"}, {"a": 2, "b": "y"}]
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             result = doc.generate_blocks(rows, blocks=["schema", "statistics"])
         assert result["source"]["type"] == "iterable"
         assert result["blocks"]["statistics"]["data"]["fields"]
 
     def test_language_localizes_static_labels(self, fake_provider):
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             result = doc.generate_blocks(
                 CSV_FIXTURE,
                 blocks=["general", "schema", "quality", "statistics"],
@@ -353,7 +353,7 @@ class TestGenerateBlocks:
 
     def test_quality_rating_localized(self, fake_provider):
         # FakeProvider returns canonical "High"; it must be displayed localized.
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             result = doc.generate_blocks(CSV_FIXTURE, blocks=["quality"], language="Russian")
         md = result["blocks"]["quality"]["markdown"]
         assert "Высокое" in md
@@ -361,14 +361,14 @@ class TestGenerateBlocks:
         assert result["blocks"]["quality"]["data"]["overall"] == "High"
 
     def test_unknown_language_falls_back_to_english(self, fake_provider):
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             result = doc.generate_blocks(CSV_FIXTURE, blocks=["quality"], language="Klingon")
         assert "## Data Quality" in result["blocks"]["quality"]["markdown"]
 
     def test_wide_schema_batched(self, fake_provider):
         # 120 columns -> schema generation should batch (>1 structured call for schema).
         rows = [{f"c{i}": i for i in range(120)}]
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             doc.generate_blocks(rows, blocks=["schema"])
         schema_calls = [c for c in fake_provider.calls if "schema" in c]
         assert len(schema_calls) >= 2
@@ -407,7 +407,7 @@ class TestGenerateBlocks:
                     ]
                 }
 
-        with patch("iterable.ai.doc.get_provider", return_value=PartialProvider()):
+        with patch.object(doc, "get_provider", return_value=PartialProvider()):
             result = doc.generate_blocks(rows, blocks=["schema"])
         fields = result["blocks"]["schema"]["data"]["fields"]
         names = [f["name"] for f in fields]
@@ -422,19 +422,19 @@ class TestGenerateBlocks:
 
 class TestGenerateDelegation:
     def test_generate_with_blocks_markdown(self, fake_provider):
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             result = doc.generate(CSV_FIXTURE, blocks=["general"], format="markdown")
         assert isinstance(result, str)
         assert "Documentation" in result
 
     def test_generate_with_blocks_json(self, fake_provider):
-        with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
+        with patch.object(doc, "get_provider", return_value=fake_provider):
             result = doc.generate(CSV_FIXTURE, blocks=["general"], format="json")
         assert isinstance(result, dict)
         assert "blocks" in result
 
     def test_generate_legacy_unchanged(self):
-        with patch("iterable.ai.doc.get_provider") as mock_get_provider:
+        with patch.object(doc, "get_provider") as mock_get_provider:
             from unittest.mock import MagicMock
 
             provider = MagicMock()

@@ -5,7 +5,7 @@ This example demonstrates how to iterate over documents in an Elasticsearch inde
 using IterableData's open_iterable() function with the Elasticsearch engine.
 """
 
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 
 def main():

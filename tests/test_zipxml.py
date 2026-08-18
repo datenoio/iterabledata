@@ -1,6 +1,10 @@
 import zipfile
 
-from iterable.datatypes import ZIPXMLSource
+import pytest
+
+pytest.importorskip("lxml", reason="lxml is required for ZIP-XML support")
+
+from iterable.datatypes import ZIPXMLSource  # noqa: E402
 
 GOLDEN_ZIPXML = "fixtures/test_zipxml.zip"
 

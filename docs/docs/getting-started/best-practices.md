@@ -17,7 +17,7 @@ IterableData manages various resources including file handles, codecs, compressi
 **✅ Recommended**: Always use context managers (`with` statements) for automatic resource cleanup.
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Automatic cleanup
 with open_iterable('data.csv') as source:
@@ -48,7 +48,7 @@ File handles are automatically closed when:
 - An exception occurs within a context manager
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Context manager ensures cleanup even on exceptions
 try:
@@ -83,7 +83,7 @@ External streams (e.g., `sys.stdin`, network streams) are **not closed** by Iter
 
 ```python
 import sys
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Stream is not closed - managed externally
 with open_iterable(stream=sys.stdin) as source:
@@ -97,7 +97,7 @@ with open_iterable(stream=sys.stdin) as source:
 The `reset()` method requires seekable streams. Non-seekable streams (e.g., network streams, stdin) will raise `ReadError` with error code `STREAM_NOT_SEEKABLE`:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.exceptions import ReadError
 
 try:
@@ -171,7 +171,7 @@ with open_iterable('data.csv', iterableargs={
 **✅ Recommended**: Always wrap file operations in try/except blocks and use specific exception types.
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.exceptions import (
     FormatDetectionError,
     FormatNotSupportedError,
@@ -237,7 +237,7 @@ except Exception as e:
 **✅ Recommended**: Use `write_bulk()` and `read_bulk()` for better performance.
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Bulk operations
 with open_iterable('output.jsonl', mode='w') as dest:
@@ -258,7 +258,7 @@ with open_iterable('output.jsonl', mode='w') as dest:
 **✅ Recommended**: Use batch sizes of 10,000-50,000 records for optimal performance.
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable('input.csv') as source:
     with open_iterable('output.jsonl', mode='w') as dest:
@@ -289,7 +289,7 @@ if len(batch) >= 1000000:  # Too large - may cause memory issues
 **✅ Recommended**: Use DuckDB engine for large CSV/JSONL files.
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: DuckDB engine for large files
 with open_iterable('large_data.csv.gz', engine='duckdb') as source:
@@ -351,7 +351,7 @@ with open_iterable('large_data.jsonl.zst', mode='w') as dest:
 **✅ Recommended**: Process large files in manageable batches.
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable('large_file.csv') as source:
     batch = []
@@ -382,7 +382,7 @@ process_all(all_records)
 **✅ Recommended**: Filter records as early as possible in the pipeline.
 
 ```python
-from iterable.pipeline.core import pipeline
+from iterable.pipeline import pipeline
 
 def filter_and_transform(record, state):
     # Filter early
@@ -411,7 +411,7 @@ def transform_all(record, state):
 **✅ Recommended**: Use FormatParseError for format-specific parsing issues.
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.exceptions import FormatParseError
 
 try:
@@ -443,7 +443,7 @@ except UnicodeDecodeError:
 **✅ Recommended**: Enable debug mode to catch errors early.
 
 ```python
-from iterable.pipeline.core import pipeline
+from iterable.pipeline import pipeline
 
 pipeline(
     source=source,
@@ -460,8 +460,8 @@ pipeline(
 **✅ Recommended**: Use `pipeline()` for multi-step transformations.
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 with open_iterable('input.csv') as source:
     with open_iterable('output.jsonl', mode='w') as destination:

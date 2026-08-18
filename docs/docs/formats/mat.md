@@ -40,7 +40,7 @@ Requires a filename path.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("data.mat", format="mat", iterableargs={"variable": "data"}) as source:
     for row in source:

@@ -38,7 +38,7 @@ Requires a filename (or a named file object). `list_tables()` lists variables; `
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("climate.nc", format="nc") as source:
     print(source.list_tables())

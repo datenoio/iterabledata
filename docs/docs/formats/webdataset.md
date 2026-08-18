@@ -31,7 +31,7 @@ Read WebDataset TAR shards as grouped sample dictionaries. Unlike the plain [TAR
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("shard.tar", format="webdataset") as source:
     for sample in source:

@@ -39,7 +39,7 @@ Only 1D/2D arrays are supported. Requires a filename (not a stream).
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("matrix.npy") as source:
     for row in source:

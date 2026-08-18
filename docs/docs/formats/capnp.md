@@ -38,7 +38,7 @@ Writing support:
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Reading
 source = open_iterable('data.capnp', iterableargs={

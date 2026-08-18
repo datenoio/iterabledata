@@ -312,6 +312,12 @@ class SQLiteIterable(BaseFileIterable):
 
     def close(self):
         """Close SQLite connection"""
+        if self.cursor is not None:
+            try:
+                self.cursor.close()
+            except Exception:
+                pass
+            self.cursor = None
         if self.connection is not None:
             self.connection.close()
             self.connection = None

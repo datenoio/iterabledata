@@ -1,5 +1,6 @@
 """Tests for ai.plan_conversion."""
 
+from iterable.ai import plan as plan_mod
 from iterable.ai.plan import plan_conversion
 
 
@@ -18,7 +19,7 @@ class TestPlanConversion:
     def test_plan_with_llm_mocked(self):
         from unittest.mock import MagicMock, patch
 
-        with patch("iterable.ai.plan.get_provider") as mock_get:
+        with patch.object(plan_mod, "get_provider") as mock_get:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = '{"steps": [{"action": "llm", "detail": "ok"}]}'
             mock_get.return_value = mock_provider

@@ -24,7 +24,7 @@ Stream Esri ASCII Grid rasters as cell or row records without loading the full g
 - **row**: one record per grid row with `row` and `values` (includes nodata markers).
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("dem.asc") as source:
     for cell in source:

@@ -63,16 +63,9 @@ def _should_upgrade_field_schema(left: dict[str, Any], right: dict[str, Any]) ->
     right_type = right.get("type")
     if right_type == "dict" and isinstance(right.get("schema"), dict):
         return True
-    if right_type == "array" and (
-        right.get("subtype") == "dict" or isinstance(right.get("schema"), dict)
-    ):
+    if right_type == "array" and (right.get("subtype") == "dict" or isinstance(right.get("schema"), dict)):
         return True
-    if (
-        left.get("type") == "array"
-        and left.get("subtype") is None
-        and right_type == "array"
-        and right.get("subtype")
-    ):
+    if left.get("type") == "array" and left.get("subtype") is None and right_type == "array" and right.get("subtype"):
         return True
     return False
 
@@ -137,11 +130,7 @@ def merge_schemes(alist, novalue=True):
                         left["schema"] = right["schema"]
                     else:
                         left["schema"] = merge_schemes([left["schema"], right["schema"]])
-                elif (
-                    left.get("subtype") == "dict"
-                    and "schema" in left
-                    and "schema" in right
-                ):
+                elif left.get("subtype") == "dict" and "schema" in left and "schema" in right:
                     left["schema"] = merge_schemes([left["schema"], right["schema"]])
     return obj
 

@@ -14,23 +14,33 @@ from .providers import get_provider
 
 
 def _format_id_from_detection(path: str) -> str | None:
-    result = detect_file_type(path)
-    datatype = result.get("datatype")
-    if datatype is not None:
-        id_fn = getattr(datatype, "id", None)
-        if callable(id_fn):
-            try:
-                return str(id_fn())
-            except Exception:
-                pass
-    ext = Path(path).suffix.lstrip(".").lower()
+    p = Path(path)
+    if p.exists():
+        try:
+            result = detect_file_type(path)
+        except ImportError:
+            result = {}
+        datatype = result.get("datatype")
+        if datatype is not None:
+            id_fn = getattr(datatype, "id", None)
+            if callable(id_fn):
+                try:
+                    return str(id_fn())
+                except Exception:
+                    pass
+    ext = p.suffix.lstrip(".").lower()
     if ext and get_descriptor(ext) is not None:
         return ext
     return None
 
 
 def _codec_note(path: str) -> str | None:
-    result = detect_file_type(path)
+    if not Path(path).exists():
+        return None
+    try:
+        result = detect_file_type(path)
+    except ImportError:
+        return None
     codec = result.get("codec")
     if codec is None:
         return None

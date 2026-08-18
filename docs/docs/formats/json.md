@@ -31,7 +31,7 @@ Writing is not directly supported for JSON format. Use JSONL format for writing 
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Basic usage - expects array of objects
 source = open_iterable('data.json')
@@ -54,7 +54,7 @@ source = open_iterable('data.json', iterableargs={
 ## Error Handling
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 import json
 
 try:

@@ -52,7 +52,7 @@ Requires `pyiceberg` with SQL catalog extras (e.g. `sqlalchemy` / `pyiceberg[sql
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Reading Iceberg table
 source = open_iterable('catalog.properties', iterableargs={

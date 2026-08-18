@@ -226,7 +226,7 @@ source2 = open_iterable('data.db', iterableargs={'table': tables[1]})
 ## Complete Example
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Reading
 with open_iterable('input.csv') as source:

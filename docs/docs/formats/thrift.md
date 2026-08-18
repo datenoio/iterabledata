@@ -38,7 +38,7 @@ Writing support:
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from my_thrift_module import MyStruct  # Generated from .thrift file
 
 # Reading

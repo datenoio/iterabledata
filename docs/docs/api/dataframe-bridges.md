@@ -43,7 +43,7 @@ Convert iterable data to a pandas DataFrame.
 #### Single DataFrame
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable('data.csv.gz') as source:
     df = source.to_pandas()
@@ -57,7 +57,7 @@ print(f"Shape: {df.shape}")
 For large files, process data in chunks to avoid memory issues:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable('large_data.csv') as source:
     for df_chunk in source.to_pandas(chunksize=100_000):
@@ -100,7 +100,7 @@ Convert iterable data to a Polars DataFrame.
 #### Single DataFrame
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable('data.csv.gz') as source:
     df = source.to_polars()
@@ -139,7 +139,7 @@ Convert iterable data to a Dask DataFrame for distributed/out-of-core processing
 #### Single File
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable('data.csv.gz') as source:
     ddf = source.to_dask()

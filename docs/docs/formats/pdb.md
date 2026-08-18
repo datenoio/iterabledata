@@ -48,7 +48,7 @@ Only ATOM/HETATM lines are yielded. Write emits fixed-width ATOM/HETATM lines.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("protein.pdb") as source:
     for atom in source:

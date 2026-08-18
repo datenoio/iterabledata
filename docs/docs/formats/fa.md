@@ -28,7 +28,7 @@ Read FASTA sequence files as one record per sequence (stdlib; no extra).
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("genes.fa") as source:
     for rec in source:

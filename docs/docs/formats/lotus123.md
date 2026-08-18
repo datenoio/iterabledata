@@ -38,7 +38,7 @@ Loads the workbook into memory. Supports LABEL / INTEGER / NUMBER cells in the m
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("sheet.wk1", format="123") as source:
     for row in source:

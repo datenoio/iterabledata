@@ -135,7 +135,6 @@ dmypy.json
 docs/.docusaurus/
 docs/build/
 docs/node_modules/
-docs/package-lock.json
 docs/.cache/
 docs/.temp/
 *.code-workspace

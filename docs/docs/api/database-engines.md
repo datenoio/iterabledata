@@ -107,7 +107,7 @@ pip install iterabledata[db-nosql]
 Use `open_iterable()` with a database engine and connection string:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Connect to PostgreSQL database
 with open_iterable(
@@ -124,7 +124,7 @@ with open_iterable(
 Always use the context manager (`with` statement) to ensure proper connection cleanup:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable(
     "postgresql://localhost/mydb",
@@ -321,7 +321,7 @@ iterableargs={
 #### Reading a Table
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Read entire table
 with open_iterable(
@@ -591,7 +591,7 @@ iterableargs={
 #### Basic Table Query
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Query entire table
 with open_iterable(
@@ -705,7 +705,7 @@ Connection pooling is enabled by default for all database engines. It improves p
 Connection pooling works automatically - no configuration needed:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # First query - creates connection and pool
 with open_iterable(
@@ -822,7 +822,7 @@ convert(
 Database sources can be used in data pipelines:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.pipeline import Pipeline
 
 # Create pipeline with database source
@@ -845,7 +845,7 @@ print(f"Processed {result.rows_processed} rows")
 Database sources support DataFrame conversion methods:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable(
     "postgresql://localhost/mydb",
@@ -910,7 +910,7 @@ iterableargs={
 If the required database driver is not installed:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 try:
     with open_iterable(
@@ -934,7 +934,7 @@ except Exception as e:
 Database sources track metrics during iteration:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable(
     "postgresql://localhost/mydb",

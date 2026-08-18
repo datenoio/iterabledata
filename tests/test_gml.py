@@ -1,8 +1,9 @@
 import os
 
 from fixdata import FIXTURES
+from optional_datatypes import require_datatype
 
-from iterable.datatypes import GMLIterable
+GMLIterable = require_datatype("GMLIterable")
 
 # Create fixture file if it doesn't exist
 FIXTURE_FILE = "fixtures/2cols6rows.gml"

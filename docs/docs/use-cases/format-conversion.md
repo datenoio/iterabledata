@@ -13,7 +13,7 @@ Iterable Data makes it easy to convert data between different formats. The `conv
 The simplest way to convert between formats:
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Convert JSONL to Parquet
 convert('input.jsonl.gz', 'output.parquet')
@@ -29,7 +29,7 @@ The function automatically:
 You can specify options for the conversion:
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Convert CSV with custom delimiter and encoding
 convert(
@@ -45,7 +45,7 @@ convert(
 When converting from nested formats (JSON, XML) to flat formats (CSV, Parquet), you can flatten the structure:
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Convert JSONL to CSV with flattening
 convert(
@@ -63,7 +63,7 @@ This will flatten nested dictionaries and arrays into dot-notation keys (e.g., `
 For more control, you can manually read and write:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context managers
 with open_iterable('input.jsonl.gz') as source:
@@ -78,7 +78,7 @@ with open_iterable('input.jsonl.gz') as source:
 For large files, use bulk operations:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context managers
 with open_iterable('input.csv') as source:

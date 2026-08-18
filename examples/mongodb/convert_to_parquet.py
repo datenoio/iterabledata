@@ -5,7 +5,7 @@ This example demonstrates how to convert a MongoDB collection to a Parquet file
 using IterableData's convert() function.
 """
 
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 
 def main():

@@ -5,7 +5,7 @@ This example demonstrates how to convert a MongoDB collection to a ZStandard-com
 JSONL file using maximum compression level and a progress bar.
 """
 
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from tqdm import tqdm
 
 

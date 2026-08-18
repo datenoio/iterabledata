@@ -1,5 +1,6 @@
 import os
 
+import pytest
 from fixdata import FIXTURES
 
 from iterable.datatypes import CSVIterable, JSONLinesIterable
@@ -476,17 +477,14 @@ class TestPipeline:
         if os.path.exists(output_file):
             os.unlink(output_file)
 
-    def test_pipeline_atomic_write_preserves_original_on_failure(self):
+    def test_pipeline_atomic_write_preserves_original_on_failure(self, tmp_path):
         """Test that atomic write preserves original file on pipeline failure"""
+        output_file = tmp_path / "test_pipeline_atomic_fail.jsonl"
+        temp_file = tmp_path / "test_pipeline_atomic_fail.jsonl.tmp"
         source = CSVIterable("fixtures/2cols6rows.csv")
-        output_file = "testdata/test_pipeline_atomic_fail.jsonl"
-        temp_file = "testdata/test_pipeline_atomic_fail.jsonl.tmp"
-        os.makedirs("testdata", exist_ok=True)
-        destination = JSONLinesIterable(output_file, mode="w")
-
-        # Create existing output file
-        with open(output_file, "w") as f:
-            f.write('{"original": "content"}\n')
+        destination = JSONLinesIterable(str(output_file), mode="w")
+        # Destination open truncates; restore original content before the atomic run.
+        output_file.write_text('{"original": "content"}\n', encoding="utf-8")
 
         def process_func(record, state):
             # Raise error after first record to simulate failure
@@ -498,21 +496,16 @@ class TestPipeline:
         p = Pipeline(source=source, destination=destination, process_func=process_func, atomic=True)
 
         try:
-            p.run()
-        except ValueError:
-            pass  # Expected error
+            with pytest.raises(ValueError, match="Simulated error"):
+                p.run()
 
-        # Verify original file is preserved and temp file is cleaned up
-        assert os.path.exists(output_file)
-        with open(output_file) as f:
-            content = f.read()
-            assert "original" in content
-        assert not os.path.exists(temp_file)
-
-        source.close()
-        destination.close()
-        if os.path.exists(output_file):
-            os.unlink(output_file)
+            # Verify original file is preserved and temp file is cleaned up
+            assert output_file.exists()
+            assert "original" in output_file.read_text(encoding="utf-8")
+            assert not temp_file.exists()
+        finally:
+            source.close()
+            destination.close()
 
     def test_pipeline_atomic_write_backward_compatibility(self):
         """Test that atomic=False (default) works as before"""

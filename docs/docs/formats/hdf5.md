@@ -37,7 +37,7 @@ Writing support:
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # List available datasets
 from iterable.datatypes.hdf5 import HDF5Iterable

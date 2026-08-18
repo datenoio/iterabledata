@@ -33,7 +33,7 @@ Writes are **deferred**: opening a Hudi iterable in write mode raises `WriteNotS
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Reading Hudi table
 source = open_iterable('/path/to/hudi/table', iterableargs={

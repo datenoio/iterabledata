@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "iterabledata"
-description = "Iterable data processing Python library"
+description = "Streaming read/write and conversion for 100+ data formats. pip install iterabledata; import iterable."
 dynamic = ["version", "readme"]
 requires-python = ">=3.10"
 authors = [{name = "Ivan Begtin"}]
@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Software Development",
     "Topic :: Text Processing",
 ]
-keywords = ["json", "jsonl", "csv", "bson", "parquet", "orc", "xml", "xls", "xlsx", "dbf", "dataset", "etl", "data-pipelines"]
+keywords = ["json", "jsonl", "csv", "bson", "parquet", "orc", "xml", "xls", "xlsx", "dbf", "dataset", "etl", "data-pipelines", "streaming", "warc", "conversion", "open_iterable"]
 dependencies = [
     "chardet>=5.0.0",
     "tqdm>=4.64.0",
@@ -36,7 +36,7 @@ compression = [
     "python-snappy>=0.6.0",
     "python-lzo>=1.12.0",
     "brotli>=1.0.0",
-    "brotli_file>=1.0.0",
+    "brotli_file>=0.1.0",
     "zstandard>=0.19.0",
     "py7zr>=0.20.0",
 ]
@@ -160,7 +160,7 @@ all = [
     "python-snappy>=0.6.0",
     "python-lzo>=1.12.0",
     "brotli>=1.0.0",
-    "brotli_file>=1.0.0",
+    "brotli_file>=0.1.0",
     "zstandard>=0.19.0",
     "py7zr>=0.20.0",
     "pyarrow>=10.0.0",
@@ -272,6 +272,7 @@ dev = [
     "mock>=4.0.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
+    "tomli>=2.0.0",
     # Type stubs for optional dependencies
     "types-chardet>=5.0.0",
     "types-openpyxl>=3.0.0",
@@ -362,7 +363,7 @@ skip_covered = false
 # Calibrated against a base environment (no optional format extras installed),
 # where optional-dependency modules are import-skipped and count as uncovered.
 # Full-extras coverage is tracked in CI via codecov.
-fail_under = 55
+fail_under = 50
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",

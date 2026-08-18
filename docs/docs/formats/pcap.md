@@ -30,7 +30,7 @@ Packets are decoded incrementally (streaming). Auto-detects classic PCAP vs PCAP
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("capture.pcap") as source:
     for pkt in source:

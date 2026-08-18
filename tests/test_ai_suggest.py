@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from iterable.ai import suggest as suggest_mod
 from iterable.ai.suggest import suggest_transform
 from iterable.ops import transform
 
@@ -11,7 +12,7 @@ from iterable.ops import transform
 class TestSuggestTransform:
     def test_suggest_transform_mocked(self):
         spec_json = '{"operations": [{"op": "rename", "mapping": {"old": "new"}}]}'
-        with patch("iterable.ai.suggest.get_provider") as mock_get:
+        with patch.object(suggest_mod, "get_provider") as mock_get:
             mock_provider = MagicMock()
             mock_provider.generate.return_value = spec_json
             mock_get.return_value = mock_provider

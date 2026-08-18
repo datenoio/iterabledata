@@ -1,7 +1,9 @@
 from fixdata import FIXTURES
+from optional_datatypes import require_codec
 
-from iterable.codecs import ZSTDCodec
 from iterable.datatypes import CSVIterable
+
+ZSTDCodec = require_codec("ZSTDCodec")
 
 
 class TestZSTD:

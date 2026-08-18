@@ -1,7 +1,9 @@
 from fixdata import FIXTURES
+from optional_datatypes import require_codec
 
-from iterable.codecs import BrotliCodec
 from iterable.datatypes import CSVIterable
+
+BrotliCodec = require_codec("BrotliCodec")
 
 
 class TestBrotli:

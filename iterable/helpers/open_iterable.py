@@ -386,7 +386,10 @@ def _build_source(
             raise ImportError(
                 "DuckDB engine requires the 'duckdb' dependency. Install it with: pip install duckdb"
             ) from e
-        return DuckDBEngineIterable(filename=filename, mode=normalized_mode, options=iterableargs)
+        return cast(
+            BaseIterable,
+            DuckDBEngineIterable(filename=filename, mode=normalized_mode, options=iterableargs),
+        )
     return _instantiate_datatype(datatype_cls, filename=filename, mode=normalized_mode, options=iterableargs)
 
 
@@ -474,7 +477,7 @@ def _normalize_open_inputs(
     if filename is not None and not isinstance(filename, str):
         resolved_filename = os.fspath(cast(os.PathLike[str], filename))
     else:
-        resolved_filename = cast("str | None", filename)
+        resolved_filename = filename
 
     return resolved_filename, stream, iterableargs or {}
 

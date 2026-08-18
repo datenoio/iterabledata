@@ -39,7 +39,7 @@ Common fields plus geometry keyed by entity type (`LINE`, `CIRCLE`, `ARC`, `POIN
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("drawing.dxf") as source:
     for entity in source:

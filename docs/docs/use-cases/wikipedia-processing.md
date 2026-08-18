@@ -57,7 +57,7 @@ if __name__ == "__main__":
 You can also use the simpler `open_iterable()` function:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from tqdm import tqdm
 
 RAW_FILE = 'data/raw/simplewiki-latest-pages-articles-multistream.xml.bz2'
@@ -82,8 +82,8 @@ destination.close()
 After converting to JSONL, you can enrich the data with additional processing:
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 def enrich_wikipedia_page(page, state):
     """Add categories to Wikipedia pages"""
@@ -111,7 +111,7 @@ destination.close()
 Once converted to JSONL, you can query the data efficiently with DuckDB:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Use DuckDB engine for fast queries
 source = open_iterable('simplewiki.jsonl.zst', engine='duckdb')
