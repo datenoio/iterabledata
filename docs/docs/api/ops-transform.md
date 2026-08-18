@@ -325,7 +325,7 @@ All transform operations work with both file paths and Python iterables:
 
 ```python
 from iterable.ops import transform
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Chain operations on iterables
 with open_iterable("data.csv") as source:

@@ -27,7 +27,7 @@ python examples/db/read_mysql.py mysql://user:pass@localhost:3306/mydb
 ## API
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable(
     "postgresql://user:pass@localhost:5432/mydb",

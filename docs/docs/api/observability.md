@@ -23,7 +23,7 @@ Progress callbacks allow you to receive real-time updates during conversion or p
 ### Conversion Progress Callbacks
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 def progress_callback(stats):
     """Called periodically during conversion"""
@@ -56,8 +56,8 @@ The progress callback receives a dictionary with:
 ### Pipeline Progress Callbacks
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 def progress_callback(stats):
     """Called periodically during pipeline execution"""
@@ -93,7 +93,7 @@ The progress callback receives a dictionary with:
 The `convert()` function supports built-in progress bars using `tqdm` when available.
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Show progress bar during conversion
 result = convert(
@@ -116,7 +116,7 @@ The `convert()` function returns a `ConversionResult` object with structured met
 ### ConversionResult
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 from iterable.types import ConversionResult
 
 result: ConversionResult = convert('input.csv', 'output.jsonl')
@@ -151,8 +151,8 @@ The `pipeline()` function returns a `PipelineResult` object with structured metr
 ### PipelineResult
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 from iterable.types import PipelineResult
 
 with open_iterable('input.csv') as source:
@@ -208,7 +208,7 @@ rows = result["rec_count"]
 ### CI/CD Integration
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 result = convert('input.csv', 'output.parquet')
 
@@ -225,7 +225,7 @@ if result.errors:
 ### Monitoring Integration
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 import time
 
 def send_metrics(stats):
@@ -249,7 +249,7 @@ metrics.gauge('conversion.total_time', result.elapsed_seconds)
 ### Custom Progress Reporting
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 from datetime import datetime
 
 class ProgressReporter:
@@ -286,7 +286,7 @@ print(f"Average rows per second: "
 By default, progress callbacks are invoked every 1000 rows. You can customize this interval using the `progress_interval` parameter:
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 def progress_callback(stats):
     print(f"Processed {stats['rows_read']} rows")
@@ -323,7 +323,7 @@ The `progress_interval` parameter is available in:
 For direct iteration over iterables (not using `convert()` or `pipeline()`), use the `with_progress()` helper function:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.helpers.progress import with_progress
 
 def progress_callback(stats):

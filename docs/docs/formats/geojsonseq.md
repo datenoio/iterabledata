@@ -32,7 +32,7 @@ GeoJSON Text Sequences (RFC 8142) store one GeoJSON Feature object per line. It 
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Read features one at a time
 with open_iterable('features.geojsonl') as source:

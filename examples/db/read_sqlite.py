@@ -7,7 +7,7 @@ Run: python examples/db/read_sqlite.py [path/to/db.sqlite]
 
 import sys
 
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 
 def main():

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "iterabledata"
-description = "Iterable data processing Python library"
+description = "Streaming read/write and conversion for 100+ data formats. pip install iterabledata; import iterable."
 dynamic = ["version", "readme"]
 requires-python = ">=3.10"
 authors = [{name = "Ivan Begtin"}]
@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Software Development",
     "Topic :: Text Processing",
 ]
-keywords = ["json", "jsonl", "csv", "bson", "parquet", "orc", "xml", "xls", "xlsx", "dbf", "dataset", "etl", "data-pipelines"]
+keywords = ["json", "jsonl", "csv", "bson", "parquet", "orc", "xml", "xls", "xlsx", "dbf", "dataset", "etl", "data-pipelines", "streaming", "warc", "conversion", "open_iterable"]
 dependencies = [
     "chardet>=5.0.0",
     "tqdm>=4.64.0",

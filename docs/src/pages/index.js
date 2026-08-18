@@ -20,6 +20,11 @@ function HomepageHeader() {
             to="/getting-started/installation">
             Get Started
           </Link>
+          <Link
+            className="button button--secondary button--lg"
+            to="/getting-started/cookbook">
+            For coding agents
+          </Link>
         </div>
       </div>
     </header>

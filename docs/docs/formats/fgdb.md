@@ -22,7 +22,7 @@ Read ESRI File Geodatabase (`.gdb` / `.fgdb`) layers as GeoJSON-like Features vi
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # List layers when multiple exist
 with open_iterable("parcels.gdb", format="fgdb") as source:

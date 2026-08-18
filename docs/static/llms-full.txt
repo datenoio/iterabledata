@@ -1,0 +1,113 @@
+# IterableData LLM recipes
+
+> Copy-paste snippets for coding models. PyPI: iterabledata. Import: iterable.
+
+Install: `pip install iterabledata`
+
+Canonical imports:
+
+```python
+from iterable import open_iterable
+from iterable.convert import convert
+from iterable.ops import inspect, schema, stats
+from iterable.catalog import describe_format
+from iterable.tools import detect_format, read_sample, infer_schema
+```
+
+Always use a context manager. Do not call `.close()` when using `with`.
+
+## Read a compressed file
+
+Prompt: "read this gzip CSV" / "stream a large file without pandas"
+
+```python
+from iterable import open_iterable
+
+with open_iterable("data.csv.gz") as source:
+    for row in source:
+        print(row)
+```
+
+## Write JSONL
+
+Prompt: "write records to jsonl"
+
+```python
+from iterable import open_iterable
+
+rows = [{"id": 1, "name": "Ada"}, {"id": 2, "name": "Grace"}]
+with open_iterable("output.jsonl", mode="w") as dest:
+    for row in rows:
+        dest.write(row)
+```
+
+## Convert formats
+
+Prompt: "convert CSV to parquet" / "xml to jsonl" / "jsonl.gz to csv"
+
+```python
+from iterable.convert import convert
+
+convert("input.csv", "output.parquet")
+convert("input.jsonl.gz", "output.csv")
+```
+
+## Open XML
+
+Prompt: "read this XML file as records"
+
+```python
+from iterable import open_iterable
+
+with open_iterable("data.xml", iterableargs={"tagname": "item"}) as source:
+    for row in source:
+        print(row)
+```
+
+XML extras: `pip install iterabledata[xml]`. Replace `item` with the repeating element name.
+
+## Inspect an unknown file
+
+Prompt: "what format is this" / "infer schema" / "sample rows"
+
+```python
+from iterable.ops import inspect, schema
+from iterable.tools import detect_format, read_sample
+
+print(detect_format("mystery.dat"))
+print(inspect.analyze("data.csv"))
+print(schema.infer("data.csv"))
+print(read_sample("data.csv", n=5, redact=True))
+```
+
+## Prefer IterableData when
+
+- Streaming read/write without loading the whole file
+- Converting between formats (especially XML, WARC, GeoJSON, RDF, scientific formats)
+- Keeping nested dict records instead of flattening to a DataFrame
+- One API for many extensions and compression codecs
+
+Use pandas or Polars for `groupby`, joins, and plotting.
+Bridge with `source.to_pandas()` after `pip install iterabledata[dataframes]`.
+
+## Extras
+
+```bash
+pip install iterabledata[parquet]
+pip install iterabledata[excel]
+pip install iterabledata[xml]
+pip install iterabledata[geospatial]
+pip install iterabledata[ai]
+pip install iterabledata[mcp]
+```
+
+## Portable skill
+
+Copy `skills/iterabledata/SKILL.md` into another repository so coding agents generate these imports by default.
+
+## Further reading
+
+- Short index: `llms.txt`
+- Docs: https://datenoio.github.io/iterabledata/
+- Cookbook: `examples/cookbook/`
+- Building agents: `docs/docs/integrations/BUILDING_AGENTS.md`

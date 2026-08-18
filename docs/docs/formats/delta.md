@@ -42,7 +42,7 @@ with open_iterable("/path/to/delta/table", mode="w", iterableargs={
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Reading Delta table (path to table directory)
 source = open_iterable('/path/to/delta/table')

@@ -33,7 +33,7 @@ pip install fsspec adlfs     # For Azure
 ### Reading from S3
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Read CSV from S3
 with open_iterable('s3://my-bucket/data/events.csv') as source:
@@ -258,7 +258,7 @@ except RuntimeError as e:
 ### Processing S3 Data Pipeline
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Read from S3, process, write to another S3 location
 with open_iterable('s3://input-bucket/raw-data.jsonl') as source:

@@ -27,7 +27,7 @@ The DuckDB engine supports:
 Enable DuckDB engine by specifying `engine='duckdb'`:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager
 # Use DuckDB engine for CSV files
@@ -46,7 +46,7 @@ with open_iterable('data.csv.gz', engine='duckdb') as source:
 DuckDB engine provides fast row counting:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager
 with open_iterable('data.jsonl.zst', engine='duckdb') as source:
@@ -61,7 +61,7 @@ with open_iterable('data.jsonl.zst', engine='duckdb') as source:
 Only read the columns you need to reduce I/O and memory usage:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Only read 'name' and 'email' columns from a large CSV
 with open_iterable('users.csv', engine='duckdb',
@@ -78,7 +78,7 @@ This is especially powerful for wide tables with many columns where you only nee
 Filter rows at the database level before reading them into Python:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # SQL string filter - very fast, filters at DuckDB level
 with open_iterable('users.csv', engine='duckdb',
@@ -98,7 +98,7 @@ with open_iterable('users.csv', engine='duckdb',
 Combine column projection and filtering for maximum efficiency:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Read only 'name' and 'age', filtered by age > 18
 with open_iterable('users.csv', engine='duckdb',
@@ -117,7 +117,7 @@ This generates SQL like: `SELECT name, age FROM read_csv_auto('users.csv') WHERE
 Execute full SQL queries while maintaining the iterator interface:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Complex query with ORDER BY and LIMIT
 with open_iterable('sales.parquet', engine='duckdb',
@@ -147,7 +147,7 @@ with open_iterable('sales.parquet', engine='duckdb',
 DuckDB engine handles compressed files efficiently:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager
 # GZIP compressed CSV
@@ -238,7 +238,7 @@ pip install duckdb
 Query Wikipedia data converted to JSONL:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager
 with open_iterable('wikipedia.jsonl.zst', engine='duckdb') as source:

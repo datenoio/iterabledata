@@ -30,7 +30,7 @@ Requires a filename. The selected table is loaded into memory. The pyodbc path n
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("inventory.mdb", format="mdb", iterableargs={"table": "Products"}) as source:
     for row in source:

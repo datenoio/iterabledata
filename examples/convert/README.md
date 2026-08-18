@@ -1,6 +1,6 @@
 # Convert
 
-Convert data between file formats (and from database sources to files) using `iterable.convert.core.convert` or the high-level `open_iterable`-based conversion.
+Convert data between file formats (and from database sources to files) using `iterable.convert.convert`.
 
 ## Minimal script
 
@@ -13,7 +13,7 @@ python examples/converter/convert.py source.csv output.jsonl
 ## API
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 result = convert(
     fromfile="data.csv",
@@ -27,7 +27,7 @@ result = convert(
     show_progress=False,
     atomic=False,
 )
-print(result.rows_read, result.rows_written)
+print(result.rows_in, result.rows_out)
 ```
 
 - **fromfile**: Path to source file, or database URL (e.g. `postgresql://...`, `mongodb://...`) with `iterableargs` specifying engine and query/table.

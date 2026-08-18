@@ -23,7 +23,7 @@ Requires `paimon-mosaic>=0.2.0` and `pyarrow`. Platform wheels must be available
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("wide.mosaic", mode="w", iterableargs={"num_buckets": 4}) as dest:
     dest.write_bulk([

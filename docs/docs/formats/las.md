@@ -45,7 +45,7 @@ Requires a filename. `totals()` returns the point count. Streaming via chunked r
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("cloud.las", format="las") as source:
     print(f"points: {source.totals()}")

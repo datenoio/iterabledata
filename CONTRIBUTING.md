@@ -44,7 +44,9 @@ AI assistants in Cursor can use project skills in **`.cursor/skills/`**:
 
 ## LLM / agent consumers
 
-- **[llms.txt](llms.txt)** — machine-readable index of entry points and docs
+- **[llms.txt](llms.txt)** — short machine-readable index of entry points
+- **[llms-full.txt](llms-full.txt)** — copy-paste recipes for coding models
+- **[skills/iterabledata/SKILL.md](skills/iterabledata/SKILL.md)** — portable usage skill for other repositories
 - **[docs/integrations/](docs/integrations/)** — AI framework integration guides
 - **API docs:** https://datenoio.github.io/iterabledata/
 

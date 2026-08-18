@@ -32,7 +32,7 @@ Sparse ARFF rows are densified before yield. The full file is loaded into memory
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("weather.arff") as source:
     for row in source:

@@ -139,8 +139,8 @@ The `stats` dictionary passed to callbacks contains:
 ### Basic Pipeline
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 # Recommended: Using context managers
 with open_iterable('input.parquet') as source:
@@ -160,8 +160,8 @@ with open_iterable('input.parquet') as source:
 ### Pipeline with Progress Tracking
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 # Recommended: Using context managers
 with open_iterable('input.parquet') as source:
@@ -190,8 +190,8 @@ with open_iterable('input.parquet') as source:
 ### Pipeline with Progress Callback
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 def progress_callback(stats):
     print(f"Progress: {stats['rows_processed']} rows, "
@@ -219,8 +219,8 @@ with open_iterable('input.csv') as source:
 ### Accessing Pipeline Metrics
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 with open_iterable('input.jsonl') as source:
     with open_iterable('output.csv', mode='w') as destination:
@@ -251,8 +251,8 @@ with open_iterable('input.jsonl') as source:
 ### Pipeline with Database Source
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 # Process data from PostgreSQL database
 source = open_iterable(
@@ -313,8 +313,8 @@ source.close()  # Close database connection
 ### Pipeline with State
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 # Recommended: Using context managers
 with open_iterable('input.jsonl') as source:
@@ -340,8 +340,8 @@ with open_iterable('input.jsonl') as source:
 ### Filtering Records
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 # Recommended: Using context managers
 with open_iterable('input.csv') as source:
@@ -364,8 +364,8 @@ with open_iterable('input.csv') as source:
 ## Error Handling
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 try:
     with open_iterable('input.csv') as source:

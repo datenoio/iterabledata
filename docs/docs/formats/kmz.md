@@ -26,7 +26,7 @@ Same GeoJSON-like features as KML (`type`, `geometry`, `properties`). Placemarks
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("places.kmz") as source:
     for feature in source:

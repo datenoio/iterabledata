@@ -35,7 +35,7 @@ Writing is not currently supported for ZIPXML format.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager (automatic cleanup)
 # Basic reading - iterate through all XML files
@@ -126,7 +126,7 @@ The ZIPXML implementation:
 ## Error Handling
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 try:
     # Reading with error handling

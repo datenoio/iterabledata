@@ -92,7 +92,7 @@ pip install -e .
 Now your format can be used just like built-in formats:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("data.custom") as source:
     for row in source:
@@ -371,7 +371,7 @@ pip install -e .
 ```
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("data.custom") as source:
     for row in source:

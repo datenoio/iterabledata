@@ -43,7 +43,7 @@ Requires a filename. Streaming one trace at a time.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("volume.segy", format="segy") as source:
     for trace in source:

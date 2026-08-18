@@ -35,7 +35,7 @@ Requires a filename (not a stream). Uses Fiona's `MapInfo File` driver with stre
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("parcels.mif", format="mif") as source:
     for feature in source:

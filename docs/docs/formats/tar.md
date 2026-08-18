@@ -37,7 +37,7 @@ Writing is not supported; the TAR container is read-only.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Iterate all data members
 with open_iterable('dataset.tar.gz') as source:

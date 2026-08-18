@@ -34,7 +34,7 @@ Writing is not currently supported for XLS format. Use XLSX format for writing.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Basic reading (first sheet, headers from first row)
 source = open_iterable('data.xls')

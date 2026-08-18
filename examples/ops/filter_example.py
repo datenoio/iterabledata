@@ -7,7 +7,7 @@ Run: python examples/ops/filter_example.py [path/to/data.csv]
 
 import sys
 
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.ops import filter as filter_ops
 
 

@@ -33,7 +33,7 @@ Writing is not currently supported for Apache Log format.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Basic reading (default: common format)
 source = open_iterable('access.log')

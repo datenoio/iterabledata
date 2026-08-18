@@ -30,7 +30,7 @@ Segment terminator defaults to `~` or newline; element separator is detected fro
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("order.edi") as source:
     for segment in source:

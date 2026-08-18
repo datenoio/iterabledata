@@ -17,7 +17,7 @@ import os
 import sys
 from pathlib import Path
 
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 
 def main():

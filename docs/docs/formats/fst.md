@@ -30,7 +30,7 @@ The entire frame is loaded into memory (not streaming). Requires a filename path
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("frame.fst", format="fst") as source:
     for row in source:

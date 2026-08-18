@@ -40,7 +40,7 @@ Cell values are stringified. Requires a filename (streams not supported). `list_
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("data.xlsb") as source:
     for row in source:

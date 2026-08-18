@@ -36,7 +36,7 @@ Writing support:
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Reading fixed-width file
 source = open_iterable('data.fwf', iterableargs={
@@ -68,7 +68,7 @@ dest.close()
 ## Error Handling
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 try:
     # Reading with error handling

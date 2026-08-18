@@ -8,7 +8,7 @@ Run: python examples/db/read_postgresql.py [postgresql://user:pass@host:5432/dbn
 import os
 import sys
 
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 
 def main():

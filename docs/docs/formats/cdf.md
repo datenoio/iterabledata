@@ -32,7 +32,7 @@ Use `list_tables()` for variable names. Requires a filename (or a named file obj
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("data.cdf", format="cdf") as source:
     print(source.list_tables())

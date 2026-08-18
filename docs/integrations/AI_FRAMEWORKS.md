@@ -22,7 +22,7 @@ LangChain agents can use IterableData as tools for reading, writing, and convert
 from langchain.agents import AgentExecutor, create_openai_functions_agent
 from langchain_openai import ChatOpenAI
 from langchain.tools import Tool
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.convert import convert
 
 def read_iterable_data(filename: str, limit: int = 10) -> str:
@@ -67,7 +67,7 @@ result = agent_executor.invoke({
 from langchain.agents import AgentExecutor, create_openai_functions_agent
 from langchain_openai import ChatOpenAI
 from langchain.tools import Tool
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.helpers.schema import infer_schema
 import json
 
@@ -120,7 +120,7 @@ CrewAI agents can collaborate on data processing tasks using IterableData.
 
 ```python
 from crewai import Agent, Task, Crew
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.convert import convert
 
 def data_reader_tool(filename: str) -> str:
@@ -178,7 +178,7 @@ AutoGen agents can use IterableData for multi-agent data processing workflows.
 
 ```python
 from autogen import ConversableAgent, GroupChat, GroupChatManager
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 import json
 
 def read_data_function(filename: str) -> str:
@@ -280,7 +280,7 @@ Always use context managers (`with` statements) to ensure proper resource cleanu
 Do not `exec()` LLM-generated Python. Use the LLM for planning, then apply explicit functions:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.pipeline import pipeline
 
 

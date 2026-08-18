@@ -39,7 +39,7 @@ Writing support:
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Basic reading (automatically finds metadata file)
 source = open_iterable('data.csv')

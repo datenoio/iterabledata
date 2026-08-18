@@ -42,7 +42,7 @@ Writing support:
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager (automatic cleanup)
 # Reading from first table
@@ -124,7 +124,7 @@ finally:
 ## Error Handling
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 try:
     # Reading with error handling
@@ -232,7 +232,7 @@ DuckDB is optimized for analytical workloads and provides excellent performance:
 ## Example: Data Analysis
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Write data to DuckDB
 with open_iterable('analytics.duckdb', mode='w', iterableargs={

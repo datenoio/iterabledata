@@ -29,7 +29,7 @@ The documentation is well-structured and comprehensive, covering 80+ formats wit
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager
 with open_iterable('data.duckdb') as source:
@@ -70,7 +70,7 @@ source.close()
 ## Error Handling
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 try:
     with open_iterable('data.duckdb', iterableargs={'table': 'users'}) as source:
@@ -178,7 +178,7 @@ except Exception as e:
 
 **Example Standard**:
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Process user data from DuckDB
 with open_iterable('users.duckdb', iterableargs={'table': 'users'}) as source:

@@ -37,7 +37,7 @@ On write, `features` may be a dict (index→value) or a dense list/tuple (1-base
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("train.libsvm") as source:
     for row in source:

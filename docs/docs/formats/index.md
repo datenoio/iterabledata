@@ -208,7 +208,7 @@ Some formats require additional Python packages. Install them as needed:
 All formats can be opened using the unified `open_iterable()` function:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Automatically detects format from file extension
 with open_iterable('data.csv.gz') as source:

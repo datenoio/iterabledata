@@ -41,7 +41,7 @@ Writing support:
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager (automatic cleanup)
 # Basic reading
@@ -90,7 +90,7 @@ finally:
 ## Error Handling
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 try:
     # Reading with error handling
@@ -192,7 +192,7 @@ See the [supported formats index](/formats/).
 ## Example: [Specific Use Case]
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # [Description of what this example does]
 with open_iterable('data.vtx', iterableargs={

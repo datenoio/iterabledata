@@ -16,7 +16,7 @@ This guide helps you migrate your code when upgrading between versions of Iterab
 
 **Before**:
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 try:
     with open_iterable('data.parquet', mode='w') as dest:
@@ -31,7 +31,7 @@ except Exception as e:
 
 **After (Recommended)**:
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.exceptions import (
     WriteNotSupportedError,
     FormatParseError,
@@ -80,7 +80,7 @@ except IterableDataError as e:
 
 **Example: Handling Format-Specific Errors**:
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.exceptions import FormatParseError
 
 try:
@@ -103,7 +103,7 @@ except FormatParseError as e:
 
 **Example: Using Error Codes**:
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.exceptions import IterableDataError
 
 try:
@@ -128,7 +128,7 @@ except IterableDataError as e:
 
 **Before (Still Supported)**:
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 source = open_iterable('data.csv')
 try:
@@ -140,7 +140,7 @@ finally:
 
 **After (Recommended)**:
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager
 with open_iterable('data.csv') as source:
@@ -181,7 +181,7 @@ with open_iterable('data.csv') as source:
 
 **Before**:
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 source = open_iterable('data.csv.gz')
 for row in source:
@@ -191,7 +191,7 @@ source.close()
 
 **After (Optional Enhancement)**:
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Use DuckDB engine for better performance on large files
 with open_iterable('data.csv.gz', engine='duckdb') as source:
@@ -216,7 +216,7 @@ with open_iterable('data.csv.gz', engine='duckdb') as source:
 
 **Before**:
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 source = open_iterable('input.csv')
 destination = open_iterable('output.jsonl', mode='w')
@@ -231,8 +231,8 @@ destination.close()
 
 **After (Optional Enhancement)**:
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 with open_iterable('input.csv') as source:
     with open_iterable('output.jsonl', mode='w') as destination:
@@ -263,7 +263,7 @@ with open_iterable('input.csv') as source:
 
 **Before**:
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 dest = open_iterable('output.jsonl', mode='w')
 for record in records:
@@ -273,7 +273,7 @@ dest.close()
 
 **After (Recommended)**:
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable('output.jsonl', mode='w') as dest:
     dest.write_bulk(records)  # Much faster
@@ -384,7 +384,7 @@ def process_csv(filename):
 
 # New: With type hints (optional, improves IDE support)
 from typing import Any
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 def process_csv(filename: str) -> list[dict[str, Any]]:
     with open_iterable(filename) as source:
@@ -445,7 +445,7 @@ def process_file(filename):
 **After (Optional Enhancement)**:
 ```python
 from typing import Any
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Type hints improve IDE support and static checking
 def process_file(filename: str) -> list[dict[str, Any]]:

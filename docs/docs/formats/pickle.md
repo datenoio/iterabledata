@@ -35,7 +35,7 @@ Writing support:
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Basic reading
 source = open_iterable('data.pickle')
@@ -68,7 +68,7 @@ No specific parameters required.
 Opening a pickle source for reading emits a `UserWarning` unless you explicitly acknowledge the risk by passing `trust=True`:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Emits a UserWarning about untrusted pickle data
 source = open_iterable("data.pickle")

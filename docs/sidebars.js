@@ -20,11 +20,26 @@ const sidebars = {
       items: [
         'getting-started/installation',
         'getting-started/quick-start',
+        'getting-started/when-to-use',
+        'getting-started/cookbook',
         'getting-started/basic-usage',
         'getting-started/performance',
         'getting-started/troubleshooting',
         'getting-started/migration-guide',
         'getting-started/best-practices',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'AI & agents',
+      items: [
+        'getting-started/cookbook',
+        'getting-started/when-to-use',
+        'integrations/BUILDING_AGENTS',
+        'integrations/MCP',
+        'api/tools',
+        'api/catalog',
+        'api/ai',
       ],
     },
     {

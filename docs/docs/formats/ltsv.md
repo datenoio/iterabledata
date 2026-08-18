@@ -52,7 +52,7 @@ The LTSV implementation:
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Basic reading
 source = open_iterable('data.ltsv')
@@ -126,7 +126,7 @@ LTSV files can be compressed with all supported codecs:
 ### Reading LTSV
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 source = open_iterable('access.ltsv')
 for record in source:
@@ -137,7 +137,7 @@ source.close()
 ### Writing LTSV
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 dest = open_iterable('output.ltsv', mode='w')
 records = [
@@ -151,7 +151,7 @@ dest.close()
 ### Converting from CSV to LTSV
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 source = open_iterable('data.csv')
 dest = open_iterable('data.ltsv', mode='w')

@@ -32,7 +32,7 @@ Only `loop_` blocks whose columns all start with `_atom_site.` are yielded. `.` 
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("structure.cif") as source:
     for atom in source:

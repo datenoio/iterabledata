@@ -36,7 +36,7 @@ Writing is not currently supported for RData format.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # List available R objects
 from iterable.datatypes.rdata import RDataIterable

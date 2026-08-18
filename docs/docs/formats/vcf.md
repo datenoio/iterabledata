@@ -36,7 +36,7 @@ back to vCard entries (requires the `vobject` package).
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Basic reading
 source = open_iterable('contacts.vcf')

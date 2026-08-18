@@ -38,7 +38,7 @@ Read miniSEED seismological waveform files as one trace window per record.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("station.mseed", format="mseed") as source:
     for trace in source:

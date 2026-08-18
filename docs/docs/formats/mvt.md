@@ -36,7 +36,7 @@ Read Mapbox Vector Tiles (`.mvt` / `.pbf`) as flattened layer features.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("tile.mvt") as source:
     for feat in source:

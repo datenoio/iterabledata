@@ -9,8 +9,8 @@ import os
 import sys
 import tempfile
 
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 
 def process(row, state):

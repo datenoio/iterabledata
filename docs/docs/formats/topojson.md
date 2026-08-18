@@ -26,7 +26,7 @@ On read with the library available, Feature / FeatureCollection members. Without
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("map.topojson") as source:
     for feature in source:

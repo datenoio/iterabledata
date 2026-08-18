@@ -25,7 +25,7 @@ Requires `zstandard`. Nested/VARIANT types are not supported in the first experi
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 schema = [("id", "bigint"), ("name", "string"), ("score", "double")]
 

@@ -262,7 +262,7 @@ Resource leak detected. Raised when a resource (file, connection, etc.) is not p
 ### Catching Specific Exceptions
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.exceptions import (
     FormatDetectionError,
     FormatNotSupportedError,
@@ -303,7 +303,7 @@ except Exception as e:
 ### Catching All IterableData Errors
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.exceptions import IterableDataError
 
 try:
@@ -320,7 +320,7 @@ except IterableDataError as e:
 ### Using Error Codes
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.exceptions import IterableDataError
 
 try:

@@ -17,7 +17,7 @@ pip install iterabledata[paimon]
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 warehouse = "/path/to/warehouse"
 

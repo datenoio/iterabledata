@@ -76,6 +76,16 @@ const config = {
             label: 'Documentation',
           },
           {
+            to: '/getting-started/cookbook',
+            label: 'Cookbook',
+            position: 'left',
+          },
+          {
+            href: 'https://datenoio.github.io/iterabledata/llms.txt',
+            label: 'llms.txt',
+            position: 'right',
+          },
+          {
             href: 'https://github.com/datenoio/iterabledata',
             label: 'GitHub',
             position: 'right',
@@ -99,6 +109,27 @@ const config = {
               {
                 label: 'Data Formats',
                 to: '/formats/',
+              },
+              {
+                label: 'Cookbook',
+                to: '/getting-started/cookbook',
+              },
+            ],
+          },
+          {
+            title: 'For coding agents',
+            items: [
+              {
+                label: 'llms.txt',
+                href: 'https://datenoio.github.io/iterabledata/llms.txt',
+              },
+              {
+                label: 'llms-full.txt',
+                href: 'https://datenoio.github.io/iterabledata/llms-full.txt',
+              },
+              {
+                label: 'Building agents',
+                to: '/integrations/BUILDING_AGENTS',
               },
             ],
           },

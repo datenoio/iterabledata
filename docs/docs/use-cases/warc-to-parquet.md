@@ -22,7 +22,7 @@ WARC files contain web archive data including HTTP requests, responses, and meta
 The simplest way to convert a WARC.gz file to compressed Parquet:
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Convert WARC.gz to Parquet with compression
 convert(
@@ -43,7 +43,7 @@ The `convert()` function automatically:
 You can specify different compression codecs for Parquet:
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Convert with ZStandard compression (better compression ratio)
 convert(
@@ -75,7 +75,7 @@ convert(
 For more control over the conversion process:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Open compressed WARC file
 source = open_iterable('archive.warc.gz')
@@ -104,7 +104,7 @@ destination.close()
 For large WARC files, use batch processing for better memory efficiency:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 source = open_iterable('archive.warc.gz')
 destination = open_iterable(
@@ -136,7 +136,7 @@ destination.close()
 WARC files can be compressed with various codecs. Iterable Data handles them automatically:
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # GZip compressed WARC
 convert('archive.warc.gz', 'output.parquet', 
@@ -160,7 +160,7 @@ convert('archive.warc', 'output.parquet',
 WARC records contain various fields. You can process and filter them during conversion:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 source = open_iterable('archive.warc.gz')
 destination = open_iterable(
@@ -187,7 +187,7 @@ destination.close()
 Once converted to Parquet, you can query the data efficiently:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Open Parquet file
 source = open_iterable('archive.parquet')
@@ -241,7 +241,7 @@ For WARC archives, `zstd` or `snappy` are recommended for a good balance of spee
 4. **Progress tracking**: Use `silent=False` in `convert()` to monitor progress
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 # Convert with progress tracking
 convert(
@@ -258,7 +258,7 @@ convert(
 Here's a complete example that converts a WARC.gz file to compressed Parquet:
 
 ```python
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 def convert_warc_to_parquet(input_file, output_file, compression='zstd'):
     """

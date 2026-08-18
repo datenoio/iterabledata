@@ -13,8 +13,8 @@ Iterable Data provides a powerful pipeline framework for processing data with tr
 A simple pipeline that transforms data:
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 # Recommended: Using context managers
 with open_iterable('input.parquet') as source:
@@ -41,8 +41,8 @@ with open_iterable('input.parquet') as source:
 Track progress during processing:
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 # Recommended: Using context managers
 with open_iterable('input.parquet') as source:
@@ -78,8 +78,8 @@ with open_iterable('input.parquet') as source:
 Use state to accumulate information during processing:
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 source = open_iterable('input.jsonl')
 destination = open_iterable('output.jsonl', mode='w')
@@ -111,8 +111,8 @@ destination.close()
 Filter records by returning `None`:
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 source = open_iterable('input.csv')
 destination = open_iterable('output.csv', mode='w')
@@ -139,8 +139,8 @@ destination.close()
 Enrich records with additional data:
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 source = open_iterable('input.jsonl')
 destination = open_iterable('output.jsonl', mode='w')
@@ -170,8 +170,8 @@ destination.close()
 Handle errors gracefully:
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 source = open_iterable('input.jsonl')
 destination = open_iterable('output.jsonl', mode='w')

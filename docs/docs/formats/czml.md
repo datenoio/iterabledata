@@ -33,7 +33,7 @@ A bare JSON object is treated as a single-packet document. Writes emit a JSON ar
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("scene.czml") as source:
     for packet in source:

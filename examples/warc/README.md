@@ -172,7 +172,7 @@ output_file = "/path/to/output/records.jsonl"
 You can filter WARC records by type using the `open_iterable()` function directly:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("archive.warc") as source:
     for record in source:
@@ -186,7 +186,7 @@ with open_iterable("archive.warc") as source:
 For large WARC files, use batch processing:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("large_archive.warc") as source:
     batch = []
@@ -206,7 +206,7 @@ with open_iterable("large_archive.warc") as source:
 You can extract and transform specific fields during conversion:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.datatypes.jsonl import JSONLIterable
 
 with open_iterable("archive.warc") as source:

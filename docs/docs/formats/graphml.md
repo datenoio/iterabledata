@@ -31,7 +31,7 @@ Node/edge attributes from the file are merged into each record.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("network.graphml") as source:
     for rec in source:

@@ -59,7 +59,7 @@ Validation hooks allow you to automatically validate data during read and write 
 ### Basic Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.helpers.validation import rules_validator
 
 # Create validation hook

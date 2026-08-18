@@ -28,7 +28,7 @@ Read TriG RDF as subject/predicate/object/graph quads (via rdflib).
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("graph.trig") as source:
     for quad in source:

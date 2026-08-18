@@ -17,8 +17,8 @@ If files are omitted, the script uses minimal in-memory data for demonstration.
 ## API
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 def process(row, state):
     row["doubled"] = row.get("value", 0) * 2

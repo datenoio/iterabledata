@@ -5,7 +5,7 @@ This example demonstrates how to iterate over documents in a MongoDB collection
 using IterableData's open_iterable() function with the MongoDB engine.
 """
 
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 
 def main():

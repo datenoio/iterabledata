@@ -33,7 +33,7 @@ Optional trailing fields become `extra_0`, `extra_1`, …. An optional atom-coun
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("molecule.xyz") as source:
     for row in source:

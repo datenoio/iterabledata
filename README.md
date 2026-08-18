@@ -267,6 +267,12 @@ Python 3.10+
 pip install iterabledata
 ```
 
+The PyPI package is **iterabledata**. Import **iterable**:
+
+```python
+from iterable import open_iterable
+```
+
 Or install from source:
 
 ```bash
@@ -364,7 +370,7 @@ pip install iterabledata[all]
 **Paimon** (`[paimon]`): Apache Paimon warehouse tables plus Row and Mosaic file formats. Install `[paimon-table]`, `[paimon-row]`, or `[paimon-mosaic]` individually if you only need one surface. DuckLake alone is also available as `[ducklake]`.
 See the [API documentation](https://datenoio.github.io/iterabledata/) for details on these features.
 
-For AI agents and LLM tooling, see **[llms.txt](llms.txt)** (machine-readable index) and [CONTRIBUTING.md](CONTRIBUTING.md).
+For AI agents and LLM tooling, see **[llms.txt](llms.txt)** (short index), **[llms-full.txt](llms-full.txt)** (copy-paste recipes), the portable skill **[skills/iterabledata/SKILL.md](skills/iterabledata/SKILL.md)**, and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## AI Quick Start
 
@@ -439,40 +445,21 @@ Full export: `dev/formats.json` or `export_catalog(format="json")`. See [docs/do
 ### Basic Reading
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
-# Automatically detects format and compression
-# Using context manager (recommended)
-with open_iterable('data.csv.gz') as source:
+with open_iterable("data.csv.gz") as source:
     for row in source:
         print(row)
-        # Process your data here
-# File is automatically closed
-
-# Or manually (still supported)
-source = open_iterable('data.csv.gz')
-for row in source:
-    print(row)
-source.close()
 ```
 
 ### Writing Data
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
-# Write compressed JSONL file
-# Using context manager (recommended)
-with open_iterable('output.jsonl.zst', mode='w') as dest:
+with open_iterable("output.jsonl.zst", mode="w") as dest:
     for item in my_data:
         dest.write(item)
-# File is automatically closed
-
-# Or manually (still supported)
-dest = open_iterable('output.jsonl.zst', mode='w')
-for item in my_data:
-    dest.write(item)
-dest.close()
 ```
 
 ## Usage Examples
@@ -480,47 +467,36 @@ dest.close()
 ### Reading Compressed CSV Files
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
-# Read compressed CSV file (supports .gz, .bz2, .xz, .zst, .lz4, .br, .snappy, .lzo)
-source = open_iterable('data.csv.xz')
-n = 0
-for row in source:
-    n += 1
-    # Process row data
-    if n % 1000 == 0:
-        print(f'Processed {n} rows')
-source.close()
+with open_iterable("data.csv.xz") as source:
+    n = 0
+    for row in source:
+        n += 1
+        if n % 1000 == 0:
+            print(f"Processed {n} rows")
 ```
 
 ### Reading Different Formats
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
-# Read JSONL file
-jsonl_file = open_iterable('data.jsonl')
-for row in jsonl_file:
-    print(row)
-jsonl_file.close()
+with open_iterable("data.jsonl") as source:
+    for row in source:
+        print(row)
 
-# Read Parquet file
-parquet_file = open_iterable('data.parquet')
-for row in parquet_file:
-    print(row)
-parquet_file.close()
+with open_iterable("data.parquet") as source:
+    for row in source:
+        print(row)
 
-# Read XML file (specify tag name)
-xml_file = open_iterable('data.xml', iterableargs={'tagname': 'item'})
-for row in xml_file:
-    print(row)
-xml_file.close()
+with open_iterable("data.xml", iterableargs={"tagname": "item"}) as source:
+    for row in source:
+        print(row)
 
-# Read Excel file
-xlsx_file = open_iterable('data.xlsx')
-for row in xlsx_file:
-    print(row)
-xlsx_file.close()
+with open_iterable("data.xlsx") as source:
+    for row in source:
+        print(row)
 
 # Read GeoJSON Text Sequence (streaming, one feature per line)
 with open_iterable('features.geojsonl') as source:
@@ -561,7 +537,7 @@ with open_iterable('telemetry.otlp.json') as source:
 ### Reading from Databases
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Read from PostgreSQL database
 with open_iterable(
@@ -613,7 +589,8 @@ convert(
 ### Format Detection and Encoding
 
 ```python
-from iterable.helpers.detect import open_iterable, detect_file_type, detect_file_type_from_content
+from iterable import open_iterable
+from iterable.helpers.detect import detect_file_type, detect_file_type_from_content
 from iterable.helpers.utils import detect_encoding, detect_delimiter
 
 # Detect file type and compression (uses filename extension)
@@ -652,7 +629,7 @@ source = open_iterable('data.csv', iterableargs={
 IterableData provides a comprehensive exception hierarchy and configurable error handling:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.exceptions import (
     FormatDetectionError,
     FormatNotSupportedError,
@@ -758,8 +735,8 @@ for format_id, capabilities in all_caps.items():
 ### Format Conversion
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.convert.core import convert
+from iterable import open_iterable
+from iterable.convert import convert
 
 # Simple format conversion
 convert('input.jsonl.gz', 'output.parquet')
@@ -786,8 +763,8 @@ convert(
 Use atomic writes to ensure output files are never left in a partially written state:
 
 ```python
-from iterable.convert.core import convert
-from iterable.pipeline.core import pipeline
+from iterable.convert import convert
+from iterable.pipeline import pipeline
 
 # Convert with atomic writes (production-safe)
 result = convert('input.csv', 'output.parquet', atomic=True)
@@ -809,7 +786,7 @@ pipeline(
 Convert multiple files at once using glob patterns, directories, or file lists:
 
 ```python
-from iterable.convert.core import bulk_convert
+from iterable.convert import bulk_convert
 
 # Convert all CSV files matching glob pattern
 result = bulk_convert('data/raw/*.csv.gz', 'data/processed/', to_ext='parquet')
@@ -840,8 +817,8 @@ for file_result in result.file_results:
 Track conversion and pipeline progress with callbacks, progress bars, and structured metrics:
 
 ```python
-from iterable.convert.core import convert
-from iterable.pipeline.core import pipeline
+from iterable.convert import convert
+from iterable.pipeline import pipeline
 
 # Progress callback for conversions
 def progress_cb(stats):
@@ -881,8 +858,8 @@ print(f"Exceptions: {result.exceptions}")
 ### Using Pipeline for Data Processing
 
 ```python
-from iterable.helpers.detect import open_iterable
-from iterable.pipeline.core import pipeline
+from iterable import open_iterable
+from iterable.pipeline import pipeline
 
 source = open_iterable('input.parquet')
 destination = open_iterable('output.jsonl.xz', mode='w')
@@ -952,7 +929,7 @@ writer.close()
 Read and write data directly from cloud object storage (S3, GCS, Azure):
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Read from S3
 with open_iterable('s3://my-bucket/data/events.csv') as source:
@@ -989,7 +966,7 @@ with open_iterable(
 The DuckDB engine provides high-performance querying with advanced optimizations:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Basic DuckDB usage
 source = open_iterable('data.csv.gz', engine='duckdb')
@@ -1047,7 +1024,7 @@ with open_iterable(
 ### Bulk Operations
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 source = open_iterable('input.jsonl')
 destination = open_iterable('output.parquet', mode='w')
@@ -1101,7 +1078,7 @@ memory, row-group, and fallback behavior.
 ### Working with Excel Files
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.ai.fileinfo import open_table
 
 # Read Excel file (specify sheet or page)
@@ -1121,7 +1098,7 @@ sheet.close()
 ### XML Processing
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Parse XML with specific tag name
 xml_file = open_iterable(
@@ -1142,7 +1119,7 @@ xml_file.close()
 Convert iterable data to Pandas, Polars, or Dask DataFrames:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Convert to Pandas DataFrame
 with open_iterable('data.csv.gz') as source:
@@ -1188,7 +1165,7 @@ pip install "dask[dataframe]"
 IterableData includes complete type annotations and typed helper functions for modern Python development:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 from iterable.helpers.typed import as_dataclasses, as_pydantic
 from dataclasses import dataclass
 from pydantic import BaseModel

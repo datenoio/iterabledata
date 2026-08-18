@@ -37,7 +37,7 @@ Optional child fields (`ele`, `time`, `name`, `description`, …) appear when pr
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 with open_iterable("hike.gpx") as source:
     for pt in source:

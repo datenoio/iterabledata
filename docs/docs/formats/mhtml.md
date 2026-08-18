@@ -36,7 +36,7 @@ Writing is not currently supported for MHTML format.
 ## Usage
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Basic reading
 source = open_iterable('page.mhtml')

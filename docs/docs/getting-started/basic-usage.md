@@ -13,7 +13,7 @@ This guide covers common usage patterns and best practices for working with Iter
 Iterable Data seamlessly handles compressed files:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager (automatic cleanup)
 # Read compressed CSV file (supports .gz, .bz2, .xz, .zst, .lz4, .br, .snappy, .lzo)
@@ -32,7 +32,8 @@ with open_iterable('data.csv.xz') as source:
 IterableData automatically detects file formats using a two-stage approach: filename extension detection (primary) and content-based detection (fallback). You can also detect file types and encoding manually before opening:
 
 ```python
-from iterable.helpers.detect import open_iterable, detect_file_type
+from iterable import open_iterable
+from iterable.helpers.detect import detect_file_type
 from iterable.helpers.utils import detect_encoding, detect_delimiter
 
 # Detect file type and compression
@@ -91,7 +92,7 @@ See [Format Detection Details](/api/open-iterable#format-detection-details) for 
 Excel files can be read with sheet selection:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager
 # Read Excel file (specify sheet or page)
@@ -111,7 +112,7 @@ with open_iterable('data.xlsx', iterableargs={'page': 'Sheet2'}) as xlsx_file:
 XML files require specifying the tag name to iterate over:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager
 # Parse XML with specific tag name
@@ -132,7 +133,7 @@ with open_iterable(
 For better performance with large files, use bulk operations:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context managers
 with open_iterable('input.jsonl') as source:
@@ -156,7 +157,7 @@ with open_iterable('input.jsonl') as source:
 Iterable Data supports Python's context manager protocol (`with` statements) for automatic resource cleanup:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager (automatic cleanup)
 with open_iterable('data.csv') as source:
@@ -178,7 +179,7 @@ finally:
 Always handle potential errors when working with files:
 
 ```python
-from iterable.helpers.detect import open_iterable
+from iterable import open_iterable
 
 # Recommended: Using context manager with error handling
 try:

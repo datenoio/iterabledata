@@ -35,10 +35,11 @@ ruff format iterable tests
 
 ## Import Patterns
 
-- Main entry: `from iterable.helpers.detect import open_iterable`
-- Format-specific: `from iterable.datatypes.csv import CSVIterable`
-- Codecs: `from iterable.codecs.gzipcodec import GZIPCodec`
-- Always use `open_iterable()` for user-facing code
+- Main entry: `from iterable import open_iterable`
+- Convert: `from iterable.convert import convert`
+- Format-specific (advanced): `from iterable.datatypes.csv import CSVIterable`
+- Codecs (advanced): `from iterable.codecs.gzipcodec import GZIPCodec`
+- Always use `open_iterable()` for user-facing examples; do not teach `iterable.helpers.detect` as the default import
 
 ## File Handling
 

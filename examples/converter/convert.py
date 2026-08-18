@@ -1,6 +1,6 @@
 import sys
 
-from iterable.convert.core import convert
+from iterable.convert import convert
 
 
 def run():

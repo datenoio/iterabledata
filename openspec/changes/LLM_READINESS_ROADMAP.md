@@ -1,13 +1,16 @@
-# LLM Readiness Roadmap (OpenSpec) — archived 2026-06-17
+# LLM Readiness Roadmap (OpenSpec)
 
-All four phases below were implemented and archived under `openspec/changes/archive/2026-06-17-*`.
+Phases 1–4 were implemented and archived under `openspec/changes/archive/2026-06-17-*`.
+Phase 5 (`improve-llm-code-generation`) makes coding models *choose* IterableData by freezing
+canonical public imports, recipes, and a portable usage skill.
 
 | Phase | Change ID | Focus | Spec capabilities |
 |-------|-----------|-------|-------------------|
-| 1 | [fix-ai-llm-foundation](./fix-ai-llm-foundation/proposal.md) | Trust, autodoc, llms.txt, docs site, safe guides | `ops-inspect`, `ai`, `llm-discoverability` |
-| 2 | [add-llm-catalog](./add-llm-catalog/proposal.md) | Format catalog, LLM context utils, formats.json | `format-registry`, `llm-catalog` |
-| 3 | [add-agent-tool-surfaces](./add-agent-tool-surfaces/proposal.md) | iterable.tools, schemas, LangChain, MCP | `agent-tools`, `ai` |
-| 4 | [expand-ai-operations](./expand-ai-operations/proposal.md) | Providers, planning, transforms, NL filters | `ai`, `ops-filter` |
+| 1 | [fix-ai-llm-foundation](./archive/2026-06-17-fix-ai-llm-foundation/proposal.md) | Trust, autodoc, llms.txt, docs site, safe guides | `ops-inspect`, `ai`, `llm-discoverability` |
+| 2 | [add-llm-catalog](./archive/2026-06-17-add-llm-catalog/proposal.md) | Format catalog, LLM context utils, formats.json | `format-registry`, `llm-catalog` |
+| 3 | [add-agent-tool-surfaces](./archive/2026-06-17-add-agent-tool-surfaces/proposal.md) | iterable.tools, schemas, LangChain, MCP | `agent-tools`, `ai` |
+| 4 | [expand-ai-operations](./archive/2026-06-17-expand-ai-operations/proposal.md) | Providers, planning, transforms, NL filters | `ai`, `ops-filter` |
+| 5 | [improve-llm-code-generation](./improve-llm-code-generation/proposal.md) | Canonical imports, llms-full.txt, usage skill, cookbook | `llm-discoverability`, `examples` |
 
 ## Dependency graph
 
@@ -22,23 +25,16 @@ add-agent-tool-surfaces    expand-ai-operations
         │                         │
         └───────────┬─────────────┘
                     ▼
-           (tool wrappers for new AI ops — Phase 4 §8)
+        improve-llm-code-generation
 ```
 
 ## Related work
 
-- [add-format-metadata-registry](./add-format-metadata-registry/proposal.md) — prerequisite for Phase 2 catalog (complete in tree)
-- Archived: [enhance-ai-documentation](../archive/2026-01-30-enhance-ai-documentation/proposal.md) — prior `doc.generate()` scope
+- [add-format-metadata-registry](./archive/2026-06-17-add-format-metadata-registry/proposal.md) — prerequisite for Phase 2 catalog
+- Archived: [enhance-ai-documentation](./archive/2026-01-30-enhance-ai-documentation/proposal.md) — prior `doc.generate()` scope
 
 ## Validation
 
 ```bash
-openspec validate fix-ai-llm-foundation --strict
-openspec validate add-llm-catalog --strict
-openspec validate add-agent-tool-surfaces --strict
-openspec validate expand-ai-operations --strict
+openspec validate improve-llm-code-generation --strict
 ```
-
-## Approval gate
-
-Do not implement until each change proposal is reviewed and approved per `openspec/AGENTS.md`.

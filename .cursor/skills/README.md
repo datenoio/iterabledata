@@ -27,6 +27,8 @@ Each skill is stored in its own directory:
 - **database-engine-implementation** - Guide for implementing database engines
 - **ai-integration** - AI/LLM features, catalog, and agent patterns
 
+A portable **usage** skill for *other* repositories (not loaded here) lives at [`skills/iterabledata/SKILL.md`](../../skills/iterabledata/SKILL.md). Copy it into a consumer project so coding agents generate `from iterable import open_iterable`.
+
 ## Creating New Skills
 
 1. Create a new directory: `.cursor/skills/your-skill-name/`
