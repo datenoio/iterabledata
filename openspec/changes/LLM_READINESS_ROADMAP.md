@@ -38,6 +38,7 @@ add-agent-tool-surfaces    expand-ai-operations
 
 - [add-format-metadata-registry](./archive/2026-06-17-add-format-metadata-registry/proposal.md) — prerequisite for Phase 2 catalog
 - Archived: [enhance-ai-documentation](./archive/2026-01-30-enhance-ai-documentation/proposal.md) — prior `doc.generate()` scope
+- [publish-mcp-registry](./publish-mcp-registry/proposal.md) — PyPI `mcp-name` marker and OIDC publish of `server.json` on tagged releases
 
 ## Validation
 

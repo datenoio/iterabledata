@@ -7,8 +7,9 @@ description: MCP server.json, llms.txt, and the portable skill for directories a
 # Agent discovery
 
 Phase 5 taught coding models the public API. This page is the retrieval surface:
-the files directories and crawlers ingest. CI does **not** log into those
-directories; a maintainer submits the URLs below.
+the files directories and crawlers ingest. Context7 and skill indexes still need a
+maintainer submission; the MCP Registry is published from the tagged release
+workflow after PyPI upload.
 
 ## Hosted machine indexes
 
@@ -29,7 +30,7 @@ pip install iterabledata[mcp]
 iterable-mcp
 ```
 
-Submit that file to the [MCP Registry](https://github.com/modelcontextprotocol/registry) using a publisher account. Schema: `2025-12-11`. Server name: `io.github.datenoio/iterabledata`. Setup docs: [MCP](/integrations/MCP).
+The release workflow publishes this file to the [MCP Registry](https://github.com/modelcontextprotocol/registry) after each tagged PyPI upload (`mcp-publisher login github-oidc`). Schema: `2025-12-11`. Server name: `io.github.datenoio/iterabledata`. PyPI ownership is the README marker `<!-- mcp-name: io.github.datenoio/iterabledata -->` (live after the next `v*` release). Setup docs: [MCP](/integrations/MCP).
 
 ## Portable skill
 
