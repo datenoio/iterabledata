@@ -286,8 +286,17 @@ class Pipeline:
             f"exceptions: {stats['exceptions']}, nulls: {stats['nulls']})"
         )
 
+    def _close_atomic_destination(self) -> None:
+        """Close the destination so Windows can replace or delete the temp file."""
+        if not self.atomic or self.destination is None:
+            return
+        try:
+            self.destination.close()
+        except Exception as e:
+            logger.debug("Error closing destination before atomic rename: %s", e)
+
     def _run_records(self, state: dict[str, Any], stats: dict[str, Any], time_start: float, debug: bool) -> None:
-        """Drive the main record loop, cleaning up the temp file on failure."""
+        """Drive the main record loop and flush remaining records."""
         try:
             for record in self.source:
                 self._process_record(record, state, stats, debug)
@@ -295,10 +304,6 @@ class Pipeline:
                 if stats["rec_count"] % self.progress_interval == 0:
                     self._invoke_progress(stats, time_start)
                 self._maybe_trigger(stats, state, debug)
-        except Exception:
-            if self.atomic:
-                self._cleanup_temp_file()
-            raise
         finally:
             self._flush_batch()
             self._invoke_progress(stats, time_start)
@@ -323,18 +328,19 @@ class Pipeline:
             and self.batch_size > 1
         )
 
-        self._run_records(state, stats, time_start, debug)
+        try:
+            self._run_records(state, stats, time_start, debug)
+        except Exception:
+            self._close_atomic_destination()
+            self._cleanup_temp_file()
+            raise
 
         time_end = time.time()
         stats["time_end"] = time_end
         stats["duration"] = time_end - time_start
 
         self._log_completion(stats, perf_debug)
-        if self.atomic and self.destination is not None:
-            try:
-                self.destination.close()
-            except Exception as e:
-                logger.debug("Error closing destination before atomic rename: %s", e)
+        self._close_atomic_destination()
         self._finalize_atomic()
 
         if self.final_func is not None:

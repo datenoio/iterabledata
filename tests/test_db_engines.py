@@ -6,6 +6,7 @@ Tests database drivers, integration with open_iterable(), convert(), and pipelin
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
@@ -51,6 +52,23 @@ try:
     from iterable.db.elasticsearch import ElasticsearchDriver
 except ImportError:
     ElasticsearchDriver = None  # type: ignore
+
+
+def _close_iterables_and_unlink(path: str, *iterables: object) -> None:
+    """Close write handles before deleting so Windows can unlink the temp file."""
+    for obj in iterables:
+        closer = getattr(obj, "close", None)
+        if closer is None:
+            continue
+        try:
+            closer()
+        except Exception:
+            pass
+    if os.path.exists(path):
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
 
 
 class TestPostgresDriver:
@@ -717,7 +735,6 @@ class TestPipelineIntegration:
                 mock_postgres_driver_class.return_value = mock_driver
                 mock_get_driver.return_value = mock_postgres_driver_class
 
-                import os
                 import tempfile
 
                 from iterable.helpers.detect import open_iterable
@@ -726,6 +743,8 @@ class TestPipelineIntegration:
                 with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as tmp:
                     tmp_path = tmp.name
 
+                source = None
+                dest = None
                 try:
                     source = open_iterable(
                         "postgresql://localhost/db",
@@ -739,8 +758,7 @@ class TestPipelineIntegration:
 
                     assert result.rows_processed > 0
                 finally:
-                    if os.path.exists(tmp_path):
-                        os.unlink(tmp_path)
+                    _close_iterables_and_unlink(tmp_path, dest, source)
 
     @pytest.mark.skipif(ClickHouseDriver is None, reason="clickhouse-connect not installed")
     def test_pipeline_with_clickhouse_source(self):
@@ -754,7 +772,6 @@ class TestPipelineIntegration:
                 mock_clickhouse_driver_class.return_value = mock_driver
                 mock_get_driver.return_value = mock_clickhouse_driver_class
 
-                import os
                 import tempfile
 
                 from iterable.helpers.detect import open_iterable
@@ -763,6 +780,8 @@ class TestPipelineIntegration:
                 with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as tmp:
                     tmp_path = tmp.name
 
+                source = None
+                dest = None
                 try:
                     source = open_iterable(
                         "clickhouse://localhost/db",
@@ -776,8 +795,7 @@ class TestPipelineIntegration:
 
                     assert result.rows_processed > 0
                 finally:
-                    if os.path.exists(tmp_path):
-                        os.unlink(tmp_path)
+                    _close_iterables_and_unlink(tmp_path, dest, source)
 
     @pytest.mark.skipif(ClickHouseDriver is None, reason="clickhouse-connect not installed")
     def test_pipeline_clickhouse_streaming(self):
@@ -791,7 +809,6 @@ class TestPipelineIntegration:
                 mock_clickhouse_driver_class.return_value = mock_driver
                 mock_get_driver.return_value = mock_clickhouse_driver_class
 
-                import os
                 import tempfile
 
                 from iterable.helpers.detect import open_iterable
@@ -800,6 +817,8 @@ class TestPipelineIntegration:
                 with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as tmp:
                     tmp_path = tmp.name
 
+                source = None
+                dest = None
                 try:
                     source = open_iterable(
                         "clickhouse://localhost/db",
@@ -813,8 +832,7 @@ class TestPipelineIntegration:
 
                     assert result.rows_processed == 10
                 finally:
-                    if os.path.exists(tmp_path):
-                        os.unlink(tmp_path)
+                    _close_iterables_and_unlink(tmp_path, dest, source)
 
     @pytest.mark.skipif(ClickHouseDriver is None, reason="clickhouse-connect not installed")
     def test_pipeline_clickhouse_error_handling(self):
@@ -828,7 +846,6 @@ class TestPipelineIntegration:
                 mock_clickhouse_driver_class.return_value = mock_driver
                 mock_get_driver.return_value = mock_clickhouse_driver_class
 
-                import os
                 import tempfile
 
                 from iterable.helpers.detect import open_iterable
@@ -837,6 +854,8 @@ class TestPipelineIntegration:
                 with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as tmp:
                     tmp_path = tmp.name
 
+                source = None
+                dest = None
                 try:
                     source = open_iterable(
                         "clickhouse://localhost/db",
@@ -849,8 +868,7 @@ class TestPipelineIntegration:
                     with pytest.raises(RuntimeError, match="Query failed"):
                         pipeline.run()
                 finally:
-                    if os.path.exists(tmp_path):
-                        os.unlink(tmp_path)
+                    _close_iterables_and_unlink(tmp_path, dest, source)
 
 
 class TestDataFrameBridges:

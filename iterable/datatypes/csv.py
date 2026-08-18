@@ -7,7 +7,7 @@ from typing import Any
 
 import chardet
 
-from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..base import DEFAULT_BULK_NUMBER, ITERABLE_TYPE_FILE, BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
 from ..helpers.utils import rowincount
 from ..types import Row
@@ -152,6 +152,16 @@ class CSVIterable(BaseFileIterable):
         self._current_line = None
         self._current_line_number = 0
         self._current_byte_offset = 0
+
+    def open(self) -> typing.IO[Any] | None:
+        """Open text CSV with newline='' so the csv module does not double-translate CR on Windows."""
+        if self.stype == ITERABLE_TYPE_FILE and not self.binary:
+            self._closed = False
+            if self.filename is None:
+                raise ValueError("Cannot open file: filename is None")
+            self.fobj = open(self.filename, self.mode, encoding=self.encoding, newline="")
+            return self.fobj
+        return super().open()
 
     @staticmethod
     def id() -> str:
