@@ -65,4 +65,5 @@ class TestMCPServer:
         workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
         assert "mcp-publisher login github-oidc" in workflow
         assert "mcp-publisher publish" in workflow
+        assert "waiting for PyPI to index the new version" in workflow
         assert "id-token: write" in workflow

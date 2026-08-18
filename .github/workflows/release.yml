@@ -128,4 +128,14 @@ jobs:
         run: |
           set -euo pipefail
           ./mcp-publisher login github-oidc
-          ./mcp-publisher publish
+          # PyPI can 404 a version for a short window after upload; the registry
+          # checks that the package version exists before accepting server.json.
+          for attempt in 1 2 3 4 5 6; do
+            if ./mcp-publisher publish; then
+              exit 0
+            fi
+            echo "MCP publish attempt ${attempt} failed; waiting for PyPI to index the new version"
+            sleep 20
+          done
+          echo "MCP Registry publish failed after retries" >&2
+          exit 1
