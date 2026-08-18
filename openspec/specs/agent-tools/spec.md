@@ -3,9 +3,7 @@
 ## Purpose
 The agent-tools capability exposes JSON-serializable wrappers, machine-readable schemas,
 optional LangChain and MCP integrations for LLM agents operating on IterableData datasets.
-
 ## Requirements
-
 ### Requirement: Agent Tool Wrappers
 The system SHALL provide an `iterable.tools` module exposing JSON-serializable wrapper functions
 for common agent operations over IterableData datasets.
@@ -89,3 +87,19 @@ The system SHALL support optional Pydantic validation of `ai.doc.generate()` JSO
 #### Scenario: Validation disabled by default
 - **WHEN** `doc.generate()` is called without `validate_output`
 - **THEN** behavior remains backward compatible with existing JSON dict responses
+
+### Requirement: MCP Registry Manifest
+The repository SHALL include a root-level `server.json` describing the
+`iterable-mcp` stdio server for the official MCP Registry schema.
+
+#### Scenario: server.json is present and version-aligned
+- **WHEN** CI reads `server.json`
+- **THEN** `$schema` is the MCP 2025-12-11 server schema
+- **AND** `packages[0].registryType` is `pypi` with identifier `iterabledata`
+- **AND** `version` equals `iterable.__version__`
+- **AND** transport type is `stdio`
+
+#### Scenario: MCP docs link the manifest
+- **WHEN** a reader opens the MCP integration page
+- **THEN** the page references `server.json` and `pip install iterabledata[mcp]`
+
