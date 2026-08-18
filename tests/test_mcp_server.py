@@ -47,6 +47,7 @@ class TestMCPServer:
         schema = "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json"
         assert manifest["$schema"] == schema
         assert manifest["name"] == "io.github.datenoio/iterabledata"
+        assert len(manifest["description"]) <= 100
         assert manifest["version"] == iterable.__version__
         package = manifest["packages"][0]
         assert package["registryType"] == "pypi"

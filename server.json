@@ -2,19 +2,19 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.datenoio/iterabledata",
   "title": "IterableData",
-  "description": "Streaming read, convert, and inspect 100+ data formats. Install iterabledata[mcp] and run iterable-mcp.",
+  "description": "Streaming read, convert, and inspect 100+ formats. Install iterabledata[mcp] and run iterable-mcp.",
   "websiteUrl": "https://datenoio.github.io/iterabledata/integrations/MCP",
   "repository": {
     "url": "https://github.com/datenoio/iterabledata",
     "source": "github"
   },
-  "version": "1.0.22",
+  "version": "1.0.23",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "iterabledata",
-      "version": "1.0.22",
+      "version": "1.0.23",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

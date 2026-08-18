@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.23] - 2026-08-18
+
+### Fixed
+- **MCP Registry description**: Shorten `server.json` `description` to the registry's 100-character
+  limit so tagged releases can publish `io.github.datenoio/iterabledata`.
+
 ## [1.0.22] - 2026-08-18
 
 ### Added
