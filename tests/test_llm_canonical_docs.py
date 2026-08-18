@@ -100,6 +100,8 @@ def test_cookbook_scripts_use_public_imports():
                 "from iterable.convert import convert",
                 "from iterable.ops import inspect",
                 "from iterable.ops import schema",
+                "from iterable.tools import detect_format",
+                "from iterable.tools import read_sample",
             )
         ), f"{path.name} missing canonical import"
 
@@ -113,6 +115,31 @@ def test_cookbook_read_and_inspect_against_fixture():
     result = _load_cookbook("inspect_file").main(str(fixture))
     assert "analysis" in result
     assert result["analysis"].get("fields")
+
+
+def test_cookbook_gzip_read_against_fixture():
+    fixture = ROOT / "tests" / "fixtures" / "2cols6rows_test.csv.gz"
+    rows = _load_cookbook("read_gzip").main(str(fixture), limit=2)
+    assert len(rows) == 2
+    assert isinstance(rows[0], dict)
+
+
+def test_cookbook_write_jsonl(tmp_path):
+    dest = tmp_path / "out.jsonl"
+    _load_cookbook("write_jsonl").main(str(dest))
+    lines = [line for line in dest.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(lines) >= 1
+    assert "{" in lines[0]
+
+
+def test_cookbook_sample_file_against_fixture():
+    fixture = ROOT / "tests" / "fixtures" / "2cols6rows.csv"
+    result = _load_cookbook("sample_file").main(str(fixture), n=3)
+    sample = result["sample"]
+    assert sample.get("ok") is True
+    rows = (sample.get("data") or {}).get("rows")
+    assert isinstance(rows, list)
+    assert len(rows) >= 1
 
 
 def test_cookbook_convert_against_fixture(tmp_path):

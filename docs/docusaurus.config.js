@@ -131,6 +131,10 @@ const config = {
                 label: 'Building agents',
                 to: '/integrations/BUILDING_AGENTS',
               },
+              {
+                label: 'Agent discovery',
+                to: '/integrations/DISCOVERY',
+              },
             ],
           },
           {

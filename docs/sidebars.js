@@ -37,6 +37,7 @@ const sidebars = {
         'getting-started/when-to-use',
         'integrations/BUILDING_AGENTS',
         'integrations/MCP',
+        'integrations/DISCOVERY',
         'api/tools',
         'api/catalog',
         'api/ai',
