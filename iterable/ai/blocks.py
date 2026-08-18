@@ -929,9 +929,7 @@ BLOCK_REGISTRY: dict[str, BlockSpec] = {
     "examples": BlockSpec("examples", generate_examples, requires_llm=True, title="Usage Examples"),
     "statistics": BlockSpec("statistics", generate_statistics, requires_llm=False, title="Statistics"),
     "codebook": BlockSpec("codebook", generate_codebook, requires_llm=True, title="Codebook"),
-    "agent_skill": BlockSpec(
-        "agent_skill", generate_agent_skill, requires_llm=True, title="Agent Skill"
-    ),
+    "agent_skill": BlockSpec("agent_skill", generate_agent_skill, requires_llm=True, title="Agent Skill"),
     "lineage": BlockSpec("lineage", _deferred_block("lineage"), requires_llm=False, deferred=True, title="Lineage"),
     "geo_coverage": BlockSpec(
         "geo_coverage", _deferred_block("geo_coverage"), requires_llm=False, deferred=True, title="Geographic Coverage"

@@ -109,15 +109,11 @@ def infer(
         # sampled row has a None value for it or omits the field entirely.
         if flatten_nested or "." in field_name:
             present_values = [nested_field_value(row, field_name) for row in sample_rows]
-            null_count = sum(
-                1 for value in present_values if value is None or value == []
-            )
+            null_count = sum(1 for value in present_values if value is None or value == [])
             fields[field_name]["nullable"] = null_count > 0
             values = []
             for value in present_values:
-                if isinstance(value, list) and (
-                    not value or not isinstance(value[0], Mapping)
-                ):
+                if isinstance(value, list) and (not value or not isinstance(value[0], Mapping)):
                     values.extend(value)
                 elif value is not None and value != []:
                     values.append(value)

@@ -47,8 +47,7 @@ class DeltaIterable(BaseFileIterable):
             options = dict(options)
         if not HAS_DELTALAKE:
             raise ImportError(
-                "Delta Lake support requires the 'deltalake' package. "
-                "Install with: pip install iterabledata[lakehouse]"
+                "Delta Lake support requires the 'deltalake' package. Install with: pip install iterabledata[lakehouse]"
             )
         self.batch_size = int(options.pop("batch_size", batch_size))
         self.write_mode = str(options.pop("write_mode", write_mode)).lower()

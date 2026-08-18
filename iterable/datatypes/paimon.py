@@ -23,8 +23,7 @@ DEFAULT_BATCH_SIZE = 1024
 def _require_pypaimon() -> None:
     if not HAS_PYPAIMON:
         raise ImportError(
-            "Paimon table support requires the 'pypaimon' package. "
-            "Install with: pip install iterabledata[paimon-table]"
+            "Paimon table support requires the 'pypaimon' package. Install with: pip install iterabledata[paimon-table]"
         )
 
 

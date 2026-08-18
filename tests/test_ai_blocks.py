@@ -226,9 +226,7 @@ class TestBlockModels:
             }
         )
         fields = {field.name: field.example for field in validated.fields}
-        assert fields["DocTypes"] == (
-            '[{"Text":"Приказ","Value":"2dddb344-d3e2-4785-a899-7aa12bd47b6f"}]'
-        )
+        assert fields["DocTypes"] == ('[{"Text":"Приказ","Value":"2dddb344-d3e2-4785-a899-7aa12bd47b6f"}]')
         assert fields["Count"] == "42"
         assert fields["Name"] == "plain"
         assert fields["Empty"] is None
@@ -243,9 +241,9 @@ class TestGenerateBlocks:
     def test_default_blocks(self, fake_provider):
         with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
             result = doc.generate_blocks(CSV_FIXTURE)
-        assert set(
-            ["general", "schema", "quality", "examples", "statistics", "agent_skill"]
-        ).issubset(result["blocks"].keys())
+        assert set(["general", "schema", "quality", "examples", "statistics", "agent_skill"]).issubset(
+            result["blocks"].keys()
+        )
         assert "full_document_markdown" in result
         assert result["source"]["format"] == "csv"
         assert result["source"]["sha256"]
@@ -308,7 +306,9 @@ class TestGenerateBlocks:
         fake_provider.generate_structured = capture
         with patch("iterable.ai.doc.get_provider", return_value=fake_provider):
             doc.generate_blocks(CSV_FIXTURE, blocks=["examples"])
-        prompt = next(text for text in prompts if "usage code examples" in text.lower() or "practical usage" in text.lower())
+        prompt = next(
+            text for text in prompts if "usage code examples" in text.lower() or "practical usage" in text.lower()
+        )
         assert "language` to exactly one of: python, r, sql" in prompt or "exactly one of: python, r, sql" in prompt
         assert "`dataset`" in prompt
         assert "not the filename" in prompt

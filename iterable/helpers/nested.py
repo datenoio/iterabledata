@@ -39,12 +39,7 @@ def unfold_nested_schema_fields(
         nested = raw_info.get("schema")
         nested_schema = nested if isinstance(nested, Mapping) else None
         expand_children = (
-            depth < max_depth
-            and nested_schema is not None
-            and (
-                field_type == "dict"
-                or field_type == "array"
-            )
+            depth < max_depth and nested_schema is not None and (field_type == "dict" or field_type == "array")
         )
         if expand_children:
             if keep_parents:
@@ -69,11 +64,7 @@ def unfold_nested_schema_fields(
 
 
 def _is_array_of_mappings(value: Any) -> bool:
-    return (
-        isinstance(value, list)
-        and bool(value)
-        and isinstance(value[0], Mapping)
-    )
+    return isinstance(value, list) and bool(value) and isinstance(value[0], Mapping)
 
 
 def project_row_nested(
