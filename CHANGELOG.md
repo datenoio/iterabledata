@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.22] - 2026-08-18
+
+### Added
+- **LLM code generation surfaces**: Canonical public imports (`from iterable import open_iterable`,
+  `from iterable.convert import convert`), `llms-full.txt` recipes, a portable usage skill, and a
+  prompt-shaped cookbook (read, gzip, write JSONL, convert, inspect, sample).
+- **Agent discovery indexes**: MCP Registry `server.json` (`io.github.datenoio/iterabledata`),
+  hosted `/.well-known/llms.txt` and `robots.txt`, and a heuristic prompt-eval with no paid APIs.
+- **MCP Registry publish**: PyPI README ownership marker `<!-- mcp-name: io.github.datenoio/iterabledata -->`
+  and an OIDC `mcp-publisher` job on tagged releases after PyPI upload.
+
+### Fixed
+- **Windows CI**: Close pipeline destinations before deleting atomic temps; open CSV with
+  `newline=""`; tolerate zero-elapsed progress stats and keep bulk-read rows alive for RSS checks.
+- **Optional extras / coverage**: Skip missing format extras at collection and runtime; recalibrate
+  the `[dev]` coverage floor; Python 3.10 mock patches and docs npm lockfile for merge gates.
+
 ## [1.0.21] - 2026-08-10
 
 ### Added
