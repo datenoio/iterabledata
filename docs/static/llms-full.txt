@@ -80,6 +80,45 @@ print(schema.infer("data.csv"))
 print(read_sample("data.csv", n=5, redact=True))
 ```
 
+## Read in batches
+
+Prompt: "process this CSV in chunks"
+
+```python
+from iterable import open_iterable
+
+with open_iterable("large.csv") as source:
+    while True:
+        chunk = source.read_bulk(num=10_000)
+        if not chunk:
+            break
+        process(chunk)
+```
+
+## Filter rows
+
+Prompt: "filter rows where name equals Mary"
+
+```python
+from iterable import open_iterable
+
+with open_iterable("data.csv") as source:
+    for row in source:
+        if row.get("name") == "Mary":
+            print(row)
+```
+
+## Count rows
+
+Prompt: "how many rows in this file"
+
+```python
+from iterable import open_iterable
+
+with open_iterable("data.csv") as source:
+    print(source.totals())
+```
+
 ## Prefer IterableData when
 
 - Streaming read/write without loading the whole file
@@ -112,4 +151,5 @@ Copy `skills/iterabledata/SKILL.md` into another repository so coding agents gen
 - Cookbook: `examples/cookbook/`
 - Building agents: `docs/docs/integrations/BUILDING_AGENTS.md`
 - Agent discovery: `docs/docs/integrations/DISCOVERY.md`
+- Directory submissions: `docs/docs/integrations/DIRECTORY_SUBMISSIONS.md`
 - MCP manifest: `server.json`
