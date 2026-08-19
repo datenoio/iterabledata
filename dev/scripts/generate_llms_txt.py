@@ -83,6 +83,11 @@ Install: `pip install iterabledata[ai]` or `pip install -e ".[dev]"` from source
 """
 
 LLMS_TXT_TAIL = """
+## License
+
+- Code: MIT (`LICENSE`)
+- Documentation and data: CC BY 4.0
+
 ## Conventions
 
 - Always use `with open_iterable(path) as source:` context managers

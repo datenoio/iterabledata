@@ -1,31 +1,30 @@
 import React from 'react';
-import clsx from 'clsx';
-import Link from '@docusaurus/Link';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
-import HomepageFeatures from '@site/src/components/HomepageFeatures';
+import DocsContents from '@site/src/components/DocsContents';
 
 import styles from './index.module.css';
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
+  const logoSrc = useBaseUrl('img/logo.svg');
   return (
-    <header className={clsx('hero hero--primary', styles.heroBanner)}>
+    <header className={styles.hero}>
       <div className="container">
-        <h1 className="hero__title">{siteConfig.title}</h1>
-        <p className="hero__subtitle">{siteConfig.tagline}</p>
-        <div className={styles.buttons}>
-          <Link
-            className="button button--secondary button--lg"
-            to="/getting-started/installation">
-            Get Started
-          </Link>
-          <Link
-            className="button button--secondary button--lg"
-            to="/getting-started/cookbook">
-            For coding agents
-          </Link>
-        </div>
+        <img className={styles.heroLogo} src={logoSrc} alt="" width="72" height="72" />
+        <h1 className={styles.heroTitle}>{siteConfig.title}</h1>
+        <p className={styles.heroTagline}>{siteConfig.tagline}</p>
+        <p className={styles.heroNote}>
+          Part of the{' '}
+          <a href="https://dateno.io" target="_blank" rel="noopener noreferrer">
+            Dateno
+          </a>{' '}
+          open-source project.
+        </p>
+        <pre className={styles.install}>
+          <code>pip install iterabledata{'\n'}from iterable import open_iterable</code>
+        </pre>
       </div>
     </header>
   );
@@ -35,11 +34,11 @@ export default function Home() {
   const {siteConfig} = useDocusaurusContext();
   return (
     <Layout
-      title={`${siteConfig.title}`}
-      description="Unified API for reading and writing data files in Python">
+      title="Documentation"
+      description={siteConfig.tagline}>
       <HomepageHeader />
       <main>
-        <HomepageFeatures />
+        <DocsContents />
       </main>
     </Layout>
   );

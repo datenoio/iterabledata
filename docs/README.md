@@ -51,17 +51,20 @@ docs/
 ├── sidebars.js              # Sidebar navigation
 ├── package.json             # Node.js dependencies
 ├── babel.config.js          # Babel configuration
+├── LICENSE                  # CC BY 4.0 notice for documentation
 ├── src/
 │   ├── css/
 │   │   └── custom.css       # Custom styles
 │   ├── pages/
-│   │   └── index.js         # Homepage
+│   │   └── index.js         # Homepage (documentation contents)
 │   └── components/          # React components
+├── static/img/              # Logo and favicon
 └── docs/                    # Documentation content
     ├── getting-started/     # Getting started guides
     ├── use-cases/          # Use case examples
     ├── api/                # API documentation
-    └── formats/            # Format documentation
+    ├── formats/            # Format documentation
+    └── license.md          # License and attribution
 ```
 
 ## Deployment
@@ -85,6 +88,7 @@ To enable GitHub Pages deployment:
 - **Use Cases**: Real-world examples and use cases
 - **API Reference**: Complete API documentation
 - **Data File Formats**: Documentation for all supported formats
+- **License**: MIT for code; CC BY 4.0 for documentation and data
 
 ## Contributing
 

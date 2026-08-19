@@ -49,6 +49,7 @@ AI assistants in Cursor can use project skills in **`.cursor/skills/`**:
 - **[skills/iterabledata/SKILL.md](skills/iterabledata/SKILL.md)** — portable usage skill for other repositories
 - **[docs/integrations/](docs/integrations/)** — AI framework integration guides
 - **API docs:** https://datenoio.github.io/iterabledata/
+- **License:** code is MIT; documentation and data are [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 
 ## Quality and release checks
 

@@ -15,6 +15,11 @@
 const sidebars = {
   docs: [
     {
+      type: 'link',
+      label: 'Contents',
+      href: '/',
+    },
+    {
       type: 'category',
       label: 'Getting Started',
       items: [
@@ -333,6 +338,15 @@ const sidebars = {
         },
       ],
     },
+    {
+      type: 'category',
+      label: 'Development',
+      items: [
+        'development/releasing',
+        'development/type-stubs',
+      ],
+    },
+    'license',
   ],
 };
 

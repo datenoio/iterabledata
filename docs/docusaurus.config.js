@@ -8,7 +8,7 @@ const darkCodeTheme = require('prism-react-renderer').themes.dracula;
 const config = {
   title: 'Iterable Data',
   tagline: 'Unified API for reading and writing data files',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/favicon.svg',
 
   // Set the production url of your site here
   url: 'https://datenoio.github.io',
@@ -61,7 +61,7 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       // Replace with your project's social card
-      image: 'img/docusaurus-social-card.jpg',
+      image: 'img/logo.svg',
       navbar: {
         title: 'Iterable Data',
         logo: {
@@ -70,10 +70,16 @@ const config = {
         },
         items: [
           {
+            to: '/',
+            label: 'Contents',
+            position: 'left',
+            activeBaseRegex: '^/iterabledata/?$',
+          },
+          {
             type: 'docSidebar',
             sidebarId: 'docs',
             position: 'left',
-            label: 'Documentation',
+            label: 'Docs',
           },
           {
             to: '/getting-started/cookbook',
@@ -98,6 +104,10 @@ const config = {
           {
             title: 'Docs',
             items: [
+              {
+                label: 'Contents',
+                to: '/',
+              },
               {
                 label: 'Getting Started',
                 to: '/getting-started/installation',
@@ -138,16 +148,24 @@ const config = {
             ],
           },
           {
-            title: 'Community',
+            title: 'Project',
             items: [
+              {
+                label: 'Dateno',
+                href: 'https://dateno.io',
+              },
               {
                 label: 'GitHub',
                 href: 'https://github.com/datenoio/iterabledata',
               },
+              {
+                label: 'License',
+                to: '/license',
+              },
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Iterable Data. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} <a href="https://dateno.io">Dateno</a>. IterableData is part of the Dateno open-source project. Code: <a href="https://opensource.org/licenses/MIT">MIT</a>. Documentation and data: <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.`,
       },
       prism: {
         theme: lightCodeTheme,

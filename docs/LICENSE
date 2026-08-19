@@ -1,0 +1,10 @@
+# Documentation and data license
+
+IterableData is part of the [Dateno](https://dateno.io) open-source project.
+
+The **documentation** in this directory (and the published docs site) is licensed under
+[Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
+
+You are free to share and adapt the material for any purpose, even commercially, as long as you give appropriate credit.
+
+**Code** in the IterableData repository is licensed separately under the [MIT License](../LICENSE).

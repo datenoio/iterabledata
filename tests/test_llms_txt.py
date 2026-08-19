@@ -12,6 +12,7 @@ LLMS_SECTIONS = [
     "## Specifications",
     "## API documentation",
     "## Skills",
+    "## License",
     "## Conventions",
 ]
 
@@ -99,7 +100,9 @@ def test_docs_site_advertises_machine_indexes():
     assert "llms.txt" in config
     assert "llms-full.txt" in config
     homepage = (ROOT / "docs" / "src" / "pages" / "index.js").read_text(encoding="utf-8")
-    assert "getting-started/cookbook" in homepage
+    contents = (ROOT / "docs" / "src" / "components" / "DocsContents.js").read_text(encoding="utf-8")
+    assert "DocsContents" in homepage
+    assert "getting-started/cookbook" in contents
     sidebars = (ROOT / "docs" / "sidebars.js").read_text(encoding="utf-8")
     assert "integrations/BUILDING_AGENTS" in sidebars
     assert "integrations/MCP" in sidebars

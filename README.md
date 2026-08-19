@@ -1,5 +1,7 @@
 # Iterable Data
 
+<img src="docs/static/img/logo.svg" alt="Iterable Data" width="72" height="72" />
+
 <!-- mcp-name: io.github.datenoio/iterabledata -->
 
 Iterable Data is a Python library for reading and writing data files row by row in a consistent, iterator-based interface. It provides a unified API for working with various data formats (CSV, JSON, Parquet, XML, etc.) similar to `csv.DictReader` but supporting many more formats.
@@ -1487,14 +1489,19 @@ These guides provide patterns, examples, and best practices for combining Iterab
 
 ## Related Projects
 
-This library is used in:
+This library is part of the [Dateno](https://dateno.io) open-source project. It is also used in:
 
 - [undatum](https://github.com/datacoon/undatum) - Command line data processing tool
 - [datacrafter](https://github.com/apicrafter/datacrafter) - Data processing ETL engine
 
 ## License
 
-MIT License
+IterableData is part of the [Dateno](https://dateno.io) open-source project.
+
+- **Code** is licensed under the [MIT License](LICENSE). Copyright © 2022–2026 Dateno.
+- **Documentation and data** (including this README, the docs site, and test fixtures) are licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+See the [license page](https://datenoio.github.io/iterabledata/license) for attribution guidance.
 
 ## Contributing
 
