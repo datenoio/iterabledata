@@ -3,5 +3,6 @@ Allow: /iterabledata/
 Allow: /iterabledata/llms.txt
 Allow: /iterabledata/llms-full.txt
 Allow: /iterabledata/.well-known/llms.txt
+Allow: /iterabledata/skills/
 
 Sitemap: https://datenoio.github.io/iterabledata/sitemap.xml

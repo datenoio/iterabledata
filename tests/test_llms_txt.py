@@ -11,6 +11,7 @@ LLMS_SECTIONS = [
     "## Agent / contributor docs",
     "## Specifications",
     "## API documentation",
+    "## Skills",
     "## Conventions",
 ]
 
@@ -20,6 +21,9 @@ LLMS_FULL_MARKERS = [
     "## Convert formats",
     "## Open XML",
     "## Inspect an unknown file",
+    "## Read in batches",
+    "## Filter rows",
+    "## Count rows",
     "iterableargs",
     "from iterable import open_iterable",
     "from iterable.convert import convert",
@@ -63,6 +67,9 @@ def test_docs_static_copies_match_root():
         assert root == static, f"docs/static/{name} is out of date; run dev/scripts/generate_llms_txt.py"
     well_known = (ROOT / "docs" / "static" / ".well-known" / "llms.txt").read_text(encoding="utf-8")
     assert well_known == (ROOT / "llms.txt").read_text(encoding="utf-8")
+    skill_root = (ROOT / "skills" / "iterabledata" / "SKILL.md").read_text(encoding="utf-8")
+    skill_static = (ROOT / "docs" / "static" / "skills" / "iterabledata" / "SKILL.md").read_text(encoding="utf-8")
+    assert skill_root == skill_static, "docs/static skill copy is out of date; run dev/scripts/generate_llms_txt.py"
 
 
 def test_robots_txt_allows_machine_indexes():
@@ -70,6 +77,21 @@ def test_robots_txt_allows_machine_indexes():
     assert "/iterabledata/llms.txt" in robots
     assert "/iterabledata/llms-full.txt" in robots
     assert "/iterabledata/.well-known/llms.txt" in robots
+    assert "/iterabledata/skills/" in robots
+
+
+def test_llms_txt_links_hosted_skill():
+    content = (ROOT / "llms.txt").read_text(encoding="utf-8")
+    assert "## Skills" in content
+    assert "/iterabledata/skills/iterabledata/SKILL.md" in content
+
+
+def test_directory_submissions_doc_has_payloads():
+    doc = (ROOT / "docs" / "docs" / "integrations" / "DIRECTORY_SUBMISSIONS.md").read_text(encoding="utf-8")
+    assert "context7.com" in doc
+    assert "llmstxt.site/submit" in doc
+    assert "npx skills add datenoio/iterabledata" in doc
+    assert "io.github.datenoio/iterabledata" in doc
 
 
 def test_docs_site_advertises_machine_indexes():
@@ -82,3 +104,4 @@ def test_docs_site_advertises_machine_indexes():
     assert "integrations/BUILDING_AGENTS" in sidebars
     assert "integrations/MCP" in sidebars
     assert "integrations/DISCOVERY" in sidebars
+    assert "integrations/DIRECTORY_SUBMISSIONS" in sidebars

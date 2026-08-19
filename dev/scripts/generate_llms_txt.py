@@ -7,8 +7,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DOCS_STATIC = ROOT / "docs" / "static"
+SKILL_SOURCE = ROOT / "skills" / "iterabledata" / "SKILL.md"
+SKILL_STATIC = DOCS_STATIC / "skills" / "iterabledata" / "SKILL.md"
 
-LLMS_TXT = """# IterableData (iterabledata)
+SKILL_URL = "https://datenoio.github.io/iterabledata/skills/iterabledata/SKILL.md"
+
+LLMS_TXT_HEAD = """# IterableData (iterabledata)
 
 > Unified Python library for streaming read/write across 100+ data formats.
 
@@ -47,7 +51,7 @@ Install: `pip install iterabledata[ai]` or `pip install -e ".[dev]"` from source
 
 ## Examples
 
-- `examples/cookbook/` — prompt-shaped recipes (read, gzip, JSONL, bulk, XML, write, convert, filter, count, inspect, stats, sample, catalog)
+- `examples/cookbook/` — fifteen prompt-shaped recipes (see README)
 - `server.json` — MCP Registry manifest for `iterable-mcp`
 - `examples/ai/generate_documentation.py` — AI documentation generation
 - `examples/convert/` — format conversion
@@ -76,7 +80,9 @@ Install: `pip install iterabledata[ai]` or `pip install -e ".[dev]"` from source
 - Source: `docs/docs/api/` (ai.md, catalog.md, open-iterable.md, convert.md)
 - Catalog artifact: `dev/formats.json`
 - Integrations: `docs/integrations/` (AI_FRAMEWORKS.md, CLAUDE.md, OPENAI.md, GEMINI.md)
+"""
 
+LLMS_TXT_TAIL = """
 ## Conventions
 
 - Always use `with open_iterable(path) as source:` context managers
@@ -85,6 +91,17 @@ Install: `pip install iterabledata[ai]` or `pip install -e ".[dev]"` from source
 - No CLI in this repo (library only); use Python API
 - New features with behavior changes require OpenSpec proposals under `openspec/changes/`
 """
+
+
+def _llms_txt() -> str:
+    skills = f"""## Skills
+
+- [iterabledata]({SKILL_URL}): IterableData read/convert/inspect skill for coding agents.
+"""
+    return LLMS_TXT_HEAD + skills + LLMS_TXT_TAIL
+
+
+LLMS_TXT = _llms_txt()
 
 LLMS_FULL = """# IterableData LLM recipes
 
@@ -168,6 +185,45 @@ print(schema.infer("data.csv"))
 print(read_sample("data.csv", n=5, redact=True))
 ```
 
+## Read in batches
+
+Prompt: "process this CSV in chunks"
+
+```python
+from iterable import open_iterable
+
+with open_iterable("large.csv") as source:
+    while True:
+        chunk = source.read_bulk(num=10_000)
+        if not chunk:
+            break
+        process(chunk)
+```
+
+## Filter rows
+
+Prompt: "filter rows where name equals Mary"
+
+```python
+from iterable import open_iterable
+
+with open_iterable("data.csv") as source:
+    for row in source:
+        if row.get("name") == "Mary":
+            print(row)
+```
+
+## Count rows
+
+Prompt: "how many rows in this file"
+
+```python
+from iterable import open_iterable
+
+with open_iterable("data.csv") as source:
+    print(source.totals())
+```
+
 ## Prefer IterableData when
 
 - Streaming read/write without loading the whole file
@@ -200,6 +256,7 @@ Copy `skills/iterabledata/SKILL.md` into another repository so coding agents gen
 - Cookbook: `examples/cookbook/`
 - Building agents: `docs/docs/integrations/BUILDING_AGENTS.md`
 - Agent discovery: `docs/docs/integrations/DISCOVERY.md`
+- Directory submissions: `docs/docs/integrations/DIRECTORY_SUBMISSIONS.md`
 - MCP manifest: `server.json`
 """
 
@@ -208,6 +265,7 @@ Allow: /iterabledata/
 Allow: /iterabledata/llms.txt
 Allow: /iterabledata/llms-full.txt
 Allow: /iterabledata/.well-known/llms.txt
+Allow: /iterabledata/skills/
 
 Sitemap: https://datenoio.github.io/iterabledata/sitemap.xml
 """
@@ -220,11 +278,14 @@ def _write(path: Path, content: str) -> None:
 
 
 def main() -> None:
-    for name, content in (("llms.txt", LLMS_TXT), ("llms-full.txt", LLMS_FULL)):
+    llms_txt = _llms_txt()
+    for name, content in (("llms.txt", llms_txt), ("llms-full.txt", LLMS_FULL)):
         _write(ROOT / name, content)
         _write(DOCS_STATIC / name, content)
-    _write(DOCS_STATIC / ".well-known" / "llms.txt", LLMS_TXT)
+    _write(DOCS_STATIC / ".well-known" / "llms.txt", llms_txt)
     _write(DOCS_STATIC / "robots.txt", ROBOTS_TXT)
+    skill_text = SKILL_SOURCE.read_text(encoding="utf-8")
+    _write(SKILL_STATIC, skill_text)
 
 
 if __name__ == "__main__":

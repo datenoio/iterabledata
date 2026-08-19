@@ -38,6 +38,7 @@ const sidebars = {
         'integrations/BUILDING_AGENTS',
         'integrations/MCP',
         'integrations/DISCOVERY',
+        'integrations/DIRECTORY_SUBMISSIONS',
         'api/tools',
         'api/catalog',
         'api/ai',

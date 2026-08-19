@@ -7,9 +7,9 @@ description: MCP server.json, llms.txt, and the portable skill for directories a
 # Agent discovery
 
 Phase 5 taught coding models the public API. This page is the retrieval surface:
-the files directories and crawlers ingest. Context7 and skill indexes still need a
-maintainer submission; the MCP Registry is published from the tagged release
-workflow after PyPI upload.
+the files directories and crawlers ingest. External directory submissions (Context7,
+llmstxt.site, skills.sh) still need a maintainer — see [Directory submissions](/integrations/DIRECTORY_SUBMISSIONS)
+for copy-paste payloads. The MCP Registry listing is live from tagged releases.
 
 ## Hosted machine indexes
 
@@ -38,7 +38,13 @@ Copy [`skills/iterabledata/SKILL.md`](https://github.com/datenoio/iterabledata/b
 
 ## Context7 / llms.txt directories
 
-Point Context7, llmstxt.org, and similar indexes at the hosted `llms.txt` URL above and the GitHub repo `datenoio/iterabledata`. The site `robots.txt` allows those paths.
+Point Context7, llmstxt.org, and similar indexes at the hosted `llms.txt` URL above and the GitHub repo `datenoio/iterabledata`. The site `robots.txt` allows those paths. Copy-paste submission payloads: [Directory submissions](/integrations/DIRECTORY_SUBMISSIONS).
+
+## Portable skill in llms.txt
+
+Root `llms.txt` includes a `## Skills` section linking the hosted portable skill at
+`https://datenoio.github.io/iterabledata/skills/iterabledata/SKILL.md` (generated from
+`skills/iterabledata/SKILL.md` by `dev/scripts/generate_llms_txt.py`).
 
 ## Canonical imports (do not drift)
 
