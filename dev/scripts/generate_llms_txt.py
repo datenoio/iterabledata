@@ -47,7 +47,7 @@ Install: `pip install iterabledata[ai]` or `pip install -e ".[dev]"` from source
 
 ## Examples
 
-- `examples/cookbook/` — prompt-shaped recipes (read, gzip, write JSONL, convert, inspect, sample)
+- `examples/cookbook/` — prompt-shaped recipes (read, gzip, JSONL, bulk, XML, write, convert, filter, count, inspect, stats, sample, catalog)
 - `server.json` — MCP Registry manifest for `iterable-mcp`
 - `examples/ai/generate_documentation.py` — AI documentation generation
 - `examples/convert/` — format conversion

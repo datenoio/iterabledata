@@ -6,6 +6,8 @@ import ast
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 FORBIDDEN_OPEN = "from iterable.helpers.detect import open_iterable"
@@ -100,8 +102,11 @@ def test_cookbook_scripts_use_public_imports():
                 "from iterable.convert import convert",
                 "from iterable.ops import inspect",
                 "from iterable.ops import schema",
+                "from iterable.ops import stats",
+                "from iterable.catalog import describe_format",
                 "from iterable.tools import detect_format",
                 "from iterable.tools import read_sample",
+                "from iterable.tools import infer_schema",
             )
         ), f"{path.name} missing canonical import"
 
@@ -148,3 +153,69 @@ def test_cookbook_convert_against_fixture(tmp_path):
     _load_cookbook("convert_formats").main(str(src), str(dest))
     assert dest.is_file()
     assert dest.read_text(encoding="utf-8").strip()
+
+
+def test_cookbook_has_fifteen_prompt_scripts():
+    scripts = sorted((ROOT / "examples" / "cookbook").glob("*.py"))
+    assert len(scripts) == 15, [p.name for p in scripts]
+
+
+def test_cookbook_read_jsonl_against_fixture():
+    fixture = ROOT / "tests" / "fixtures" / "2cols6rows_test.jsonl"
+    rows = _load_cookbook("read_jsonl").main(str(fixture), limit=2)
+    assert len(rows) == 2
+    assert isinstance(rows[0], dict)
+
+
+def test_cookbook_read_bulk_against_fixture():
+    fixture = ROOT / "tests" / "fixtures" / "2cols6rows.csv"
+    batches = _load_cookbook("read_bulk").main(str(fixture), batch_size=2)
+    assert batches
+    assert sum(len(batch) for batch in batches) == 6
+
+
+def test_cookbook_write_csv(tmp_path):
+    dest = tmp_path / "out.csv"
+    _load_cookbook("write_csv").main(str(dest))
+    text = dest.read_text(encoding="utf-8")
+    assert "id" in text
+    assert "Ada" in text
+
+
+def test_cookbook_stats_file_against_fixture():
+    fixture = ROOT / "tests" / "fixtures" / "2cols6rows.csv"
+    summary = _load_cookbook("stats_file").main(str(fixture))
+    assert "id" in summary or "name" in summary
+
+
+def test_cookbook_infer_schema_against_fixture():
+    fixture = ROOT / "tests" / "fixtures" / "2cols6rows.csv"
+    result = _load_cookbook("infer_schema").main(str(fixture))
+    assert result.get("ok") is True
+
+
+def test_cookbook_read_xml_against_fixture():
+    pytest.importorskip("lxml")
+    fixture = ROOT / "tests" / "fixtures" / "books.xml"
+    rows = _load_cookbook("read_xml").main(str(fixture), tagname="book", limit=2)
+    assert len(rows) == 2
+    assert "title" in rows[0] or "@category" in rows[0] or "category" in rows[0]
+
+
+def test_cookbook_filter_rows_against_fixture():
+    fixture = ROOT / "tests" / "fixtures" / "2cols6rows.csv"
+    kept = _load_cookbook("filter_rows").main(str(fixture), field="name", value="Mary")
+    assert len(kept) == 1
+    assert kept[0]["name"] == "Mary"
+
+
+def test_cookbook_count_rows_against_fixture():
+    fixture = ROOT / "tests" / "fixtures" / "2cols6rows.csv"
+    total = _load_cookbook("count_rows").main(str(fixture))
+    assert total == 6
+
+
+def test_cookbook_describe_format_csv():
+    info = _load_cookbook("describe_format").main("csv")
+    assert info["id"] == "csv"
+    assert info.get("description")

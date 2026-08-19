@@ -78,6 +78,91 @@ read_sample("data.csv", n=5, redact=True)
 infer_schema("data.csv")
 ```
 
+## Read JSONL
+
+**Prompt:** "read this jsonl file"
+
+```python
+from iterable import open_iterable
+
+with open_iterable("data.jsonl") as source:
+    for row in source:
+        print(row)
+```
+
+## Read in batches
+
+**Prompt:** "process this CSV in chunks"
+
+```python
+from iterable import open_iterable
+
+with open_iterable("large.csv") as source:
+    while True:
+        chunk = source.read_bulk(num=10_000)
+        if not chunk:
+            break
+        process(chunk)
+```
+
+## Write CSV
+
+**Prompt:** "write these records to csv"
+
+```python
+from iterable import open_iterable
+
+with open_iterable("output.csv", mode="w") as dest:
+    for row in rows:
+        dest.write(row)
+```
+
+## Filter rows
+
+**Prompt:** "filter rows where name equals Mary"
+
+```python
+from iterable import open_iterable
+
+with open_iterable("data.csv") as source:
+    for row in source:
+        if row.get("name") == "Mary":
+            print(row)
+```
+
+## Count rows
+
+**Prompt:** "how many rows in this file"
+
+```python
+from iterable import open_iterable
+
+with open_iterable("data.csv") as source:
+    print(source.totals())
+```
+
+## Compute stats
+
+**Prompt:** "summarize this dataset" / "compute stats"
+
+```python
+from iterable import open_iterable
+from iterable.ops import stats
+
+with open_iterable("data.csv") as source:
+    print(stats.compute(source))
+```
+
+## Describe a format
+
+**Prompt:** "does IterableData support parquet"
+
+```python
+from iterable.catalog import describe_format
+
+print(describe_format("parquet"))
+```
+
 ## Portable skill
 
 Copy [`skills/iterabledata/SKILL.md`](https://github.com/datenoio/iterabledata/blob/main/skills/iterabledata/SKILL.md) into another repository so coding agents generate these imports by default.
