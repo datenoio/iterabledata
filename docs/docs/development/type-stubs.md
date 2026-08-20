@@ -68,14 +68,14 @@ The following optional dependencies do not have type stubs available and are con
 - **networkx**: GraphML / GEXF / DOT format support
 - **pysam**: BAM / SAM alignment format support
 - **scipy**: MATLAB MAT format support
-- **ion-python**: Ion format support
-- **avro-python3**: Avro format support
+- **ion-python**: Ion format support (`iterabledata[ion]`)
+- **avro**: Avro format support (`iterabledata[avro]`)
 - **pycapnp**: Cap'n Proto format support
 - **flatbuffers**: FlatBuffers format support
 - **thrift**: Apache Thrift format support
 - **deltalake**: Delta Lake format support
 - **pyiceberg**: Apache Iceberg format support
-- **pyhudi**: Apache Hudi format support
+- **hudi**: Apache Hudi format support (`iterabledata[lakehouse]`)
 - **lance**: Lance format support
 - **rdflib**: RDF format support
 - **vobject**: VCF/iCal format support
@@ -89,9 +89,8 @@ The following optional dependencies do not have type stubs available and are con
 - **pyhocon**: HOCON format support
 - **edn_format/pyedn**: EDN format support
 - **py-ubjson**: UBJSON format support
-- **cbor2/cbor**: CBOR format support
-- **smile-json**: SMILE format support
-- **flexbuffers**: FlexBuffers format support
+- **cbor2**: CBOR format support
+- **smile** / **flexbuffers**: SMILE and FlexBuffers (not pip-installable extras today)
 - **pyasn1**: ASN.1 format support
 - **bencode/bencodepy**: Bencode format support
 - **pyreadr**: RData/RDS format support
@@ -100,8 +99,6 @@ The following optional dependencies do not have type stubs available and are con
 - **pyodbc**: SQL Server support
 - **clickhouse-connect**: ClickHouse support
 - **elasticsearch**: Elasticsearch support
-- **kafka-python**: Kafka support
-- **pulsar-client**: Pulsar support
 - **fsspec**: Cloud storage support
 - **s3fs**: S3 support
 - **gcsfs**: GCS support

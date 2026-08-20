@@ -13,7 +13,7 @@ ODS (OpenDocument Spreadsheet) is an open standard spreadsheet format used by Li
 ### Reading
 
 The ODS implementation:
-- Uses `odfpy` (preferred) or `pyexcel-ods3`
+- Uses `odfpy`
 - Supports multiple sheets (pages)
 - Extracts column headers from the first row when not specified
 - Converts each row to a dictionary
@@ -85,7 +85,7 @@ except ImportError as e:
 
 ## Limitations
 
-1. **Dependency**: Requires `odfpy` or `pyexcel-ods3`
+1. **Dependency**: Requires `odfpy` (`pip install iterabledata[ods]`)
 2. **File path required**: Filename, not a stream
 3. **Flat data only**
 4. **Read-only**

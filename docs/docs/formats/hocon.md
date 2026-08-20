@@ -21,7 +21,10 @@ The HOCON implementation:
 
 ### Writing
 
-Writing is not currently supported for HOCON format.
+Writing support:
+- Writes each record as `key = value` HOCON assignments
+- `write_bulk()` emits a HOCON array of objects
+- Requires `pip install iterabledata[hocon]` (`pyhocon`)
 
 ### Key Features
 
@@ -39,6 +42,10 @@ from iterable import open_iterable
 with open_iterable('config.hocon') as source:
     for row in source:
         print(row)  # Configuration entries
+
+# Writing
+with open_iterable('output.hocon', mode='w') as dest:
+    dest.write({'host': 'localhost', 'port': 8080})
 ```
 
 ## Parameters
@@ -47,10 +54,9 @@ with open_iterable('config.hocon') as source:
 
 ## Limitations
 
-1. **Read-only**: HOCON format does not support writing
-2. **pyhocon dependency**: Requires `pyhocon` package
-3. **Configuration focus**: Designed for configuration, not general data
-4. **Memory usage**: Entire file is loaded into memory
+1. **HOCON extra**: Requires `pip install iterabledata[hocon]` (`pyhocon`)
+2. **Configuration focus**: Designed for configuration, not general data
+3. **Memory usage**: Entire file is loaded into memory
 
 ## Compression Support
 

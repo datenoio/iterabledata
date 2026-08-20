@@ -116,7 +116,7 @@ You can convert between any supported formats:
 - **Tabular formats**: CSV, TSV, PSV, Excel (XLS/XLSX), Parquet, ORC
 - **JSON formats**: JSON, JSONL, GeoJSON
 - **Binary formats**: BSON, MessagePack, Avro, Arrow
-- **Other formats**: XML, YAML, and 80+ more
+- **Other formats**: XML, YAML, and 100+ more
 
 See the [Supported Formats](/formats/) page for a complete list.
 

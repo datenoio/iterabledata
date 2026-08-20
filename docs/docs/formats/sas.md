@@ -14,7 +14,7 @@ SAS (Statistical Analysis System) files are binary data files used by SAS softwa
 ### Reading
 
 The SAS implementation:
-- Uses `pyreadstat` library (preferred) or `sas7bdat` library
+- Uses `pyreadstat` (`pip install iterabledata[stats]`)
 - Reads SAS files and converts to pandas DataFrame, then to dictionaries
 - Supports metadata extraction
 - Requires file path (not stream)
@@ -48,7 +48,7 @@ No specific parameters required.
 ## Limitations
 
 1. **Read-only**: SAS format does not support writing
-2. **Dependency**: Requires `pyreadstat` or `sas7bdat` package
+2. **Dependency**: Requires `pip install iterabledata[stats]` (`pyreadstat`)
 3. **File path required**: Requires filename, not stream
 4. **Flat data only**: Only supports tabular data
 5. **Memory usage**: Entire file is loaded into memory

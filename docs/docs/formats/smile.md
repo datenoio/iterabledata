@@ -13,7 +13,7 @@ SMILE (Smile is a Machine-Interchangeable Language for Everything) is a binary d
 ### Reading
 
 The SMILE implementation:
-- Uses `smile-json` library for decoding
+- Imports `smile` when installed (there is no PyPI extra; see Limitations)
 - Reads binary SMILE data
 - Supports single documents or arrays
 - Converts SMILE data to Python objects
@@ -53,7 +53,7 @@ No specific parameters required.
 
 ## Limitations
 
-1. **smile-json dependency**: Requires `smile-json` package
+1. **Not on PyPI**: There is no `iterabledata` extra for SMILE. The reader imports `smile` and the ImportError names `smile-json`, which is not a pip-installable package today.
 2. **Binary format**: Not human-readable
 3. **Memory usage**: Entire file may be loaded into memory
 4. **Less common**: Not as widely used as JSON or MessagePack

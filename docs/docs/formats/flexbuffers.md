@@ -14,7 +14,7 @@ FlexBuffers is a schemaless binary serialization format developed by Google as p
 ### Reading
 
 The FlexBuffers implementation:
-- Uses `flexbuffers` library for decoding
+- Imports `flexbuffers` when installed (there is no PyPI extra; see Limitations)
 - Reads binary FlexBuffers data
 - Supports single documents or arrays
 - Converts FlexBuffers data to Python objects
@@ -55,7 +55,7 @@ No specific parameters required.
 
 ## Limitations
 
-1. **flexbuffers dependency**: Requires `flexbuffers` package
+1. **Not on PyPI**: There is no `iterabledata` extra for FlexBuffers. The reader imports `flexbuffers`, which is not a pip-installable package today.
 2. **Binary format**: Not human-readable
 3. **Memory usage**: Entire file may be loaded into memory
 4. **Less common**: Not as widely used as other formats

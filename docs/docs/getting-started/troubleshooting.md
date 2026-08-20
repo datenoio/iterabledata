@@ -1,6 +1,8 @@
-## sidebar_position: 4
+---
+sidebar_position: 4
 title: Troubleshooting
 description: Common issues and solutions when using Iterable Data
+---
 
 # Troubleshooting
 
@@ -99,8 +101,8 @@ with open_iterable('large_file.csv') as source:
 from iterable.helpers.detect import detect_file_type
 
 result = detect_file_type('data.csv.gz')
-print(f"Detected type: {result['datatype']}")
-print(f"Detected codec: {result['codec']}")
+print(f"Detected type: {result['datatype'].id() if result['datatype'] else None}")
+print(f"Detected codec: {result['codec'].id() if result['codec'] else None}")
 print(f"Success: {result['success']}")
 ```
 
@@ -318,9 +320,9 @@ except ImportError:
 
 **Solutions**:
 
-- DuckDB only supports CSV, JSONL, NDJSON, and JSON
-- Use internal engine for other formats
-- Check compression - only GZIP and ZStandard supported
+- DuckDB supports CSV, JSONL, NDJSON, JSON, and Parquet
+- Use the internal engine for other formats
+- Check compression — only GZIP and ZStandard are supported with DuckDB
 
 ## Pipeline Issues
 
@@ -711,8 +713,10 @@ Verify file format before processing:
 from iterable.helpers.detect import detect_file_type
 
 result = detect_file_type('data.csv.gz')
-print(f"Format: {result.get('datatype')}")
-print(f"Codec: {result.get('codec')}")
+dt = result.get('datatype')
+codec = result.get('codec')
+print(f"Format: {dt.id() if dt else None}")
+print(f"Codec: {codec.id() if codec else None}")
 print(f"Success: {result.get('success')}")
 ```
 

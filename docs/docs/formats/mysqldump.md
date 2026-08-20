@@ -22,7 +22,9 @@ The MySQL Dump implementation:
 
 ### Writing
 
-Writing is not currently supported for MySQL Dump format.
+Writing support:
+- Emits `INSERT INTO` statements
+- Set `_table` on each record to choose the table name
 
 ### Key Features
 
@@ -46,6 +48,10 @@ with open_iterable('dump.sql') as source:
 source = open_iterable('dump.sql', iterableargs={
     'table_name': 'users'
 })
+
+# Writing
+with open_iterable('output.sql', mode='w') as dest:
+    dest.write({'_table': 'users', 'id': 1, 'name': 'Ada'})
 ```
 
 ## Parameters
@@ -55,11 +61,10 @@ source = open_iterable('dump.sql', iterableargs={
 
 ## Limitations
 
-1. **Read-only**: MySQL Dump format does not support writing
-2. **SQL parsing**: Only parses INSERT statements
-3. **Format-specific**: Must follow mysqldump format
-4. **Table filtering**: Can filter by table name
-5. **Value parsing**: Complex SQL values may require manual handling
+1. **SQL parsing**: Only parses INSERT statements
+2. **Format-specific**: Must follow mysqldump format
+3. **Table filtering**: Can filter by table name
+4. **Value parsing**: Complex SQL values may require manual handling
 
 ## Compression Support
 

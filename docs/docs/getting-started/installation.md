@@ -55,11 +55,11 @@ pip install iterabledata[mcp]          # iterable-mcp stdio server
 
 | Extra | What it enables |
 |-------|-----------------|
-| `parquet`, `orc`, `avro`, `vortex`, `npy` | Columnar / binary analytics formats |
+| `parquet`, `orc`, `avro`, `vortex`, `npy`, `ion`, `bson`, `cbor` | Columnar / binary analytics formats |
 | `excel`, `xlsb`, `ods` | Spreadsheets |
 | `xml`, `html`, `rdf` | Markup and RDF |
-| `geospatial`, `lidar`, `mvt`, `topojson` | Spatial formats |
-| `stats`, `rdata`, `mat`, `hdf5`, `zarr`, `netcdf`, `cdf` | Scientific / stats |
+| `geospatial`, `lidar`, `mvt`, `topojson`, `dxf` | Spatial formats |
+| `stats`, `rdata`, `mat`, `hdf5`, `zarr`, `netcdf`, `cdf`, `fst` | Scientific / stats |
 | `alignment`, `bio` | SAM/BAM/CRAM, genomic VCF, BED/GFF/GTF extras |
 | `geophysical` | SEG-Y, GRIB2, miniSEED |
 | `lakehouse`, `ducklake`, `paimon`, `paimon-row`, `paimon-mosaic`, `paimon-table` | Lakehouse tables and Paimon files |
@@ -67,6 +67,7 @@ pip install iterabledata[mcp]          # iterable-mcp stdio server
 | `db`, `db-sql`, `db-nosql`, `db-ingest` | Database engines and ingest |
 | `dataframes`, `pydantic` | pandas/Polars/Dask bridges and typed models |
 | `cloud` | S3, GCS, Azure |
+| `warc`, `dbf`, `graph`, `access`, `ics`, `ldif`, `hocon`, `feed`, `pcap`, `html` | Archives, graphs, Access, vCard/iCal, logs |
 | `ai`, `anthropic`, `google-genai`, `langchain`, `mcp`, `agents` | LLM and agent surfaces |
 | `compression` | Optional codecs (see [Codecs](/api/codecs)) |
 | `all` | Everything except `dev` |

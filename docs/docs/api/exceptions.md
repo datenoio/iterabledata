@@ -195,6 +195,26 @@ Base exception for writing errors. Raised when an error occurs during data writi
 - `filename` (str, optional): Filename being written
 - `error_code` (str, optional): Error code for programmatic handling
 
+### `WriteNotSupportedError`
+
+The format does not implement writing (or the current dataset layout cannot be written). Also available as `from iterable import WriteNotSupportedError`.
+
+**Error Code:** `WRITE_NOT_SUPPORTED`
+
+**Attributes:**
+- `format_id` (str): Format identifier
+- `reason` (str, optional): Why writing is not supported
+
+```python
+from iterable import open_iterable, WriteNotSupportedError
+
+try:
+    with open_iterable("data.pcap", mode="w") as dest:
+        dest.write({"timestamp": 1234567890})
+except WriteNotSupportedError as e:
+    print(f"{e.format_id}: {e.reason}")
+```
+
 ### `StreamingNotSupportedError`
 
 Format doesn't support streaming. Raised when a streaming operation is attempted on a format that doesn't support streaming (e.g., formats that load entire file).

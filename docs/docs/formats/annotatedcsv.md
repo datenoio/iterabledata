@@ -21,7 +21,9 @@ The Annotated CSV implementation:
 
 ### Writing
 
-Writing is not currently supported for Annotated CSV format.
+Writing support:
+- Writes InfluxDB annotated CSV with optional datatype annotations
+- Pass column names via `keys` when writing
 
 ### Key Features
 
@@ -40,6 +42,10 @@ from iterable import open_iterable
 with open_iterable('data.annotatedcsv') as source:
     for row in source:
         print(row)
+
+# Writing
+with open_iterable('output.annotatedcsv', mode='w', iterableargs={'keys': ['time', 'value']}) as dest:
+    dest.write({'time': '2024-01-01T00:00:00Z', 'value': 1.2})
 ```
 
 ## Parameters
@@ -49,10 +55,9 @@ with open_iterable('data.annotatedcsv') as source:
 
 ## Limitations
 
-1. **Read-only**: Annotated CSV format does not support writing
-2. **InfluxDB-specific**: Designed specifically for InfluxDB
-3. **Format complexity**: Requires understanding of InfluxDB annotations
-4. **Type conversion**: Some complex types may not convert perfectly
+1. **InfluxDB-specific**: Designed specifically for InfluxDB
+2. **Format complexity**: Requires understanding of InfluxDB annotations
+3. **Type conversion**: Some complex types may not convert perfectly
 
 ## Compression Support
 

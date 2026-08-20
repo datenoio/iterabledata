@@ -20,15 +20,20 @@ from iterable.convert import convert
 convert(
     fromfile: str,
     tofile: str,
-    iterableargs: dict = {},
+    iterableargs: dict | None = None,
+    toiterableargs: dict | None = None,
     scan_limit: int = 1000,
     batch_size: int = 50000,
     silent: bool = True,
     is_flatten: bool = False,
     use_totals: bool = False,
     progress: Callable[[dict], None] | None = None,
+    progress_interval: int = 1000,
     show_progress: bool = False,
-    atomic: bool = False
+    atomic: bool = False,
+    use_native_batch: bool = False,
+    selection: BatchSelection | dict | None = None,
+    strict_native: bool = False,
 ) -> ConversionResult
 ```
 
@@ -61,6 +66,26 @@ Format-specific arguments for reading the source file. Common options:
 - `settings` - Query settings dictionary (ClickHouse)
 
 See [Database Engines](/api/database-engines) for detailed database-specific parameters.
+
+### `toiterableargs` (dict, optional)
+
+Format-specific arguments for **writing** the destination file (delimiter, quotechar, page, and so on).
+
+### `progress_interval` (int, optional)
+
+Number of rows between `progress` callback invocations. Default: `1000`.
+
+### `use_native_batch` (bool, optional)
+
+Request a native columnar batch transfer when both endpoints support it. Default: `False`.
+
+### `selection` (dict, optional)
+
+Optional columns, row range, slice, or backend predicate for native batch conversion.
+
+### `strict_native` (bool, optional)
+
+Raise when the requested native path or selection is unsupported. Default: `False`.
 
 ### `scan_limit` (int, optional)
 
@@ -347,7 +372,7 @@ You can convert between any supported formats:
 - Tabular formats: CSV, TSV, PSV, Excel, Parquet, ORC
 - JSON formats: JSON, JSONL, GeoJSON
 - Binary formats: BSON, MessagePack, Avro, Arrow
-- Other formats: XML, YAML, and 80+ more
+- Other formats: XML, YAML, and 100+ more
 
 ## Error Handling
 

@@ -23,7 +23,9 @@ The MHTML implementation:
 
 ### Writing
 
-Writing is not currently supported for MHTML format.
+Writing support:
+- Writes a multipart/related MHTML document
+- Uses `content` or `main_content` as the HTML part
 
 ### Key Features
 
@@ -42,6 +44,10 @@ from iterable import open_iterable
 with open_iterable('page.mhtml') as source:
     for part in source:
         print(part)  # Contains content type, location, and content
+
+# Writing
+with open_iterable('output.mhtml', mode='w') as dest:
+    dest.write({'subject': 'Page', 'content': '<html><body>Hi</body></html>'})
 ```
 
 ## Parameters
@@ -50,10 +56,9 @@ with open_iterable('page.mhtml') as source:
 
 ## Limitations
 
-1. **Read-only**: MHTML format does not support writing
-2. **Web archive focus**: Designed for web page archiving
-3. **Complex structure**: Multipart MIME structure can be complex
-4. **Memory usage**: Large web pages may use significant memory
+1. **Web archive focus**: Designed for web page archiving
+2. **Complex structure**: Multipart MIME structure can be complex
+3. **Memory usage**: Large web pages may use significant memory
 
 ## Compression Support
 

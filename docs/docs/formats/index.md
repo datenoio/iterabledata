@@ -35,87 +35,87 @@ Iterable Data supports a wide variety of data formats, from common formats like 
 
 | Format | Extensions | Type | Flat Only | Read | Write | Dependencies | Documentation |
 |--------|------------|------|-----------|------|-------|-------------|---------------|
-| [Apache Avro](/formats/avro) | `.avro` | Binary | Yes | ✅ | ❌ | `avro-python3` | [Details](/formats/avro) |
+| [Apache Avro](/formats/avro) | `.avro` | Binary | Yes | ✅ | ✅ | `avro` (`[avro]`) | [Details](/formats/avro) |
 | [Apache Arrow/Feather](/formats/arrow) | `.arrow`, `.feather` | Binary | Yes | ✅ | ✅ | `pyarrow` | [Details](/formats/arrow) |
-| [Apache Log](/formats/apachelog) | `.log`, `.access.log` | Text | Yes | ✅ | ❌ | - | [Details](/formats/apachelog) |
-| [Annotated CSV](/formats/annotatedcsv) | `.annotatedcsv` | Text | Yes | ✅ | ❌ | - | [Details](/formats/annotatedcsv) |
+| [Apache Log](/formats/apachelog) | `.log`, `.access.log` | Text | Yes | ✅ | ✅ | - | [Details](/formats/apachelog) |
+| [Annotated CSV](/formats/annotatedcsv) | `.annotatedcsv` | Text | Yes | ✅ | ✅ | - | [Details](/formats/annotatedcsv) |
 | [ASN.1](/formats/asn1) | `.asn1`, `.der` | Binary | No | ✅ | ✅ | `pyasn1` | [Details](/formats/asn1) |
-| [Apache Beam](/formats/beam) | - | Binary | No | ✅ | ❌ | - | [Details](/formats/beam) |
+| [Apache Beam](/formats/beam) | - | Binary | No | ✅ | ✅ | - | [Details](/formats/beam) |
 | [Bencode](/formats/bencode) | `.torrent` | Binary | No | ✅ | ✅ | `bencode` or `bencodepy` | [Details](/formats/bencode) |
 | [BSON](/formats/bson) | `.bson` | Binary | No | ✅ | ✅ | `bson` | [Details](/formats/bson) |
 | [Cap'n Proto](/formats/capnp) | `.capnp` | Binary | No | ✅ | ✅ | `pycapnp` | [Details](/formats/capnp) |
-| [CBOR](/formats/cbor) | `.cbor` | Binary | No | ✅ | ✅ | `cbor2` or `cbor` | [Details](/formats/cbor) |
-| [CDX](/formats/cdx) | `.cdx` | Text | Yes | ✅ | ❌ | - | [Details](/formats/cdx) |
-| [CEF](/formats/cef) | `.cef` | Text | Yes | ✅ | ❌ | - | [Details](/formats/cef) |
+| [CBOR](/formats/cbor) | `.cbor` | Binary | No | ✅ | ✅ | `cbor2` (`[cbor]`) | [Details](/formats/cbor) |
+| [CDX](/formats/cdx) | `.cdx` | Text | Yes | ✅ | ✅ | - | [Details](/formats/cdx) |
+| [CEF](/formats/cef) | `.cef` | Text | Yes | ✅ | ✅ | - | [Details](/formats/cef) |
 | [CSV](/formats/csv) | `.csv`, `.tsv` | Text | Yes | ✅ | ✅ | - | [Details](/formats/csv) |
 | [CSVW](/formats/csvw) | `.csvw` | Text | Yes | ✅ | ✅ | - | [Details](/formats/csvw) |
 | [DBF](/formats/dbf) | `.dbf` | Binary | Yes | ✅ | ❌ | `dbfread` | [Details](/formats/dbf) |
 | [Delta Lake](/formats/delta) | - | Binary | Yes | ✅ | ✅ | `deltalake` | [Details](/formats/delta) |
 | [DuckLake](/formats/ducklake) | - | Binary | Yes | ✅ | ✅ | `pyducklake` | [Details](/formats/ducklake) |
 | [EDN](/formats/edn) | `.edn` | Text | No | ✅ | ✅ | `edn_format` or `pyedn` | [Details](/formats/edn) |
-| [EML](/formats/eml) | `.eml` | Text | No | ✅ | ❌ | - | [Details](/formats/eml) |
+| [EML](/formats/eml) | `.eml` | Text | No | ✅ | ✅ | - | [Details](/formats/eml) |
 | [FlatBuffers](/formats/flatbuffers) | `.fbs` | Binary | No | ✅ | ❌ | `flatbuffers` | [Details](/formats/flatbuffers) |
-| [FlexBuffers](/formats/flexbuffers) | `.flexbuf` | Binary | No | ✅ | ✅ | `flexbuffers` | [Details](/formats/flexbuffers) |
-| [Apache Flink](/formats/flink) | `.ckpt` | Binary | No | ✅ | ❌ | - | [Details](/formats/flink) |
+| [FlexBuffers](/formats/flexbuffers) | `.flexbuf` | Binary | No | ✅ | ✅ | `flexbuffers` (not on PyPI) | [Details](/formats/flexbuffers) |
+| [Apache Flink](/formats/flink) | `.ckpt` | Binary | No | ✅ | ✅ | - | [Details](/formats/flink) |
 | [Fixed Width](/formats/fwf) | `.fwf`, `.fixed` | Text | Yes | ✅ | ✅ | - | [Details](/formats/fwf) |
 | [GELF](/formats/gelf) | `.gelf` | Text | Yes | ✅ | ✅ | - | [Details](/formats/gelf) |
 | [GeoJSON](/formats/geojson) | `.geojson` | Text | No | ✅ | ✅ | `geojson` | [Details](/formats/geojson) |
 | [GeoPackage](/formats/geopackage) | `.gpkg`, `.geopackage` | Binary | No | ✅ | ✅ | `fiona` | [Details](/formats/geopackage) |
 | [GML](/formats/gml) | `.gml` | Text | No | ✅ | ✅ | `lxml` | [Details](/formats/gml) |
 | [HDF5](/formats/hdf5) | `.hdf5`, `.h5` | Binary | Yes | ✅ | ✅ | `h5py` | [Details](/formats/hdf5) |
-| [HOCON](/formats/hocon) | `.hocon` | Text | No | ✅ | ❌ | `pyhocon` | [Details](/formats/hocon) |
-| [Apache Hudi](/formats/hudi) | - | Binary | Yes | ✅ | ❌ | `pyhudi` or `hudi` | [Details](/formats/hudi) |
+| [HOCON](/formats/hocon) | `.hocon` | Text | No | ✅ | ✅ | `pyhocon` (`[hocon]`) | [Details](/formats/hocon) |
+| [Apache Hudi](/formats/hudi) | - | Binary | Yes | ✅ | ❌ | `hudi` (`[lakehouse]`) | [Details](/formats/hudi) |
 | [iCal](/formats/ical) | `.ical`, `.ics` | Text | No | ✅ | ✅ | `icalendar` or `ics` | [Details](/formats/ical) |
 | [Apache Iceberg](/formats/iceberg) | - | Binary | Yes | ✅ | ✅ | `pyiceberg` | [Details](/formats/iceberg) |
 | [ILP](/formats/ilp) | `.ilp` | Text | Yes | ✅ | ✅ | - | [Details](/formats/ilp) |
 | [INI](/formats/ini) | `.ini`, `.properties`, `.conf` | Text | No | ✅ | ✅ | - | [Details](/formats/ini) |
-| [Ion](/formats/ion) | `.ion` | Binary | No | ✅ | ✅ | `ion-python` | [Details](/formats/ion) |
+| [Ion](/formats/ion) | `.ion` | Binary | No | ✅ | ✅ | `ion-python` (`[ion]`) | [Details](/formats/ion) |
 | [JSON](/formats/json) | `.json` | Text | No | ✅ | ✅ | - | [Details](/formats/json) |
 | [JSON Lines](/formats/jsonl) | `.jsonl`, `.ndjson` | Text | No | ✅ | ✅ | - | [Details](/formats/jsonl) |
-| [Apache Kafka](/formats/kafka) | - | Binary | No | ✅ | ✅ | `kafka-python` | [Details](/formats/kafka) |
+| [Apache Kafka](/formats/kafka) | - | Binary | No | ✅ | ✅ | - (on-disk dump, not a broker client) | [Details](/formats/kafka) |
 | [KML](/formats/kml) | `.kml` | Text | No | ✅ | ✅ | `lxml` | [Details](/formats/kml) |
 | [Lance](/formats/lance) | `.lance` | Binary | Yes | ✅ | ✅ | `lance` | [Details](/formats/lance) |
-| [LDIF](/formats/ldif) | `.ldif` | Text | No | ✅ | ❌ | `ldif3` or `ldif` | [Details](/formats/ldif) |
-| [MBOX](/formats/mbox) | `.mbox` | Text | No | ✅ | ❌ | - | [Details](/formats/mbox) |
+| [LDIF](/formats/ldif) | `.ldif` | Text | No | ✅ | ✅ | `ldif3` (`[ldif]`) | [Details](/formats/ldif) |
+| [MBOX](/formats/mbox) | `.mbox` | Text | No | ✅ | ✅ | - | [Details](/formats/mbox) |
 | [MessagePack](/formats/msgpack) | `.msgpack`, `.mp` | Binary | No | ✅ | ✅ | `msgpack` | [Details](/formats/msgpack) |
-| [MHTML](/formats/mhtml) | `.mhtml`, `.mht` | Text | No | ✅ | ❌ | - | [Details](/formats/mhtml) |
-| [MySQL Dump](/formats/mysqldump) | `.sql`, `.mysqldump` | Text | Yes | ✅ | ❌ | - | [Details](/formats/mysqldump) |
-| [N-Quads](/formats/nquads) | `.nq`, `.nquads` | Text | Yes | ✅ | ❌ | - | [Details](/formats/nquads) |
-| [N-Triples](/formats/ntriples) | `.nt`, `.ntriples` | Text | Yes | ✅ | ❌ | - | [Details](/formats/ntriples) |
-| [ODS](/formats/ods) | `.ods` | Binary | Yes | ✅ | ❌ | `odfpy` or `pyexcel-ods3` | [Details](/formats/ods) |
+| [MHTML](/formats/mhtml) | `.mhtml`, `.mht` | Text | No | ✅ | ✅ | - | [Details](/formats/mhtml) |
+| [MySQL Dump](/formats/mysqldump) | `.sql`, `.mysqldump` | Text | Yes | ✅ | ✅ | - | [Details](/formats/mysqldump) |
+| [N-Quads](/formats/nquads) | `.nq`, `.nquads` | Text | Yes | ✅ | ✅ | - | [Details](/formats/nquads) |
+| [N-Triples](/formats/ntriples) | `.nt`, `.ntriples` | Text | Yes | ✅ | ✅ | - | [Details](/formats/ntriples) |
+| [ODS](/formats/ods) | `.ods` | Binary | Yes | ✅ | ❌ | `odfpy` (`[ods]`) | [Details](/formats/ods) |
 | [ORC](/formats/orc) | `.orc` | Binary | Yes | ✅ | ✅ | `pyorc` | [Details](/formats/orc) |
 | [Parquet](/formats/parquet) | `.parquet` | Binary | Yes | ✅ | ✅ | `pyarrow` | [Details](/formats/parquet) |
 | [Pickle](/formats/pickle) | `.pickle` | Binary | No | ✅ | ✅ | - | [Details](/formats/pickle) |
 | [PostgreSQL Copy](/formats/pgcopy) | `.copy`, `.pgcopy` | Text | Yes | ✅ | ✅ | - | [Details](/formats/pgcopy) |
 | [Protocol Buffers](/formats/protobuf) | `.pb`, `.protobuf` | Binary | No | ✅ | ✅ | `protobuf` | [Details](/formats/protobuf) |
 | [PC-Axis (PX)](/formats/px) | `.px` | Text | Yes | ✅ | ❌ | - | [Details](/formats/px) |
-| [Apache Pulsar](/formats/pulsar) | - | Binary | No | ✅ | ✅ | `pulsar-client` | [Details](/formats/pulsar) |
+| [Apache Pulsar](/formats/pulsar) | - | Binary | No | ✅ | ✅ | - (on-disk dump, not a broker client) | [Details](/formats/pulsar) |
 | [PSV](/formats/psv) | `.psv` | Text | Yes | ✅ | ✅ | - | [Details](/formats/psv) |
-| [RDF/XML](/formats/rdfxml) | `.rdf`, `.rdf.xml` | Text | No | ✅ | ❌ | - | [Details](/formats/rdfxml) |
+| [RDF/XML](/formats/rdfxml) | `.rdf`, `.rdf.xml` | Text | No | ✅ | ✅ | - | [Details](/formats/rdfxml) |
 | [RData](/formats/rdata) | `.rdata`, `.RData`, `.rda` | Binary | Yes | ✅ | ❌ | `pyreadr` | [Details](/formats/rdata) |
 | [RDS](/formats/rds) | `.rds` | Binary | Yes | ✅ | ❌ | `pyreadr` | [Details](/formats/rds) |
-| [RecordIO](/formats/recordio) | `.rio`, `.recordio` | Binary | No | ✅ | ❌ | - | [Details](/formats/recordio) |
-| [SAS](/formats/sas) | `.sas`, `.sas7bdat` | Binary | Yes | ✅ | ❌ | `pyreadstat` or `sas7bdat` | [Details](/formats/sas) |
-| [SequenceFile](/formats/sequencefile) | `.seq`, `.sequencefile` | Binary | No | ✅ | ❌ | - | [Details](/formats/sequencefile) |
+| [RecordIO](/formats/recordio) | `.rio`, `.recordio` | Binary | No | ✅ | ✅ | - | [Details](/formats/recordio) |
+| [SAS](/formats/sas) | `.sas`, `.sas7bdat` | Binary | Yes | ✅ | ❌ | `pyreadstat` (`[stats]`) | [Details](/formats/sas) |
+| [SequenceFile](/formats/sequencefile) | `.seq`, `.sequencefile` | Binary | No | ✅ | ✅ | - | [Details](/formats/sequencefile) |
 | [Shapefile](/formats/shapefile) | `.shp`, `.shapefile` | Binary | No | ✅ | ✅ | `pyshp` | [Details](/formats/shapefile) |
-| [SMILE](/formats/smile) | `.smile` | Binary | No | ✅ | ✅ | `smile-json` | [Details](/formats/smile) |
+| [SMILE](/formats/smile) | `.smile` | Binary | No | ✅ | ✅ | `smile-json` (not on PyPI) | [Details](/formats/smile) |
 | [SPSS](/formats/spss) | `.sav`, `.spss` | Binary | Yes | ✅ | ❌ | `pyreadstat` | [Details](/formats/spss) |
 | [SQLite](/formats/sqlite) | `.db`, `.sqlite` | Binary | Yes | ✅ | ✅ | - | [Details](/formats/sqlite) |
 | [DuckDB](/formats/duckdb) | `.duckdb`, `.ddb` | Binary | Yes | ✅ | ✅ | `duckdb` | [Details](/formats/duckdb) |
 | [SSV](/formats/ssv) | `.ssv` | Text | Yes | ✅ | ✅ | - | [Details](/formats/ssv) |
 | [Stata](/formats/stata) | `.dta`, `.stata` | Binary | Yes | ✅ | ❌ | `pyreadstat` | [Details](/formats/stata) |
-| [TFRecord](/formats/tfrecord) | `.tfrecord`, `.tfrecords` | Binary | No | ✅ | ❌ | - | [Details](/formats/tfrecord) |
+| [TFRecord](/formats/tfrecord) | `.tfrecord`, `.tfrecords` | Binary | No | ✅ | ✅ | - | [Details](/formats/tfrecord) |
 | [Apache Thrift](/formats/thrift) | `.thrift` | Binary | No | ✅ | ✅ | `thrift` | [Details](/formats/thrift) |
 | [TOML](/formats/toml) | `.toml` | Text | No | ✅ | ✅ | `tomli`/`tomli-w` or `toml` | [Details](/formats/toml) |
-| [Turtle](/formats/turtle) | `.ttl`, `.turtle` | Text | No | ✅ | ❌ | `rdflib` | [Details](/formats/turtle) |
+| [Turtle](/formats/turtle) | `.ttl`, `.turtle` | Text | No | ✅ | ✅ | `rdflib` (`[rdf]`) | [Details](/formats/turtle) |
 | [TXT](/formats/txt) | `.txt`, `.text` | Text | Yes | ✅ | ✅ | - | [Details](/formats/txt) |
 | [UBJSON](/formats/ubjson) | `.ubj`, `.ubjson` | Binary | No | ✅ | ✅ | `py-ubjson` | [Details](/formats/ubjson) |
-| [VCF](/formats/vcf) | `.vcf`, `.vcard` | Text | No | ✅ | ❌ | `vobject` or `vcard` | [Details](/formats/vcf) |
+| [VCF](/formats/vcf) | `.vcf`, `.vcard` | Text | No | ✅ | ✅ | `vobject` (`[vcf]`) | [Details](/formats/vcf) |
 | [Vortex](/formats/vortex) | `.vortex`, `.vtx` | Binary | Yes | ✅ | ✅ | `vortex-data` | [Details](/formats/vortex) |
 | [Paimon tables](/formats/paimon) | - | Binary | Yes | ✅ | ✅ | `pypaimon` | [Details](/formats/paimon) |
 | [Paimon Row](/formats/paimon-row) | `.row` | Binary | Yes | ✅ | ✅ | `zstandard` (`paimon-row`) | [Details](/formats/paimon-row) |
 | [Paimon Mosaic](/formats/paimon-mosaic) | `.mosaic` | Binary | Yes | ✅ | ✅ | `paimon-mosaic` | [Details](/formats/paimon-mosaic) |
-| [WARC](/formats/warc) | `.warc`, `.arc` | Binary | No | ✅ | ❌ | `warcio` | [Details](/formats/warc) |
+| [WARC](/formats/warc) | `.warc`, `.arc` | Binary | No | ✅ | ✅ | `warcio` (`[warc]`) | [Details](/formats/warc) |
 | [XLS](/formats/xls) | `.xls` | Binary | Yes | ✅ | ❌ | `xlrd` | [Details](/formats/xls) |
 | [XLSX](/formats/xlsx) | `.xlsx` | Binary | Yes | ✅ | ❌ | `openpyxl` | [Details](/formats/xlsx) |
 | [XML](/formats/xml) | `.xml` | Text | No | ✅ | ❌ | `lxml` | [Details](/formats/xml) |
@@ -182,7 +182,7 @@ Iterable Data supports a wide variety of data formats, from common formats like 
 
 ## Compression Support
 
-All formats can be used with compression codecs:
+Most file-based formats can be used with compression codecs (directory stores, databases, and lakehouse tables are exceptions):
 - **GZip** (`.gz`)
 - **BZip2** (`.bz2`)
 - **LZMA** (`.xz`, `.lzma`)

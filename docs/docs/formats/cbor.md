@@ -13,7 +13,7 @@ CBOR (Concise Binary Object Representation) is a binary data format inspired by 
 ### Reading
 
 The CBOR implementation:
-- Uses `cbor2` or `cbor` library for decoding
+- Uses `cbor2` for decoding (`pip install iterabledata[cbor]`)
 - Supports reading single objects or arrays
 - Converts CBOR data to Python objects
 - Handles nested structures
@@ -54,7 +54,7 @@ No specific parameters required.
 
 ## Limitations
 
-1. **Dependency**: Requires `cbor2` or `cbor` package
+1. **CBOR extra**: Requires `pip install iterabledata[cbor]` (`cbor2`)
 2. **Binary format**: Not human-readable
 3. **File structure**: Expects single object or array of objects
 4. **Memory usage**: Entire file may be loaded into memory

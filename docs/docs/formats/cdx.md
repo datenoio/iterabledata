@@ -21,7 +21,9 @@ The CDX implementation:
 
 ### Writing
 
-Writing is not currently supported for CDX format.
+Writing support:
+- Writes space-separated CDX lines using the configured `keys`
+- Quotes fields that contain spaces
 
 ### Key Features
 
@@ -45,6 +47,10 @@ with open_iterable('index.cdx') as source:
 source = open_iterable('index.cdx', iterableargs={
     'keys': ['url', 'timestamp', 'original_url', 'mime_type', 'status_code']
 })
+
+# Writing
+with open_iterable('output.cdx', mode='w') as dest:
+    dest.write({'url': 'https://example.com/', 'timestamp': '20240101000000'})
 ```
 
 ## Parameters
@@ -59,10 +65,9 @@ CDX-11 format includes:
 
 ## Limitations
 
-1. **Read-only**: CDX format does not support writing
-2. **Format-specific**: Must follow CDX format specification
-3. **Space-separated**: Spaces in data must be quoted
-4. **Flat data only**: Only supports tabular index data
+1. **Format-specific**: Must follow CDX format specification
+2. **Space-separated**: Spaces in data must be quoted
+3. **Flat data only**: Only supports tabular index data
 
 ## Compression Support
 

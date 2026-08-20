@@ -21,7 +21,9 @@ The Flink implementation:
 
 ### Writing
 
-Writing is not currently supported for Flink format.
+Writing support:
+- Writes a simplified checkpoint dump (not a live Flink job)
+- Stores `checkpoint_id`, `timestamp`, and remaining fields as state JSON
 
 ### Key Features
 
@@ -41,6 +43,10 @@ with open_iterable('checkpoint.ckpt', iterableargs={
 }) as source:
     for record in source:
         print(record)  # Contains checkpoint_id, timestamp, state_data
+
+# Writing
+with open_iterable('output.ckpt', mode='w') as dest:
+    dest.write({'checkpoint_id': 1, 'timestamp': 0, 'state': {'n': 1}})
 ```
 
 ## Parameters
@@ -49,11 +55,10 @@ with open_iterable('checkpoint.ckpt', iterableargs={
 
 ## Limitations
 
-1. **Read-only**: Flink format does not support writing
-2. **Binary format**: Not human-readable
-3. **Flink-specific**: Designed for Flink checkpoint format
-4. **Format complexity**: Flink checkpoint format can be complex
-5. **Simplified implementation**: May not support all Flink features
+1. **Binary format**: Not human-readable
+2. **Flink-specific**: Designed for Flink checkpoint format
+3. **Format complexity**: Flink checkpoint format can be complex
+4. **Simplified implementation**: May not support all Flink features
 
 ## Compression Support
 

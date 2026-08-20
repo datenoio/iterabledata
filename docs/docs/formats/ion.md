@@ -53,7 +53,7 @@ No specific parameters required.
 
 ## Limitations
 
-1. **ion-python dependency**: Requires `ion-python` package
+1. **Ion extra**: Requires `pip install iterabledata[ion]` (`ion-python`)
 2. **Binary format**: Not human-readable
 3. **Memory usage**: Entire file may be loaded into memory
 4. **Less common**: Not as widely used as JSON or other formats

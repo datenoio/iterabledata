@@ -22,7 +22,10 @@ The Turtle implementation:
 
 ### Writing
 
-Writing is not currently supported for Turtle format.
+Writing support:
+- Serializes each record as RDF triples via `rdflib`
+- Uses `subject` or `@id` as the subject URI; other keys become predicates
+- Install with `pip install iterabledata[rdf]`
 
 ### Key Features
 
@@ -46,6 +49,13 @@ with open_iterable('data.ttl') as source:
 source = open_iterable('data.ttl', iterableargs={
     'subject': 'http://example.org/person1'
 })
+
+# Writing
+with open_iterable('output.ttl', mode='w') as dest:
+    dest.write({
+        'subject': 'http://example.org/alice',
+        'http://xmlns.com/foaf/0.1/name': 'Alice',
+    })
 ```
 
 ## Parameters
@@ -56,11 +66,10 @@ source = open_iterable('data.ttl', iterableargs={
 
 ## Limitations
 
-1. **Read-only**: Turtle format does not support writing
-2. **rdflib dependency**: Requires `rdflib` package
-3. **Memory usage**: Entire RDF graph is loaded into memory
-4. **RDF complexity**: Complex RDF structures may be difficult to work with
-5. **Triple grouping**: Triples are grouped by subject, which may not match all use cases
+1. **RDF extra**: Requires `pip install iterabledata[rdf]` (`rdflib`)
+2. **Memory usage**: Entire RDF graph is loaded into memory
+3. **RDF complexity**: Complex RDF structures may be difficult to work with
+4. **Triple grouping**: Triples are grouped by subject, which may not match all use cases
 
 ## Compression Support
 

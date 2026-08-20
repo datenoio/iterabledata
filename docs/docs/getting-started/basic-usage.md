@@ -38,12 +38,14 @@ from iterable.helpers.utils import detect_encoding, detect_delimiter
 
 # Detect file type and compression
 result = detect_file_type('data.csv.gz')
-print(f"Type: {result['datatype']}, Codec: {result['codec']}")
+datatype = result['datatype']
+codec = result['codec']
+print(f"Type: {datatype.id() if datatype else None}, Codec: {codec.id() if codec else None}")
 
 # Content-based detection (when filename detection fails)
 with open('data', 'rb') as f:
     result = detect_file_type('data', fileobj=f)
-    print(f"Detected format: {result['datatype']}")
+    print(f"Detected format: {result['datatype'].id() if result['datatype'] else None}")
 
 # Detect encoding for CSV files
 encoding_info = detect_encoding('data.csv')

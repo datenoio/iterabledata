@@ -18,23 +18,28 @@ from iterable import open_iterable
 
 ```python
 open_iterable(
-    filename: str,
-    mode: str = 'r',
-    engine: str = 'internal',
-    codecargs: dict = {},
-    iterableargs: dict = {}
+    filename: str | os.PathLike[str] | None = None,
+    mode: Literal["r", "w", "rb", "wb"] = "r",
+    engine: str = "internal",
+    codecargs: CodecArgs | None = None,
+    iterableargs: IterableArgs | None = None,
+    debug: bool = False,
+    *,
+    options: IterableArgs | None = None,
+    stream: IO[Any] | None = None,
+    format: str | None = None,
 ) -> BaseIterable
 ```
 
+`open_it` is an alias of `open_iterable`.
+
 ## Parameters
 
-### `filename` (str, required)
+### `filename`
 
-Path to the file to open. Supports both local file paths and cloud storage URIs. The function automatically detects:
-- **Format**: From file extension (`.csv`, `.jsonl`, `.parquet`, etc.) or content analysis (magic numbers and heuristics)
-- **Compression**: From file extension (`.gz`, `.bz2`, `.xz`, `.zst`, etc.)
+Path to the file, a cloud URI, or a file-like object (treated as `stream`). Optional when `stream=` is passed.
 
-**Supported Path Types:**
+**Supported path types:**
 - **Local files**: Standard file paths (e.g., `data.csv`, `/path/to/file.jsonl`)
 - **Cloud storage URIs**: Direct access to cloud object storage
   - Amazon S3: `s3://bucket/path/file.csv`, `s3a://bucket/path/file.csv`
@@ -42,33 +47,47 @@ Path to the file to open. Supports both local file paths and cloud storage URIs.
   - Azure Blob Storage: `az://container/path/file.csv`, `abfs://container/path/file.csv`, `abfss://container/path/file.csv`
   - See [Cloud Storage Support](/api/cloud-storage) for detailed documentation
 
-**Format Detection Strategy:**
-1. **Primary**: Filename extension detection (fast and reliable)
-2. **Fallback**: Content-based detection when extension is missing or unknown
-   - **Binary formats**: Magic number detection (e.g., `PAR1` for Parquet, `ORC` for ORC)
-   - **Text formats**: Content heuristics (e.g., JSON structure, CSV delimiter patterns)
+**Format detection:**
+1. **Primary**: Filename extension (fast and reliable)
+2. **Fallback**: Content-based detection when the extension is missing or unknown
+   - **Binary formats**: Magic numbers (e.g., `PAR1` for Parquet, `ORC` for ORC)
+   - **Text formats**: Content heuristics (JSON structure, CSV delimiter patterns)
 3. Works with files without extensions, streams, files with incorrect extensions, and cloud storage URIs
 
-### `mode` (str, optional)
+### `mode`
 
-File mode:
-- `'r'` - Read mode (default)
-- `'w'` - Write mode
+- `'r'` / `'rb'` — read
+- `'w'` / `'wb'` — write
 
-### `engine` (str, optional)
+### `format`
 
-Processing engine:
+Explicit format id (for example `'json'`, `'geoparquet'`, `'kafka'`). Also accepted as `iterableargs={"format": "json"}`. Bypasses extension detection.
+
+### `stream`
+
+File-like object to read or write instead of opening `filename`.
+
+### `options`
+
+Merged into `iterableargs` (later keys win).
+
+### `debug`
+
+Enables verbose I/O logging.
+
+### `engine`
+
 - `'internal'` - Internal Python engine (default, supports all formats)
-- `'duckdb'` - DuckDB engine (faster for CSV/JSONL, limited format support)
+- `'duckdb'` - DuckDB engine (CSV, JSONL, JSON, Parquet; gzip/zstd)
 - `'postgres'` or `'postgresql'` - PostgreSQL database engine (read-only)
 - `'clickhouse'` - ClickHouse database engine (read-only)
 - Other database engines: `'mysql'`, `'mssql'`, `'sqlite'`, `'mongo'`, `'elasticsearch'` (see [Database Engines](/api/database-engines) for details)
 
-### `codecargs` (dict, optional)
+### `codecargs`
 
-Arguments passed to the compression codec initialization. Most codecs don't require additional arguments.
+Arguments passed to the compression codec. Most codecs don't require additional arguments.
 
-### `iterableargs` (dict, optional)
+### `iterableargs`
 
 Format-specific arguments. Common options:
 - `delimiter` - Field delimiter for CSV/TSV files (default: `,`)
@@ -455,6 +474,11 @@ If automatic detection fails or you want to override it, you can specify the for
 from iterable import open_iterable
 
 # Specify format explicitly (bypasses detection)
+with open_iterable('data', format='json') as source:
+    for row in source:
+        print(row)
+
+# Equivalent: format inside iterableargs
 with open_iterable('data', iterableargs={'format': 'json'}) as source:
     for row in source:
         print(row)
@@ -469,8 +493,8 @@ from iterable.helpers.detect import detect_file_type
 
 # Detect format without opening
 result = detect_file_type('data.csv')
-print(f"Format: {result['datatype']}")
-print(f"Compression: {result['codec']}")
+print(f"Format: {result['datatype'].id() if result['datatype'] else None}")
+print(f"Compression: {result['codec'].id() if result['codec'] else None}")
 print(f"Success: {result['success']}")
 print(f"Confidence: {result['confidence']:.2f}")
 print(f"Method: {result['detection_method']}")
@@ -478,7 +502,7 @@ print(f"Method: {result['detection_method']}")
 # With content-based detection
 with open('data', 'rb') as f:
     result = detect_file_type('data', fileobj=f)
-    print(f"Detected format: {result['datatype']}")
+    print(f"Detected format: {result['datatype'].id() if result['datatype'] else None}")
     print(f"Confidence: {result['confidence']:.2f}")
     print(f"Method: {result['detection_method']}")
 ```
@@ -526,14 +550,14 @@ result = detect_file_type('data.unknown', fileobj=open('data.unknown', 'rb'))
 if result['success']:
     if result['confidence'] >= 0.95:
         # Very confident - proceed with detection
-        print(f"High confidence detection: {result['datatype']}")
+        print(f"High confidence detection: {result['datatype'].id() if result['datatype'] else None}")
     elif result['confidence'] >= 0.80:
         # Good confidence - likely correct
-        print(f"Good confidence detection: {result['datatype']}")
+        print(f"Good confidence detection: {result['datatype'].id() if result['datatype'] else None}")
     else:
         # Lower confidence - may want to verify or specify format explicitly
         print(f"Lower confidence ({result['confidence']:.2f}) - consider verifying")
-        print(f"Detected as: {result['datatype']}")
+        print(f"Detected as: {result['datatype'].id() if result['datatype'] else None}")
 ```
 
 ### Read-Ahead Caching

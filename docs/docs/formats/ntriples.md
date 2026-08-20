@@ -22,7 +22,9 @@ The N-Triples implementation:
 
 ### Writing
 
-Writing is not currently supported for N-Triples format.
+Writing support:
+- Writes one triple per line from `subject` / `predicate` / `object` fields
+- Honors `subject_type`, `object_type`, datatype, and language tags
 
 ### Key Features
 
@@ -41,6 +43,15 @@ from iterable import open_iterable
 with open_iterable('data.nt') as source:
     for row in source:
         print(row)  # Contains: subject, predicate, object
+
+# Writing
+with open_iterable('output.nt', mode='w') as dest:
+    dest.write({
+        'subject': 'http://example.org/alice',
+        'predicate': 'http://xmlns.com/foaf/0.1/name',
+        'object': 'Alice',
+        'object_type': 'literal',
+    })
 ```
 
 ## Parameters
@@ -58,10 +69,9 @@ Format: `subject predicate object .`
 
 ## Limitations
 
-1. **Read-only**: N-Triples format does not support writing
-2. **Line-based format**: Each triple must fit on a single line
-3. **No abbreviations**: More verbose than Turtle
-4. **Flat structure**: Each triple is separate (no grouping)
+1. **Line-based format**: Each triple must fit on a single line
+2. **No abbreviations**: More verbose than Turtle
+3. **Flat structure**: Each triple is separate (no grouping)
 
 ## Compression Support
 

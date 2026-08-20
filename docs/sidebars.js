@@ -290,6 +290,7 @@ const sidebars = {
             'formats/gelf',
             'formats/cef',
             'formats/ilp',
+            'formats/otlp',
           ],
         },
         {
@@ -355,7 +356,6 @@ const sidebars = {
             'formats/beam',
             'formats/tar',
             'formats/zipxml',
-            'formats/otlp',
           ],
         },
       ],

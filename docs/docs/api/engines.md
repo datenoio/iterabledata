@@ -14,7 +14,7 @@ The internal engine uses pure Python implementations for all formats. It support
 
 ### Features
 
-- ✅ Supports all 80+ formats
+- ✅ Supports 100+ formats
 - ✅ Supports all compression codecs
 - ✅ Works with nested data structures
 - ✅ No additional dependencies required
@@ -353,7 +353,7 @@ with open_iterable(
 | Data Source | Files | Databases |
 | Write Support | ✅ Yes | ❌ Read-only (write planned) |
 | Streaming | ✅ Yes | ✅ Yes (server-side cursors) |
-| Format Support | 80+ formats | SQL/NoSQL databases |
+| Format Support | 100+ formats | SQL/NoSQL databases |
 | Memory Efficiency | Good | Excellent (batched) |
 | Query Capabilities | Limited | Full SQL/NoSQL queries |
 | Reset Support | ✅ Yes | ❌ No (queries can't be reset) |

@@ -22,7 +22,9 @@ The SequenceFile implementation:
 
 ### Writing
 
-Writing is not currently supported for SequenceFile format.
+Writing support:
+- Writes Hadoop-style key/value records from `key` / `value` fields
+- Nested values are JSON-encoded
 
 ### Key Features
 
@@ -44,6 +46,10 @@ with open_iterable('data.seq', iterableargs={
 }) as source:
     for record in source:
         print(record)  # Contains key and value
+
+# Writing
+with open_iterable('output.seq', mode='w') as dest:
+    dest.write({'key': 'k1', 'value': {'n': 1}})
 ```
 
 ## Parameters
@@ -53,11 +59,10 @@ with open_iterable('data.seq', iterableargs={
 
 ## Limitations
 
-1. **Read-only**: SequenceFile format does not support writing
-2. **Binary format**: Not human-readable
-3. **Hadoop-specific**: Designed for Hadoop
-4. **Format complexity**: SequenceFile format can be complex
-5. **Simplified implementation**: May not support all SequenceFile features
+1. **Binary format**: Not human-readable
+2. **Hadoop-specific**: Designed for Hadoop
+3. **Format complexity**: SequenceFile format can be complex
+4. **Simplified implementation**: May not support all SequenceFile features
 
 ## Compression Support
 

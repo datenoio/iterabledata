@@ -13,14 +13,17 @@ Apache Avro is a data serialization system that provides rich data structures, c
 ### Reading
 
 The Avro implementation:
-- Uses `avro-python3` library
+- Uses the `avro` package
 - Reads Avro data files with embedded schema
 - Supports schema evolution
 - Converts Avro records to Python dictionaries
 
 ### Writing
 
-Writing is not currently supported for Avro format.
+Writing support:
+- Infers an Avro schema from the first record
+- Appends records with the `avro` package (`pip install iterabledata[avro]`)
+- Coerces values to match the schema
 
 ### Key Features
 
@@ -39,6 +42,10 @@ from iterable import open_iterable
 with open_iterable('data.avro') as source:
     for row in source:
         print(row)
+
+# Writing
+with open_iterable('output.avro', mode='w') as dest:
+    dest.write({'name': 'John', 'age': 30})
 ```
 
 ## Parameters
@@ -47,11 +54,10 @@ No specific parameters required for reading.
 
 ## Limitations
 
-1. **Read-only**: Avro format does not support writing
-2. **avro-python3 dependency**: Requires `avro-python3` package
-3. **Flat data only**: Designed for tabular data structures
-4. **Schema complexity**: Complex schemas may require manual handling
-5. **Binary format**: Not human-readable
+1. **Avro extra**: Requires `pip install iterabledata[avro]` (`avro`)
+2. **Flat data only**: Designed for tabular data structures
+3. **Schema complexity**: Complex schemas may require manual handling
+4. **Binary format**: Not human-readable
 
 ## Compression Support
 

@@ -13,7 +13,7 @@ Apache Hudi (Hadoop Upserts Deletes and Incrementals) is a data lake platform th
 ### Reading
 
 The Hudi implementation:
-- Uses `pyhudi` or `hudi` library for reading
+- Uses `pyhudi` or `hudi` when installed (`pip install iterabledata[lakehouse]`)
 - Requires `table_path` parameter (path to Hudi table)
 - Loads table and converts to pandas DataFrame, then to dictionaries
 - Requires table path (not stream)
@@ -99,7 +99,7 @@ else:
 ## Limitations
 
 1. **Read-only**: Hudi format does not support writing
-2. **Dependency**: Requires `pyhudi` or `hudi` package
+2. **Dependency**: Requires `pip install iterabledata[lakehouse]` (`hudi`; `pyhudi` if you use that binding)
 3. **Table path required**: Requires path to table directory
 4. **Flat data only**: Only supports tabular data
 5. **Memory usage**: Entire table may be loaded into memory

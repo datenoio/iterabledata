@@ -22,7 +22,9 @@ The RDF/XML implementation:
 
 ### Writing
 
-Writing is not currently supported for RDF/XML format.
+Writing support:
+- Writes RDF `Description` elements (simplified RDF/XML)
+- Triple-oriented records use `subject` plus a `triples` list
 
 ### Key Features
 
@@ -41,6 +43,10 @@ from iterable import open_iterable
 with open_iterable('data.rdf') as source:
     for row in source:
         print(row)  # Contains RDF triples grouped by subject
+
+# Writing
+with open_iterable('output.rdf', mode='w') as dest:
+    dest.write({'subject': 'http://example.org/alice', 'name': 'Alice'})
 ```
 
 ## Parameters
@@ -49,11 +55,10 @@ with open_iterable('data.rdf') as source:
 
 ## Limitations
 
-1. **Read-only**: RDF/XML format does not support writing
-2. **lxml dependency**: Requires `lxml` package
-3. **Memory usage**: Entire RDF graph may be loaded into memory
-4. **RDF complexity**: Complex RDF structures may be difficult to work with
-5. **XML complexity**: Complex XML namespaces may require manual handling
+1. **lxml dependency**: Requires `lxml` package
+2. **Memory usage**: Entire RDF graph may be loaded into memory
+3. **RDF complexity**: Complex RDF structures may be difficult to work with
+4. **XML complexity**: Complex XML namespaces may require manual handling
 
 ## Compression Support
 

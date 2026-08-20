@@ -20,7 +20,9 @@ The CEF implementation:
 
 ### Writing
 
-Writing is not currently supported for CEF format.
+Writing support:
+- Reconstructs CEF lines from standard fields plus extension key/values
+- Escapes `|`, `=`, and newlines in extension values
 
 ### Key Features
 
@@ -39,6 +41,16 @@ from iterable import open_iterable
 with open_iterable('events.cef') as source:
     for row in source:
         print(row)
+
+# Writing
+with open_iterable('output.cef', mode='w') as dest:
+    dest.write({
+        'device_vendor': 'Example',
+        'device_product': 'App',
+        'name': 'Login',
+        'severity': '5',
+        'src': '10.0.0.1',
+    })
 ```
 
 ## Parameters
@@ -53,10 +65,9 @@ Extension fields are key-value pairs separated by spaces, with keys and values s
 
 ## Limitations
 
-1. **Read-only**: CEF format does not support writing
-2. **Format-specific**: Must follow CEF format specification
-3. **Extension parsing**: Complex extension fields may require manual handling
-4. **Flat data only**: Only supports tabular log data
+1. **Format-specific**: Must follow CEF format specification
+2. **Extension parsing**: Complex extension fields may require manual handling
+3. **Flat data only**: Only supports tabular log data
 
 ## Compression Support
 

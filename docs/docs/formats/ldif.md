@@ -13,7 +13,7 @@ LDIF (LDAP Data Interchange Format) is a text format for representing LDAP (Ligh
 ### Reading
 
 The LDIF implementation:
-- Uses `ldif3` or `ldif` library for parsing
+- Uses `ldif3` for parsing (`pip install iterabledata[ldif]`)
 - Parses LDIF format line by line
 - Extracts directory entries (DN and attributes)
 - Handles continuation lines
@@ -22,7 +22,10 @@ The LDIF implementation:
 
 ### Writing
 
-Writing is not currently supported for LDIF format.
+Writing support:
+- Requires a `dn` field on each record
+- Writes attributes as `key: value` lines
+- Install with `pip install iterabledata[ldif]` (`ldif3`)
 
 ### Key Features
 
@@ -41,6 +44,10 @@ from iterable import open_iterable
 with open_iterable('directory.ldif') as source:
     for entry in source:
         print(entry)  # Contains DN and attributes
+
+# Writing
+with open_iterable('output.ldif', mode='w') as dest:
+    dest.write({'dn': 'cn=Ada,dc=example,dc=org', 'cn': 'Ada', 'mail': 'ada@example.org'})
 ```
 
 ## Parameters
@@ -56,10 +63,9 @@ LDIF entries consist of:
 
 ## Limitations
 
-1. **Read-only**: LDIF format does not support writing
-2. **Dependency**: Requires `ldif3` or `ldif` package
-3. **LDAP focus**: Designed for LDAP directory data
-4. **Format complexity**: Complex LDAP structures may require manual handling
+1. **LDIF extra**: Requires `pip install iterabledata[ldif]` (`ldif3`)
+2. **LDAP focus**: Designed for LDAP directory data
+3. **Format complexity**: Complex LDAP structures may require manual handling
 
 ## Compression Support
 

@@ -22,7 +22,9 @@ The TFRecord implementation:
 
 ### Writing
 
-Writing is not currently supported for TFRecord format.
+Writing support:
+- Writes length-prefixed JSON records with CRC32 checksums
+- Nested dictionaries are JSON-encoded into each record
 
 ### Key Features
 
@@ -43,6 +45,10 @@ with open_iterable('data.tfrecord', iterableargs={
 }) as source:
     for record in source:
         print(record)  # Contains record data
+
+# Writing
+with open_iterable('output.tfrecord', mode='w') as dest:
+    dest.write({'id': 1, 'text': 'hello'})
 ```
 
 ## Parameters
@@ -51,11 +57,10 @@ with open_iterable('data.tfrecord', iterableargs={
 
 ## Limitations
 
-1. **Read-only**: TFRecord format does not support writing
-2. **Binary format**: Not human-readable
-3. **TensorFlow-specific**: Designed for TensorFlow
-4. **CRC32 validation**: Simplified CRC32 implementation
-5. **Format complexity**: TFRecord format can be complex
+1. **Binary format**: Not human-readable
+2. **TensorFlow-specific**: Designed for TensorFlow
+3. **CRC32 validation**: Simplified CRC32 implementation
+4. **Format complexity**: TFRecord format can be complex
 
 ## Compression Support
 

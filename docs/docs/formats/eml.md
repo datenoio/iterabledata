@@ -22,7 +22,9 @@ The EML implementation:
 
 ### Writing
 
-Writing is not currently supported for EML format.
+Writing support:
+- Builds an RFC 822 message from header fields (`from`, `to`, `subject`, …)
+- Uses `body` or `body_text` as the message content
 
 ### Key Features
 
@@ -41,6 +43,15 @@ from iterable import open_iterable
 with open_iterable('message.eml') as source:
     for email in source:
         print(email)  # Contains email headers and body
+
+# Writing
+with open_iterable('output.eml', mode='w') as dest:
+    dest.write({
+        'from': 'a@example.com',
+        'to': 'b@example.com',
+        'subject': 'Hello',
+        'body': 'Message text',
+    })
 ```
 
 ## Parameters
@@ -49,10 +60,9 @@ with open_iterable('message.eml') as source:
 
 ## Limitations
 
-1. **Read-only**: EML format does not support writing
-2. **Single message**: Each file typically contains one email
-3. **Email focus**: Designed for email data, not general data
-4. **Complex structure**: Email structure can be complex with multipart content
+1. **Single message**: Each file typically contains one email
+2. **Email focus**: Designed for email data, not general data
+3. **Complex structure**: Email structure can be complex with multipart content
 
 ## Compression Support
 

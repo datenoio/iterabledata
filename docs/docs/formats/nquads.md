@@ -22,7 +22,9 @@ The N-Quads implementation:
 
 ### Writing
 
-Writing is not currently supported for N-Quads format.
+Writing support:
+- Writes one quad per line, including an optional `graph` field
+- Same subject/predicate/object keys as N-Triples
 
 ### Key Features
 
@@ -41,6 +43,15 @@ from iterable import open_iterable
 with open_iterable('data.nq') as source:
     for row in source:
         print(row)  # Contains: subject, predicate, object, graph
+
+# Writing
+with open_iterable('output.nq', mode='w') as dest:
+    dest.write({
+        'subject': 'http://example.org/alice',
+        'predicate': 'http://xmlns.com/foaf/0.1/name',
+        'object': 'Alice',
+        'graph': 'http://example.org/graph',
+    })
 ```
 
 ## Parameters
@@ -59,10 +70,9 @@ Format: `subject predicate object graph .`
 
 ## Limitations
 
-1. **Read-only**: N-Quads format does not support writing
-2. **Line-based format**: Each quad must fit on a single line
-3. **No abbreviations**: More verbose than Turtle
-4. **Flat structure**: Each quad is separate (no grouping)
+1. **Line-based format**: Each quad must fit on a single line
+2. **No abbreviations**: More verbose than Turtle
+3. **Flat structure**: Each quad is separate (no grouping)
 
 ## Compression Support
 

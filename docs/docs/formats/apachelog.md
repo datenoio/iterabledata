@@ -21,7 +21,9 @@ The Apache Log implementation:
 
 ### Writing
 
-Writing is not currently supported for Apache Log format.
+Writing support:
+- Reconstructs Common, Combined, or vhost_common lines from parsed fields
+- Uses the same `log_format` argument as reading
 
 ### Key Features
 
@@ -44,6 +46,17 @@ with open_iterable('access.log') as source:
 source = open_iterable('access.log', iterableargs={
     'log_format': 'combined'  # or 'common', 'vhost_common'
 })
+
+# Writing
+with open_iterable('output.log', mode='w', iterableargs={'log_format': 'common'}) as dest:
+    dest.write({
+        'remote_host': '127.0.0.1',
+        'method': 'GET',
+        'request': '/',
+        'protocol': 'HTTP/1.1',
+        'status': '200',
+        'size': '123',
+    })
 ```
 
 ## Parameters
@@ -64,10 +77,9 @@ source = open_iterable('access.log', iterableargs={
 
 ## Limitations
 
-1. **Read-only**: Apache Log format does not support writing
-2. **Format-specific**: Must match one of the supported formats
-3. **Regex parsing**: Uses regex which may not handle all edge cases
-4. **Flat data only**: Only supports tabular log data
+1. **Format-specific**: Must match one of the supported formats
+2. **Regex parsing**: Uses regex which may not handle all edge cases
+3. **Flat data only**: Only supports tabular log data
 
 ## Compression Support
 

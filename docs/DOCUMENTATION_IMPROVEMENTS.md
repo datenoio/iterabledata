@@ -23,6 +23,9 @@ pass that aligned published Docusaurus pages with the format registry.
 - Development sidebar has contributing and adding-formats.
 - Leftover template alias pages (`dta.md`, `htm.md`, …) redirect to the
   canonical format page.
+- Write flags, extras, and API signatures aligned with the code (Avro/WARC/MBOX
+  and other implemented writers; Kafka/Pulsar described as on-disk dumps;
+  troubleshooting frontmatter restored).
 
 ## Still incremental
 

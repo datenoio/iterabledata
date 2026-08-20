@@ -14,7 +14,7 @@ VCF (vCard) is a standard format (RFC 6350) for electronic business cards. It's 
 ### Reading
 
 The VCF implementation:
-- Uses `vobject` or `vcard` library for parsing
+- Uses `vobject` (`pip install iterabledata[vcf]`)
 - Parses vCard format
 - Extracts contact information
 - Converts each vCard to a dictionary
@@ -42,6 +42,10 @@ from iterable import open_iterable
 with open_iterable('contacts.vcf') as source:
     for contact in source:
         print(contact)  # Contains contact information
+
+# Writing
+with open_iterable('output.vcf', mode='w') as dest:
+    dest.write({'fn': 'Ada Lovelace', 'email': 'ada@example.org'})
 ```
 
 ## Parameters
@@ -50,7 +54,7 @@ with open_iterable('contacts.vcf') as source:
 
 ## Limitations
 
-1. **Dependency**: Requires `vobject` or `vcard` package (install with `pip install iterabledata[vcf]`)
+1. **Dependency**: Requires `vobject` (`pip install iterabledata[vcf]`)
 2. **Contact focus**: Designed for contact data, not general data
 3. **Format complexity**: Complex vCard structures may require manual handling
 

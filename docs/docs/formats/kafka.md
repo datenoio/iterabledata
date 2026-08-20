@@ -1,60 +1,52 @@
-# Apache Kafka Format
+# Apache Kafka message dump
 
 ## Description
 
-Apache Kafka is a distributed streaming platform. This implementation handles Kafka message format for reading/writing Kafka messages. Kafka messages contain offset, timestamp, key, value, and optional headers.
+This reader/writer stores a **simplified on-disk dump** of Kafka-like messages (offset, timestamp, key, value, optional headers). It is **not** a Kafka broker client: it does not connect to a cluster and does not use `kafka-python`.
 
 ## File Extensions
 
-- No specific extension (Kafka data files)
+- No dedicated extension. Pass `format="kafka"` (or a `.kafka` filename) to `open_iterable()`.
 
 ## Implementation Details
 
 ### Reading
 
-The Kafka implementation:
-- Parses Kafka message format
+- Parses a length-prefixed binary dump
 - Extracts offset, timestamp, key, value, and headers
-- Handles binary message data
-- Converts messages to dictionaries
-- Supports metadata inclusion/exclusion
+- Converts each message to a dictionary
+- Optional metadata via `include_metadata`
 
 ### Writing
 
-Writing support:
-- Writes Kafka message format
-- Includes offset, timestamp, key, value, and headers
-- Writes binary message data
+- Writes the same dump format
+- Nested values are JSON-encoded
 
 ### Key Features
 
-- **Message format**: Handles Kafka message structure
-- **Metadata support**: Includes offset, timestamp, partition
-- **Key-value**: Supports message keys and values
-- **Headers**: Handles message headers
-- **Nested data**: Supports complex message structures
+- **On-disk dump**: File-based, not a live consumer/producer
+- **Key/value records**: Configurable field names
+- **Metadata**: Offset, timestamp, partition when enabled
 
 ## Usage
 
 ```python
 from iterable import open_iterable
 
-# Basic reading
-with open_iterable('kafka.data', iterableargs={
-    'key_name': 'key',
-    'value_name': 'value',
-    'include_metadata': True
+with open_iterable("messages.kafka", format="kafka", iterableargs={
+    "key_name": "key",
+    "value_name": "value",
+    "include_metadata": True,
 }) as source:
     for message in source:
-        print(message)  # Contains key, value, offset, timestamp, etc.
+        print(message)
 
-# Writing
-with open_iterable('output.kafka', mode='w') as dest:
+with open_iterable("output.kafka", mode="w", format="kafka") as dest:
     dest.write({
-        'key': 'message-key',
-        'value': {'data': 'message content'},
-        'offset': 0,
-        'timestamp': 1234567890000
+        "key": "message-key",
+        "value": {"data": "message content"},
+        "offset": 0,
+        "timestamp": 1234567890000,
     })
 ```
 
@@ -66,32 +58,15 @@ with open_iterable('output.kafka', mode='w') as dest:
 
 ## Limitations
 
-1. **Binary format**: Not human-readable
-2. **Kafka-specific**: Designed for Kafka message format
-3. **Format complexity**: Kafka message format can be complex
-4. **Simplified implementation**: May not support all Kafka features
+1. **Not a Kafka client**: Does not speak the Kafka protocol or connect to brokers
+2. **Simplified framing**: Not wire-compatible with official Kafka log segments
+3. **Binary dump**: Not human-readable
 
 ## Compression Support
 
-Kafka files can be compressed with all supported codecs:
-- GZip (`.kafka.gz`)
-- BZip2 (`.kafka.bz2`)
-- LZMA (`.kafka.xz`)
-- LZ4 (`.kafka.lz4`)
-- ZIP (`.kafka.zip`)
-- Brotli (`.kafka.br`)
-- ZStandard (`.kafka.zst`)
-
-Note: Kafka also has built-in compression (gzip, snappy, lz4, zstd).
-
-## Use Cases
-
-- **Streaming data**: Processing Kafka message streams
-- **Event sourcing**: Event sourcing systems
-- **Real-time processing**: Real-time data processing
-- **Message queues**: Working with message queue data
+The dump file can be wrapped with the usual codecs (`.kafka.gz`, `.kafka.zst`, and similar).
 
 ## Related Formats
 
-- [Pulsar](pulsar.md) - Apache Pulsar format
+- [Pulsar](pulsar.md) - Similar on-disk message dump
 - [MessagePack](msgpack.md) - Binary message format

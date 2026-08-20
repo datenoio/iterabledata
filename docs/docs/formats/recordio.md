@@ -22,7 +22,9 @@ The RecordIO implementation:
 
 ### Writing
 
-Writing is not currently supported for RecordIO format.
+Writing support:
+- Writes length-prefixed JSON records with CRC32 checksums
+- Same framing as the reader
 
 ### Key Features
 
@@ -43,6 +45,10 @@ with open_iterable('data.rio', iterableargs={
 }) as source:
     for record in source:
         print(record)  # Contains record data
+
+# Writing
+with open_iterable('output.rio', mode='w') as dest:
+    dest.write({'id': 1, 'payload': 'hello'})
 ```
 
 ## Parameters
@@ -51,11 +57,10 @@ with open_iterable('data.rio', iterableargs={
 
 ## Limitations
 
-1. **Read-only**: RecordIO format does not support writing
-2. **Binary format**: Not human-readable
-3. **CRC32 validation**: Simplified CRC32 implementation
-4. **Format complexity**: RecordIO format can be complex
-5. **Google-specific**: Primarily used in Google systems
+1. **Binary format**: Not human-readable
+2. **CRC32 validation**: Simplified CRC32 implementation
+3. **Format complexity**: RecordIO format can be complex
+4. **Google-specific**: Primarily used in Google systems
 
 ## Compression Support
 

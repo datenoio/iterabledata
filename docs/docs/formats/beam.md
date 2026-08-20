@@ -21,7 +21,9 @@ The Beam implementation:
 
 ### Writing
 
-Writing is not currently supported for Beam format.
+Writing support:
+- Writes a simplified on-disk Beam record dump (not a Beam runner)
+- Uses `key` / `value` plus optional `window` and `timestamp`
 
 ### Key Features
 
@@ -43,6 +45,10 @@ with open_iterable('beam.data', iterableargs={
 }) as source:
     for record in source:
         print(record)  # Contains key, value, window, timestamp
+
+# Writing
+with open_iterable('output.beam', mode='w') as dest:
+    dest.write({'key': 'k', 'value': {'n': 1}, 'timestamp': 0})
 ```
 
 ## Parameters
@@ -53,11 +59,10 @@ with open_iterable('beam.data', iterableargs={
 
 ## Limitations
 
-1. **Read-only**: Beam format does not support writing
-2. **Binary format**: Not human-readable
-3. **Beam-specific**: Designed for Beam record format
-4. **Format complexity**: Beam format can be complex
-5. **Simplified implementation**: May not support all Beam features
+1. **Binary format**: Not human-readable
+2. **Beam-specific**: Designed for Beam record format
+3. **Format complexity**: Beam format can be complex
+4. **Simplified implementation**: May not support all Beam features
 
 ## Compression Support
 

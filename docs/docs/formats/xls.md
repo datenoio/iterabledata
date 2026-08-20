@@ -21,7 +21,7 @@ The XLS implementation:
 
 ### Writing
 
-Writing is not currently supported for XLS format. Use XLSX format for writing.
+Writing is **not supported**. Convert to [CSV](csv.md) or [Parquet](parquet.md) for output. XLSX is also read-only.
 
 ### Key Features
 

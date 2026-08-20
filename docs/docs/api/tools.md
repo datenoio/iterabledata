@@ -21,6 +21,9 @@ IterableData operations. All tools return `{"ok": true, "data": ...}` or
 | `analyze_dataset(path, autodoc=False)` | Structure analysis |
 | `compute_stats(path)` | Column statistics |
 | `convert_file(input, output, confirm=False, dry_run=False)` | Format conversion |
+| `plan_conversion(input, output)` | Conversion plan without writing |
+| `suggest_transform(path, ...)` | Suggested transforms |
+| `translate_filter_tool(expression)` | Filter expression helper |
 | `generate_documentation(path, **kwargs)` | AI documentation |
 | `validate_data(path, rules, mode="stats")` | Row validation |
 

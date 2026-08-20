@@ -23,9 +23,10 @@ The HDF5 implementation:
 ### Writing
 
 Writing support:
-- Creates HDF5 files and datasets
-- Writes data to specified dataset path
-- Requires file path (not stream)
+- Creates HDF5 files and structured datasets
+- Writes rows to `dataset_path`
+- Requires a file path (not a stream)
+- Non-structured datasets raise `WriteNotSupportedError`
 
 ### Key Features
 
@@ -58,11 +59,12 @@ with open_iterable('data.h5', iterableargs={'dataset_path': '/data'}) as source:
     all_datasets = source.list_tables()  # Reuses open file handle
     print(f"All datasets: {all_datasets}")
 
-# Writing
+# Writing structured datasets
 with open_iterable('output.h5', mode='w', iterableargs={
     'dataset_path': '/data'
 }) as dest:
     dest.write({'col1': 1, 'col2': 2})
+# Non-structured datasets raise WriteNotSupportedError
 ```
 
 ## Parameters
