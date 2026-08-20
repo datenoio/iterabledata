@@ -39,10 +39,9 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading (returns strings)
-source = open_iterable('data.txt')
-for line in source:
-    print(line)  # line is a string
-source.close()
+with open_iterable('data.txt') as source:
+    for line in source:
+        print(line)  # line is a string
 
 # With custom parser
 def parse_log_line(line):
@@ -53,12 +52,11 @@ def parse_log_line(line):
         'message': ' '.join(parts[2:])
     }
 
-source = open_iterable('log.txt', iterableargs={
+with open_iterable('log.txt', iterableargs={
     'parser': parse_log_line
-})
-for record in source:
-    print(record)  # record is a dict
-source.close()
+}) as source:
+    for record in source:
+        print(record)  # record is a dict
 ```
 
 ## Parameters

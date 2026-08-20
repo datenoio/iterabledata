@@ -42,3 +42,12 @@ Install with `pip install iterabledata[pcap]`.
 ## See also
 
 - [Supported formats](/formats/)
+
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `binary` | bool | `True` | No | Passed via `iterableargs`. |
+| `encoding` | str | None | `None` | No | Passed via `iterableargs`. |
+| `noopen` | bool | `False` | No | Passed via `iterableargs`. |
+

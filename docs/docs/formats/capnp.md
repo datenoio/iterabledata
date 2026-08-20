@@ -41,21 +41,19 @@ Writing support:
 from iterable import open_iterable
 
 # Reading
-source = open_iterable('data.capnp', iterableargs={
+with open_iterable('data.capnp', iterableargs={
     'schema_file': 'schema.capnp',
     'schema_name': 'MyMessage'
-})
-for row in source:
-    print(row)
-source.close()
+}) as source:
+    for row in source:
+        print(row)
 
 # Writing
-dest = open_iterable('output.capnp', mode='w', iterableargs={
+with open_iterable('output.capnp', mode='w', iterableargs={
     'schema_file': 'schema.capnp',
     'schema_name': 'MyMessage'
-})
-dest.write({'field1': 'value1', 'field2': 123})
-dest.close()
+}) as dest:
+    dest.write({'field1': 'value1', 'field2': 123})
 ```
 
 ## Parameters

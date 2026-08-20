@@ -38,10 +38,9 @@ Writing is not currently supported for EML format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('message.eml')
-for email in source:
-    print(email)  # Contains email headers and body
-source.close()
+with open_iterable('message.eml') as source:
+    for email in source:
+        print(email)  # Contains email headers and body
 ```
 
 ## Parameters

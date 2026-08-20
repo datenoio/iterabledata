@@ -82,28 +82,27 @@ from iterable import open_iterable
 from iterable.pipeline import pipeline
 
 source = open_iterable('input.jsonl')
-destination = open_iterable('output.jsonl', mode='w')
+with open_iterable('output.jsonl', mode='w') as destination:
 
-def transform_record(record, state):
-    """Transform with state tracking"""
-    state['count'] = state.get('count', 0) + 1
-    record['sequence'] = state['count']
-    return record
+    def transform_record(record, state):
+        """Transform with state tracking"""
+        state['count'] = state.get('count', 0) + 1
+        record['sequence'] = state['count']
+        return record
 
-def final_callback(stats, state):
-    """Report final statistics"""
-    print(f"Processed {state['count']} records")
+    def final_callback(stats, state):
+        """Report final statistics"""
+        print(f"Processed {state['count']} records")
 
-pipeline(
-    source=source,
-    destination=destination,
-    process_func=transform_record,
-    final_func=final_callback,
-    start_state={'count': 0}
-)
+    pipeline(
+        source=source,
+        destination=destination,
+        process_func=transform_record,
+        final_func=final_callback,
+        start_state={'count': 0}
+    )
 
-source.close()
-destination.close()
+    source.close()
 ```
 
 ## Filtering Records
@@ -115,23 +114,22 @@ from iterable import open_iterable
 from iterable.pipeline import pipeline
 
 source = open_iterable('input.csv')
-destination = open_iterable('output.csv', mode='w')
+with open_iterable('output.csv', mode='w') as destination:
 
-def filter_records(record, state):
-    """Only process records that meet criteria"""
-    if record.get('age', 0) >= 18:
-        return record
-    return None  # Skip this record
+    def filter_records(record, state):
+        """Only process records that meet criteria"""
+        if record.get('age', 0) >= 18:
+            return record
+        return None  # Skip this record
 
-pipeline(
-    source=source,
-    destination=destination,
-    process_func=filter_records,
-    skip_nulls=True  # Skip None values
-)
+    pipeline(
+        source=source,
+        destination=destination,
+        process_func=filter_records,
+        skip_nulls=True  # Skip None values
+    )
 
-source.close()
-destination.close()
+    source.close()
 ```
 
 ## Data Enrichment
@@ -143,26 +141,25 @@ from iterable import open_iterable
 from iterable.pipeline import pipeline
 
 source = open_iterable('input.jsonl')
-destination = open_iterable('output.jsonl', mode='w')
+with open_iterable('output.jsonl', mode='w') as destination:
 
-# Load lookup data
-lookup_table = load_lookup_data()
+    # Load lookup data
+    lookup_table = load_lookup_data()
 
-def enrich_record(record, state):
-    """Enrich record with lookup data"""
-    key = record.get('id')
-    if key in lookup_table:
-        record['enriched_data'] = lookup_table[key]
-    return record
+    def enrich_record(record, state):
+        """Enrich record with lookup data"""
+        key = record.get('id')
+        if key in lookup_table:
+            record['enriched_data'] = lookup_table[key]
+        return record
 
-pipeline(
-    source=source,
-    destination=destination,
-    process_func=enrich_record
-)
+    pipeline(
+        source=source,
+        destination=destination,
+        process_func=enrich_record
+    )
 
-source.close()
-destination.close()
+    source.close()
 ```
 
 ## Error Handling
@@ -174,34 +171,33 @@ from iterable import open_iterable
 from iterable.pipeline import pipeline
 
 source = open_iterable('input.jsonl')
-destination = open_iterable('output.jsonl', mode='w')
+with open_iterable('output.jsonl', mode='w') as destination:
 
-def transform_with_error_handling(record, state):
-    """Transform with error handling"""
-    try:
-        # Process record
-        result = process_record(record)
-        return result
-    except Exception as e:
-        state['errors'] = state.get('errors', [])
-        state['errors'].append(str(e))
-        return None  # Skip this record
+    def transform_with_error_handling(record, state):
+        """Transform with error handling"""
+        try:
+            # Process record
+            result = process_record(record)
+            return result
+        except Exception as e:
+            state['errors'] = state.get('errors', [])
+            state['errors'].append(str(e))
+            return None  # Skip this record
 
-def final_callback(stats, state):
-    """Report errors"""
-    if 'errors' in state:
-        print(f"Encountered {len(state['errors'])} errors")
+    def final_callback(stats, state):
+        """Report errors"""
+        if 'errors' in state:
+            print(f"Encountered {len(state['errors'])} errors")
 
-pipeline(
-    source=source,
-    destination=destination,
-    process_func=transform_with_error_handling,
-    final_func=final_callback,
-    start_state={}
-)
+    pipeline(
+        source=source,
+        destination=destination,
+        process_func=transform_with_error_handling,
+        final_func=final_callback,
+        start_state={}
+    )
 
-source.close()
-destination.close()
+    source.close()
 ```
 
 ## Pipeline Parameters

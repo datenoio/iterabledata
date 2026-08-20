@@ -39,21 +39,19 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('logs.gelf')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('logs.gelf') as source:
+    for row in source:
+        print(row)
 
 # Writing
-dest = open_iterable('output.gelf', mode='w')
-dest.write({
-    'version': '1.1',
-    'host': 'server1',
-    'short_message': 'Test message',
-    'timestamp': 1234567890.123,
-    'level': 6
-})
-dest.close()
+with open_iterable('output.gelf', mode='w') as dest:
+    dest.write({
+        'version': '1.1',
+        'host': 'server1',
+        'short_message': 'Test message',
+        'timestamp': 1234567890.123,
+        'level': 6
+    })
 ```
 
 ## Parameters

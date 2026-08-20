@@ -43,19 +43,17 @@ from iterable import open_iterable
 from my_proto_pb2 import MyMessage  # Generated from .proto file
 
 # Reading
-source = open_iterable('data.pb', iterableargs={
+with open_iterable('data.pb', iterableargs={
     'message_class': MyMessage
-})
-for row in source:
-    print(row)  # row is a dict
-source.close()
+}) as source:
+    for row in source:
+        print(row)  # row is a dict
 
 # Writing
-dest = open_iterable('output.pb', mode='w', iterableargs={
+with open_iterable('output.pb', mode='w', iterableargs={
     'message_class': MyMessage
-})
-dest.write({'field1': 'value1', 'field2': 123})
-dest.close()
+}) as dest:
+    dest.write({'field1': 'value1', 'field2': 123})
 ```
 
 ## Parameters

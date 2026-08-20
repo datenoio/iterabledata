@@ -183,10 +183,9 @@ with open_iterable('data.csv') as source:
 ```python
 from iterable import open_iterable
 
-source = open_iterable('data.csv.gz')
-for row in source:
-    process(row)
-source.close()
+with open_iterable('data.csv.gz') as source:
+    for row in source:
+        process(row)
 ```
 
 **After (Optional Enhancement)**:
@@ -219,14 +218,13 @@ with open_iterable('data.csv.gz', engine='duckdb') as source:
 from iterable import open_iterable
 
 source = open_iterable('input.csv')
-destination = open_iterable('output.jsonl', mode='w')
+with open_iterable('output.jsonl', mode='w') as destination:
 
-for row in source:
-    transformed = transform(row)
-    destination.write(transformed)
+    for row in source:
+        transformed = transform(row)
+        destination.write(transformed)
 
-source.close()
-destination.close()
+    source.close()
 ```
 
 **After (Optional Enhancement)**:
@@ -265,10 +263,9 @@ with open_iterable('input.csv') as source:
 ```python
 from iterable import open_iterable
 
-dest = open_iterable('output.jsonl', mode='w')
-for record in records:
-    dest.write(record)
-dest.close()
+with open_iterable('output.jsonl', mode='w') as dest:
+    for record in records:
+        dest.write(record)
 ```
 
 **After (Recommended)**:
@@ -327,10 +324,9 @@ with open_iterable('data.csv') as source:
 
 ```python
 # Old
-dest = open_iterable('output.jsonl', mode='w')
-for record in records:
-    dest.write(record)
-dest.close()
+with open_iterable('output.jsonl', mode='w') as dest:
+    for record in records:
+        dest.write(record)
 
 # New
 with open_iterable('output.jsonl', mode='w') as dest:
@@ -341,10 +337,9 @@ with open_iterable('output.jsonl', mode='w') as dest:
 
 ```python
 # Old
-source = open_iterable('large_data.csv.gz')
-for row in source:
-    process(row)
-source.close()
+with open_iterable('large_data.csv.gz') as source:
+    for row in source:
+        process(row)
 
 # New (optional, for better performance)
 with open_iterable('large_data.csv.gz', engine='duckdb') as source:

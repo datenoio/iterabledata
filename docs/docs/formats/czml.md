@@ -49,3 +49,10 @@ with open_iterable("out.czml", mode="w", format="czml") as dest:
 - [GeoJSON](/formats/geojson) — geospatial features
 - [KML](/formats/kml) — Keyhole Markup Language
 - [Supported formats](/formats/)
+
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `encoding` | str | `'utf-8'` | No | Passed via `iterableargs`. |
+

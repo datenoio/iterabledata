@@ -41,7 +41,14 @@ with open_iterable("weather.arff") as source:
 
 Install with `pip install iterabledata[arff]`.
 
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `encoding` | str | `'utf8'` | No | Text encoding |
+
 ## See also
 
 - [LIBSVM](/formats/libsvm) — sparse ML feature vectors
 - [Supported formats](/formats/)
+

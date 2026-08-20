@@ -38,10 +38,9 @@ Writing is not currently supported for Turtle format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.ttl')
-for row in source:
-    print(row)  # Each row represents a subject with its properties
-source.close()
+with open_iterable('data.ttl') as source:
+    for row in source:
+        print(row)  # Each row represents a subject with its properties
 
 # Filter by subject
 source = open_iterable('data.ttl', iterableargs={

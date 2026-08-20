@@ -40,20 +40,18 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.ilp')
-for row in source:
-    print(row)  # Contains: measurement, tags, fields, time
-source.close()
+with open_iterable('data.ilp') as source:
+    for row in source:
+        print(row)  # Contains: measurement, tags, fields, time
 
 # Writing
-dest = open_iterable('output.ilp', mode='w')
-dest.write({
-    'measurement': 'temperature',
-    'tags': {'location': 'room1', 'sensor': 'A1'},
-    'fields': {'value': 23.5},
-    'time': 1234567890000000000  # Nanosecond timestamp
-})
-dest.close()
+with open_iterable('output.ilp', mode='w') as dest:
+    dest.write({
+        'measurement': 'temperature',
+        'tags': {'location': 'room1', 'sensor': 'A1'},
+        'fields': {'value': 23.5},
+        'time': 1234567890000000000  # Nanosecond timestamp
+    })
 ```
 
 ## Parameters

@@ -41,3 +41,10 @@ with open_iterable("order.edi") as source:
 ## See also
 
 - [Supported formats](/formats/)
+
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `encoding` | str | `'utf8'` | No | Passed via `iterableargs`. |
+

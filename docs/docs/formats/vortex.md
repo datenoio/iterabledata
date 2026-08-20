@@ -122,6 +122,12 @@ with open_iterable('data.unknown') as source:
     pass
 ```
 
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `batch_size` | int | `1024` | No | Passed via `iterableargs`. |
+
 ## Limitations
 
 - **Stream mode not supported**: Vortex requires a file path, not a file-like stream object

@@ -36,10 +36,9 @@ Writing is not currently supported for SAS format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.sas7bdat')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.sas7bdat') as source:
+    for row in source:
+        print(row)
 ```
 
 ## Parameters

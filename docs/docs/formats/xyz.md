@@ -45,3 +45,10 @@ with open_iterable("molecule.xyz") as source:
 - [CIF](/formats/cif) — crystallographic atom sites
 - [PDB](/formats/pdb) — Protein Data Bank atoms
 - [Supported formats](/formats/)
+
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `encoding` | str | `'utf-8'` | No | Passed via `iterableargs`. |
+

@@ -15,22 +15,22 @@ Iterable Data supports a wide variety of data formats, from common formats like 
 ## Format Categories
 
 - **Tabular Formats**: CSV, TSV, PSV, SSV, FWF, Excel (XLS/XLSX/XLSB), ODS, DBF
-- **JSON Formats**: JSON, JSONL/NDJSON, GeoJSON, UBJSON, SMILE
-- **Binary Formats**: Parquet, Avro, ORC, Arrow/Feather, Lance, Vortex, Paimon Row, Paimon Mosaic, BSON, MessagePack, CBOR, Pickle
+- **JSON Formats**: JSON, JSONL/NDJSON, GeoJSON, GeoJSONSeq, UBJSON, SMILE
+- **Binary Formats**: Parquet, GeoParquet, Avro, ORC, Arrow/Feather, Lance, Vortex, Paimon Row, Paimon Mosaic, BSON, MessagePack, CBOR, Pickle
 - **Statistical Formats**: SAS, Stata, SPSS, HDF5, RData, RDS, fst, PC-Axis (PX), ARFF, LIBSVM, NumPy
-- **Columnar Storage**: Parquet, ORC, Arrow, Lance, Vortex, Paimon Mosaic, Delta Lake, Iceberg, Hudi, DuckLake
+- **Columnar Storage**: Parquet, ORC, Arrow, Lance, Vortex, Paimon Mosaic, Delta Lake, Iceberg, Hudi, DuckLake, Zarr
 - **Serialization Formats**: Protocol Buffers, Cap'n Proto, Thrift, FlatBuffers, FlexBuffers
 - **XML/RDF Formats**: XML, RDF/XML, Turtle, N-Triples, N-Quads, N3, TriG, TriX, HDT
-- **Geospatial Formats**: GeoJSON, KML, KMZ, GML, Shapefile, GeoPackage, FileGDB, MapInfo MIF, ASCII Grid, E00, LAS, BAG, CZML, GPX, MVT, TopoJSON, DXF, CSVW
-- **Scientific Formats**: XYZ, CIF, PDB, MATLAB MAT, SEG-Y, GRIB2, miniSEED, NetCDF, CDF, FASTA, FASTQ, SAM, BAM, HDF5, Zarr
+- **Geospatial Formats**: GeoJSON, GeoJSONSeq, GeoParquet, FlatGeobuf, KML, KMZ, GML, Shapefile, GeoPackage, FileGDB, MapInfo MIF, ASCII Grid, E00, LAS, BAG, CZML, GPX, MVT, TopoJSON, DXF, CSVW
+- **Scientific Formats**: XYZ, CIF, PDB, MATLAB MAT, SEG-Y, GRIB2, miniSEED, NetCDF, CDF, FASTA, FASTQ, SAM, BAM, CRAM, BED, GFF3, GTF, genomic VCF, HDF5, Zarr
 - **Business & ML Formats**: EDI, Access MDB, Lotus 1-2-3, WebDataset, fst, IATI
 - **Graph Formats**: GraphML, GEXF, Graphviz DOT
-- **Log Formats**: Apache Log, GELF, CEF, ILP
-- **Web Formats**: WARC, CDX, MHTML
+- **Log Formats**: Apache Log, GELF, CEF, ILP, OTLP
+- **Web Formats**: HTML, WARC, CDX, MHTML
 - **Email Formats**: EML, MBOX
 - **Configuration Formats**: YAML, TOML, INI, HOCON, EDN
 - **Database Formats**: SQLite, DuckDB, MySQL Dump, PostgreSQL Copy
-- **Other Formats**: iCal, VCF, LDIF, ASN.1, Bencode, TFRecord, SequenceFile, PCAP, RSS/Atom
+- **Other Formats**: iCal, VCF, LDIF, ASN.1, Bencode, TFRecord, SequenceFile, PCAP, RSS/Atom, TAR, ZIPXML
 ## Supported Formats Table
 
 | Format | Extensions | Type | Flat Only | Read | Write | Dependencies | Documentation |
@@ -82,7 +82,7 @@ Iterable Data supports a wide variety of data formats, from common formats like 
 | [MySQL Dump](/formats/mysqldump) | `.sql`, `.mysqldump` | Text | Yes | ✅ | ❌ | - | [Details](/formats/mysqldump) |
 | [N-Quads](/formats/nquads) | `.nq`, `.nquads` | Text | Yes | ✅ | ❌ | - | [Details](/formats/nquads) |
 | [N-Triples](/formats/ntriples) | `.nt`, `.ntriples` | Text | Yes | ✅ | ❌ | - | [Details](/formats/ntriples) |
-| [ODS](/formats/ods) | `.ods` | Binary | Yes | ✅ | ✅ | `odfpy` or `pyexcel-ods3` | [Details](/formats/ods) |
+| [ODS](/formats/ods) | `.ods` | Binary | Yes | ✅ | ❌ | `odfpy` or `pyexcel-ods3` | [Details](/formats/ods) |
 | [ORC](/formats/orc) | `.orc` | Binary | Yes | ✅ | ✅ | `pyorc` | [Details](/formats/orc) |
 | [Parquet](/formats/parquet) | `.parquet` | Binary | Yes | ✅ | ✅ | `pyarrow` | [Details](/formats/parquet) |
 | [Pickle](/formats/pickle) | `.pickle` | Binary | No | ✅ | ✅ | - | [Details](/formats/pickle) |
@@ -100,7 +100,7 @@ Iterable Data supports a wide variety of data formats, from common formats like 
 | [Shapefile](/formats/shapefile) | `.shp`, `.shapefile` | Binary | No | ✅ | ✅ | `pyshp` | [Details](/formats/shapefile) |
 | [SMILE](/formats/smile) | `.smile` | Binary | No | ✅ | ✅ | `smile-json` | [Details](/formats/smile) |
 | [SPSS](/formats/spss) | `.sav`, `.spss` | Binary | Yes | ✅ | ❌ | `pyreadstat` | [Details](/formats/spss) |
-| [SQLite](/formats/sqlite) | `.db`, `.sqlite` | Binary | Yes | ✅ | ❌ | - | [Details](/formats/sqlite) |
+| [SQLite](/formats/sqlite) | `.db`, `.sqlite` | Binary | Yes | ✅ | ✅ | - | [Details](/formats/sqlite) |
 | [DuckDB](/formats/duckdb) | `.duckdb`, `.ddb` | Binary | Yes | ✅ | ✅ | `duckdb` | [Details](/formats/duckdb) |
 | [SSV](/formats/ssv) | `.ssv` | Text | Yes | ✅ | ✅ | - | [Details](/formats/ssv) |
 | [Stata](/formats/stata) | `.dta`, `.stata` | Binary | Yes | ✅ | ❌ | `pyreadstat` | [Details](/formats/stata) |
@@ -117,7 +117,7 @@ Iterable Data supports a wide variety of data formats, from common formats like 
 | [Paimon Mosaic](/formats/paimon-mosaic) | `.mosaic` | Binary | Yes | ✅ | ✅ | `paimon-mosaic` | [Details](/formats/paimon-mosaic) |
 | [WARC](/formats/warc) | `.warc`, `.arc` | Binary | No | ✅ | ❌ | `warcio` | [Details](/formats/warc) |
 | [XLS](/formats/xls) | `.xls` | Binary | Yes | ✅ | ❌ | `xlrd` | [Details](/formats/xls) |
-| [XLSX](/formats/xlsx) | `.xlsx` | Binary | Yes | ✅ | ✅ | `openpyxl` | [Details](/formats/xlsx) |
+| [XLSX](/formats/xlsx) | `.xlsx` | Binary | Yes | ✅ | ❌ | `openpyxl` | [Details](/formats/xlsx) |
 | [XML](/formats/xml) | `.xml` | Text | No | ✅ | ❌ | `lxml` | [Details](/formats/xml) |
 | [YAML](/formats/yaml) | `.yaml`, `.yml` | Text | No | ✅ | ✅ | `pyyaml` | [Details](/formats/yaml) |
 | [ARFF](/formats/arff) | `.arff` | Text | Yes | ✅ | ❌ | `arff` | [Details](/formats/arff) |
@@ -167,6 +167,18 @@ Iterable Data supports a wide variety of data formats, from common formats like 
 | [XLSB](/formats/xlsb) | `.xlsb` | Binary | Yes | ✅ | ❌ | `xlsb` | [Details](/formats/xlsb) |
 | [XYZ](/formats/xyz) | `.xyz` | Text | Yes | ✅ | ✅ | - | [Details](/formats/xyz) |
 | [Zipxml](/formats/zipxml) | `.zipxml` | Binary | No | ✅ | ❌ | - | [Details](/formats/zipxml) |
+| [Zarr](/formats/zarr) | directory store | Binary | Yes | ✅ | ✅ | `zarr` | [Details](/formats/zarr) |
+| [GeoParquet](/formats/geoparquet) | `.parquet` | Binary | Yes | ✅ | ✅ | `pyarrow` | [Details](/formats/geoparquet) |
+| [GeoJSONSeq](/formats/geojsonseq) | `.geojsonl`, `.geojsons` | Text | No | ✅ | ✅ | - | [Details](/formats/geojsonseq) |
+| [FlatGeobuf](/formats/flatgeobuf) | `.fgb` | Binary | No | ✅ | ❌ | `geospatial` | [Details](/formats/flatgeobuf) |
+| [HTML](/formats/html) | `.html`, `.htm` | Text | Yes | ✅ | ❌ | `html` | [Details](/formats/html) |
+| [TAR](/formats/tar) | `.tar`, `.tar.gz`, `.tgz` | Binary | No | ✅ | ❌ | - | [Details](/formats/tar) |
+| [OTLP](/formats/otlp) | `.json` / protobuf | Binary | No | ✅ | ✅ | `otlp` | [Details](/formats/otlp) |
+| [Genomic VCF/BCF](/formats/genomic_vcf) | `.vcf`, `.bcf` | Text/Binary | Yes | ✅ | ❌ | `bio` | [Details](/formats/genomic_vcf) |
+| [CRAM](/formats/genomic-intervals) | `.cram` | Binary | Yes | ✅ | ❌ | `alignment` | [Details](/formats/genomic-intervals) |
+| [BED](/formats/genomic-intervals) | `.bed` | Text | Yes | ✅ | ✅ | - | [Details](/formats/genomic-intervals) |
+| [GFF3](/formats/genomic-intervals) | `.gff`, `.gff3` | Text | Yes | ✅ | ✅ | - | [Details](/formats/genomic-intervals) |
+| [GTF](/formats/genomic-intervals) | `.gtf` | Text | Yes | ✅ | ✅ | - | [Details](/formats/genomic-intervals) |
 
 ## Compression Support
 
@@ -180,6 +192,7 @@ All formats can be used with compression codecs:
 - **ZStandard** (`.zst`, `.zstd`)
 - **Snappy** (`.snappy`, `.sz`)
 - **LZO** (`.lzo`, `.lzop`)
+- **7-Zip** (`.7z`)
 
 ## Format Characteristics
 

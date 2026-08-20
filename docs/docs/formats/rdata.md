@@ -46,10 +46,9 @@ objects = RDataIterable('data.rdata').list_tables('data.rdata')
 print(f"Available R objects: {objects}")  # e.g., ['df1', 'df2', 'vector1']
 
 # Basic reading
-source = open_iterable('data.rdata')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.rdata') as source:
+    for row in source:
+        print(row)
 ```
 
 ## Parameters

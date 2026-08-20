@@ -42,26 +42,24 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.kml')
-for feature in source:
-    print(feature)  # Each feature is a dict with geometry and properties
-    # feature['type'] == 'Feature'
-    # feature['geometry'] contains geometry data
-    # feature['properties'] contains attributes
-source.close()
+with open_iterable('data.kml') as source:
+    for feature in source:
+        print(feature)  # Each feature is a dict with geometry and properties
+        # feature['type'] == 'Feature'
+        # feature['geometry'] contains geometry data
+        # feature['properties'] contains attributes
 
 # Writing
-dest = open_iterable('output.kml', mode='w')
-feature = {
-    'type': 'Feature',
-    'geometry': {'type': 'Point', 'coordinates': [102.0, 0.5]},
-    'properties': {
-        'name': 'Location',
-        'description': 'A point location'
+with open_iterable('output.kml', mode='w') as dest:
+    feature = {
+        'type': 'Feature',
+        'geometry': {'type': 'Point', 'coordinates': [102.0, 0.5]},
+        'properties': {
+            'name': 'Location',
+            'description': 'A point location'
+        }
     }
-}
-dest.write(feature)
-dest.close()
+    dest.write(feature)
 ```
 
 ## Parameters

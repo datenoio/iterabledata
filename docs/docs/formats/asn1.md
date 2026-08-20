@@ -40,15 +40,13 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.der')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.der') as source:
+    for row in source:
+        print(row)
 
 # Writing
-dest = open_iterable('output.der', mode='w')
-dest.write({'field1': 'value1', 'field2': 123})
-dest.close()
+with open_iterable('output.der', mode='w') as dest:
+    dest.write({'field1': 'value1', 'field2': 123})
 ```
 
 ## Parameters

@@ -81,7 +81,7 @@ from iterable import open_iterable
 source = open_iterable('archive.warc.gz')
 
 # Open Parquet file with compression
-destination = open_iterable(
+with open_iterable(
     'archive.parquet',
     mode='w',
     iterableargs={
@@ -89,14 +89,13 @@ destination = open_iterable(
         'adapt_schema': True,     # Automatically adapt schema from data
         'batch_size': 10000       # Batch size for writing
     }
-)
+) as destination:
 
-# Convert records
-for record in source:
-    destination.write(record)
+    # Convert records
+    for record in source:
+        destination.write(record)
 
-source.close()
-destination.close()
+    source.close()
 ```
 
 ## Batch Processing
@@ -107,7 +106,7 @@ For large WARC files, use batch processing for better memory efficiency:
 from iterable import open_iterable
 
 source = open_iterable('archive.warc.gz')
-destination = open_iterable(
+with open_iterable(
     'archive.parquet',
     mode='w',
     iterableargs={
@@ -115,20 +114,19 @@ destination = open_iterable(
         'adapt_schema': True,
         'batch_size': 50000
     }
-)
+) as destination:
 
-batch = []
-for record in source:
-    batch.append(record)
-    if len(batch) >= 50000:
+    batch = []
+    for record in source:
+        batch.append(record)
+        if len(batch) >= 50000:
+            destination.write_bulk(batch)
+            batch = []
+
+    if batch:
         destination.write_bulk(batch)
-        batch = []
 
-if batch:
-    destination.write_bulk(batch)
-
-source.close()
-destination.close()
+    source.close()
 ```
 
 ## Using Different Compression Formats
@@ -163,23 +161,22 @@ WARC records contain various fields. You can process and filter them during conv
 from iterable import open_iterable
 
 source = open_iterable('archive.warc.gz')
-destination = open_iterable(
+with open_iterable(
     'archive.parquet',
     mode='w',
     iterableargs={
         'compression': 'snappy',
         'adapt_schema': True
     }
-)
+) as destination:
 
-for record in source:
-    # Filter or transform records
-    if record.get('record_type') == 'response':
-        # Only convert response records
-        destination.write(record)
+    for record in source:
+        # Filter or transform records
+        if record.get('record_type') == 'response':
+            # Only convert response records
+            destination.write(record)
 
-source.close()
-destination.close()
+    source.close()
 ```
 
 ## Querying Converted Parquet Files
@@ -190,14 +187,13 @@ Once converted to Parquet, you can query the data efficiently:
 from iterable import open_iterable
 
 # Open Parquet file
-source = open_iterable('archive.parquet')
+with open_iterable('archive.parquet') as source:
 
-# Query specific records
-for record in source:
-    if 'example.com' in record.get('target_uri', ''):
-        print(record)
+    # Query specific records
+    for record in source:
+        if 'example.com' in record.get('target_uri', ''):
+            print(record)
 
-source.close()
 ```
 
 Or use DuckDB for SQL queries:

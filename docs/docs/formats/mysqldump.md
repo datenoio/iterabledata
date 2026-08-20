@@ -38,10 +38,9 @@ Writing is not currently supported for MySQL Dump format.
 from iterable import open_iterable
 
 # Basic reading (all tables)
-source = open_iterable('dump.sql')
-for row in source:
-    print(row)  # Contains _table and column values
-source.close()
+with open_iterable('dump.sql') as source:
+    for row in source:
+        print(row)  # Contains _table and column values
 
 # Filter by table name
 source = open_iterable('dump.sql', iterableargs={

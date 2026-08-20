@@ -47,10 +47,9 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.lance')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.lance') as source:
+    for row in source:
+        print(row)
 
 # Writing with options
 dest = open_iterable('output.lance', mode='w', iterableargs={
@@ -61,14 +60,13 @@ dest.write({'id': 1, 'name': 'John', 'age': 30})
 dest.close()  # Important: closes and flushes data
 
 # Bulk writing
-dest = open_iterable('output.lance', mode='w')
-records = [
-    {'id': 1, 'name': 'Alice', 'age': 25},
-    {'id': 2, 'name': 'Bob', 'age': 30},
-    {'id': 3, 'name': 'Charlie', 'age': 35}
-]
-dest.write_bulk(records)
-dest.close()
+with open_iterable('output.lance', mode='w') as dest:
+    records = [
+        {'id': 1, 'name': 'Alice', 'age': 25},
+        {'id': 2, 'name': 'Bob', 'age': 30},
+        {'id': 3, 'name': 'Charlie', 'age': 35}
+    ]
+    dest.write_bulk(records)
 ```
 
 ## Parameters

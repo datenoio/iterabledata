@@ -37,10 +37,9 @@ Writing is not currently supported for XLS format. Use XLSX format for writing.
 from iterable import open_iterable
 
 # Basic reading (first sheet, headers from first row)
-source = open_iterable('data.xls')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.xls') as source:
+    for row in source:
+        print(row)
 
 # Read specific sheet
 source = open_iterable('data.xls', iterableargs={
@@ -55,10 +54,9 @@ sheets = XLSIterable('data.xls').list_tables('data.xls')
 print(f"Available sheets: {sheets}")
 
 # List sheets after opening (reuses workbook)
-source = open_iterable('data.xls', iterableargs={'page': 0})
-all_sheets = source.list_tables()  # Reuses open workbook
-print(f"All sheets: {all_sheets}")
-source.close()
+with open_iterable('data.xls', iterableargs={'page': 0}) as source:
+    all_sheets = source.list_tables()  # Reuses open workbook
+    print(f"All sheets: {all_sheets}")
 
 # Specify column names manually
 source = open_iterable('data.xls', iterableargs={

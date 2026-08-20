@@ -44,3 +44,10 @@ with open_iterable("reads.fq") as source:
 
 - [FASTA](/formats/fa) — sequences without qualities
 - [Supported formats](/formats/)
+
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `encoding` | str | `'utf-8'` | No | Passed via `iterableargs`. |
+

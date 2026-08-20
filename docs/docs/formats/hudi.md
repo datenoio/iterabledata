@@ -36,12 +36,11 @@ Writes are **deferred**: opening a Hudi iterable in write mode raises `WriteNotS
 from iterable import open_iterable
 
 # Reading Hudi table
-source = open_iterable('/path/to/hudi/table', iterableargs={
+with open_iterable('/path/to/hudi/table', iterableargs={
     'table_path': '/path/to/hudi/table'
-})
-for row in source:
-    print(row)
-source.close()
+}) as source:
+    for row in source:
+        print(row)
 
 # Discover available tables in catalog/directory
 from iterable.datatypes.hudi import HudiIterable
@@ -65,13 +64,12 @@ if all_tables:
 # Process different tables (if catalog-based)
 if all_tables:
     for table_name in all_tables:
-        source = open_iterable('/path/to/catalog', iterableargs={
+        with open_iterable('/path/to/catalog', iterableargs={
             'table_path': f'/path/to/catalog/{table_name}'
-        })
-        print(f"Processing table: {table_name}")
-        for row in source:
-            process(row)
-        source.close()
+        }) as source:
+            print(f"Processing table: {table_name}")
+            for row in source:
+                process(row)
 ```
 
 ### Discovering Available Tables

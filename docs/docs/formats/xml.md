@@ -83,11 +83,10 @@ print(f"All tags: {all_tags}")
 
 # Process different tag types
 for tag_name in all_tags:
-    source = open_iterable('data.xml', iterableargs={'tagname': tag_name})
-    print(f"Processing tag: {tag_name}")
-    for row in source:
-        process(row)
-    source.close()
+    with open_iterable('data.xml', iterableargs={'tagname': tag_name}) as source:
+        print(f"Processing tag: {tag_name}")
+        for row in source:
+            process(row)
 ```
 
 ## Parameters

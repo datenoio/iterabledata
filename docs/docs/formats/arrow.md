@@ -42,10 +42,9 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.arrow')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.arrow') as source:
+    for row in source:
+        print(row)
 
 # Writing
 dest = open_iterable('output.feather', mode='w', iterableargs={

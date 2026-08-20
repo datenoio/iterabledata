@@ -43,26 +43,24 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.shp')
-for feature in source:
-    print(feature)  # Each feature is a dict with geometry and properties
-    # feature['type'] == 'Feature'
-    # feature['geometry'] contains geometry data
-    # feature['properties'] contains attributes
-source.close()
+with open_iterable('data.shp') as source:
+    for feature in source:
+        print(feature)  # Each feature is a dict with geometry and properties
+        # feature['type'] == 'Feature'
+        # feature['geometry'] contains geometry data
+        # feature['properties'] contains attributes
 
 # Writing
-dest = open_iterable('output.shp', mode='w')
-feature = {
-    'type': 'Feature',
-    'geometry': {'type': 'Point', 'coordinates': [102.0, 0.5]},
-    'properties': {
-        'id': '1',
-        'name': 'Location'
+with open_iterable('output.shp', mode='w') as dest:
+    feature = {
+        'type': 'Feature',
+        'geometry': {'type': 'Point', 'coordinates': [102.0, 0.5]},
+        'properties': {
+            'id': '1',
+            'name': 'Location'
+        }
     }
-}
-dest.write(feature)
-dest.close()
+    dest.write(feature)
 ```
 
 ## Parameters

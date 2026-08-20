@@ -40,16 +40,14 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.yaml')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.yaml') as source:
+    for row in source:
+        print(row)
 
 # Writing
-dest = open_iterable('output.yaml', mode='w')
-dest.write({'name': 'John', 'age': 30})
-dest.write({'name': 'Jane', 'age': 25})
-dest.close()
+with open_iterable('output.yaml', mode='w') as dest:
+    dest.write({'name': 'John', 'age': 30})
+    dest.write({'name': 'Jane', 'age': 25})
 ```
 
 ## Parameters

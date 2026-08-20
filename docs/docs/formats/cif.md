@@ -44,3 +44,10 @@ with open_iterable("structure.cif") as source:
 - [XYZ](/formats/xyz) — molecular coordinate tables
 - [PDB](/formats/pdb) — Protein Data Bank atoms
 - [Supported formats](/formats/)
+
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `encoding` | str | `'utf-8'` | No | Passed via `iterableargs`. |
+

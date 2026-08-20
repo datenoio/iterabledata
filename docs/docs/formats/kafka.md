@@ -40,24 +40,22 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('kafka.data', iterableargs={
+with open_iterable('kafka.data', iterableargs={
     'key_name': 'key',
     'value_name': 'value',
     'include_metadata': True
-})
-for message in source:
-    print(message)  # Contains key, value, offset, timestamp, etc.
-source.close()
+}) as source:
+    for message in source:
+        print(message)  # Contains key, value, offset, timestamp, etc.
 
 # Writing
-dest = open_iterable('output.kafka', mode='w')
-dest.write({
-    'key': 'message-key',
-    'value': {'data': 'message content'},
-    'offset': 0,
-    'timestamp': 1234567890000
-})
-dest.close()
+with open_iterable('output.kafka', mode='w') as dest:
+    dest.write({
+        'key': 'message-key',
+        'value': {'data': 'message content'},
+        'offset': 0,
+        'timestamp': 1234567890000
+    })
 ```
 
 ## Parameters

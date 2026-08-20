@@ -118,8 +118,8 @@ except ReadError as e:
 The `close()` method is **idempotent** - calling it multiple times is safe:
 
 ```python
-source = open_iterable('data.csv')
-source.close()
+with open_iterable('data.csv') as source:
+    pass
 source.close()  # Safe - no error raised
 source.close()  # Still safe
 ```

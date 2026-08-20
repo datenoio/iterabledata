@@ -41,19 +41,17 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('archive.warc')
-for record in source:
-    print(record)  # Contains WARC record data
-source.close()
+with open_iterable('archive.warc') as source:
+    for record in source:
+        print(record)  # Contains WARC record data
 
 # Writing
-dest = open_iterable('output.warc', mode='w')
-dest.write({
-    'record_type': 'response',
-    'target_uri': 'http://example.com',
-    'content': b'...'  # Binary content
-})
-dest.close()
+with open_iterable('output.warc', mode='w') as dest:
+    dest.write({
+        'record_type': 'response',
+        'target_uri': 'http://example.com',
+        'content': b'...'  # Binary content
+    })
 ```
 
 ## Parameters

@@ -39,3 +39,10 @@ with open_iterable("genes.fa") as source:
 
 - [FASTQ](/formats/fq) — sequences with quality scores
 - [Supported formats](/formats/)
+
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `encoding` | str | `'utf-8'` | No | Passed via `iterableargs`. |
+

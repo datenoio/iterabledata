@@ -42,17 +42,15 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.copy')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.copy') as source:
+    for row in source:
+        print(row)
 
 # Writing
-dest = open_iterable('output.copy', mode='w', iterableargs={
+with open_iterable('output.copy', mode='w', iterableargs={
     'keys': ['id', 'name', 'value']
-})
-dest.write({'id': '1', 'name': 'John', 'value': None})  # None becomes \N
-dest.close()
+}) as dest:
+    dest.write({'id': '1', 'name': 'John', 'value': None})  # None becomes \N
 ```
 
 ## Parameters

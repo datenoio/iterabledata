@@ -36,12 +36,11 @@ Writing is not currently supported for Flink format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('checkpoint.ckpt', iterableargs={
+with open_iterable('checkpoint.ckpt', iterableargs={
     'include_metadata': True
-})
-for record in source:
-    print(record)  # Contains checkpoint_id, timestamp, state_data
-source.close()
+}) as source:
+    for record in source:
+        print(record)  # Contains checkpoint_id, timestamp, state_data
 ```
 
 ## Parameters

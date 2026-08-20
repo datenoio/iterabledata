@@ -36,10 +36,9 @@ Writing is not currently supported for Apache Log format.
 from iterable import open_iterable
 
 # Basic reading (default: common format)
-source = open_iterable('access.log')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('access.log') as source:
+    for row in source:
+        print(row)
 
 # Combined format
 source = open_iterable('access.log', iterableargs={

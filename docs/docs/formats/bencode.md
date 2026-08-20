@@ -38,15 +38,13 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('file.torrent')
-for row in source:
-    print(row)  # Contains torrent metadata
-source.close()
+with open_iterable('file.torrent') as source:
+    for row in source:
+        print(row)  # Contains torrent metadata
 
 # Writing
-dest = open_iterable('output.torrent', mode='w')
-dest.write({'info': {...}, 'announce': 'http://...'})
-dest.close()
+with open_iterable('output.torrent', mode='w') as dest:
+    dest.write({'info': {...}, 'announce': 'http://...'})
 ```
 
 ## Parameters

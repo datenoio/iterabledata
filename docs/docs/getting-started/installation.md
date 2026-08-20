@@ -36,17 +36,43 @@ pip install -e ".[dev]"
 
 ## Optional Dependencies
 
-Some formats require extras. Install them as needed:
+Some formats and engines need extras. Install only what you use:
 
 ```bash
-pip install iterabledata[parquet]
-pip install iterabledata[excel]
-pip install iterabledata[xml]
-pip install iterabledata[duckdb]
-pip install iterabledata[ai]
+pip install iterabledata[parquet]      # Parquet, Arrow, GeoParquet
+pip install iterabledata[excel]        # XLS / XLSX
+pip install iterabledata[xml]          # XML, ZIPXML, several geospatial XML formats
+pip install iterabledata[duckdb]       # DuckDB engine and .duckdb files
+pip install iterabledata[compression]  # zstd, brotli, lz4, snappy, lzo, 7z
+pip install iterabledata[geospatial]   # GeoJSON, Shapefile, FlatGeobuf, Fiona/GDAL
+pip install iterabledata[cloud]        # s3://, gs://, az:// via fsspec
+pip install iterabledata[db]           # SQL/NoSQL engines and ingest
+pip install iterabledata[ai]           # LLM documentation generation
+pip install iterabledata[mcp]          # iterable-mcp stdio server
 ```
 
-See `pyproject.toml` optional-dependencies (or the format page) for the full extras map.
+### Extras by area
+
+| Extra | What it enables |
+|-------|-----------------|
+| `parquet`, `orc`, `avro`, `vortex`, `npy` | Columnar / binary analytics formats |
+| `excel`, `xlsb`, `ods` | Spreadsheets |
+| `xml`, `html`, `rdf` | Markup and RDF |
+| `geospatial`, `lidar`, `mvt`, `topojson` | Spatial formats |
+| `stats`, `rdata`, `mat`, `hdf5`, `zarr`, `netcdf`, `cdf` | Scientific / stats |
+| `alignment`, `bio` | SAM/BAM/CRAM, genomic VCF, BED/GFF/GTF extras |
+| `geophysical` | SEG-Y, GRIB2, miniSEED |
+| `lakehouse`, `ducklake`, `paimon`, `paimon-row`, `paimon-mosaic`, `paimon-table` | Lakehouse tables and Paimon files |
+| `otlp`, `protobuf` | OpenTelemetry and generic protobuf |
+| `db`, `db-sql`, `db-nosql`, `db-ingest` | Database engines and ingest |
+| `dataframes`, `pydantic` | pandas/Polars/Dask bridges and typed models |
+| `cloud` | S3, GCS, Azure |
+| `ai`, `anthropic`, `google-genai`, `langchain`, `mcp`, `agents` | LLM and agent surfaces |
+| `compression` | Optional codecs (see [Codecs](/api/codecs)) |
+| `all` | Everything except `dev` |
+| `dev` | Tests, ruff, mypy, pre-commit |
+
+The full pin list is in `pyproject.toml` `[project.optional-dependencies]`. Format pages name the extra they need.
 
 ## Verify Installation
 

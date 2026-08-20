@@ -36,10 +36,9 @@ Writing is not currently supported for HOCON format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('config.hocon')
-for row in source:
-    print(row)  # Configuration entries
-source.close()
+with open_iterable('config.hocon') as source:
+    for row in source:
+        print(row)  # Configuration entries
 ```
 
 ## Parameters

@@ -38,10 +38,9 @@ Writing is not currently supported for LDIF format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('directory.ldif')
-for entry in source:
-    print(entry)  # Contains DN and attributes
-source.close()
+with open_iterable('directory.ldif') as source:
+    for entry in source:
+        print(entry)  # Contains DN and attributes
 ```
 
 ## Parameters

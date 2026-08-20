@@ -49,47 +49,42 @@ Writing support:
 from iterable import open_iterable
 
 # Basic usage - line-by-line format
-source = open_iterable('data.jsonld')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.jsonld') as source:
+    for row in source:
+        print(row)
 
 # Reading array format
-source = open_iterable('data_array.jsonld')
-for row in source:
-    print(row['@id'], row['name'])
-source.close()
+with open_iterable('data_array.jsonld') as source:
+    for row in source:
+        print(row['@id'], row['name'])
 
 # Reading graph format
-source = open_iterable('data_graph.jsonld')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data_graph.jsonld') as source:
+    for row in source:
+        print(row)
 
 # Writing data
-dest = open_iterable('output.jsonld', mode='w')
-dest.write({
-    '@context': {'@vocab': 'http://example.org/'},
-    '@id': 'person1',
-    'name': 'John',
-    'age': 30
-})
-dest.write({
-    '@context': {'@vocab': 'http://example.org/'},
-    '@id': 'person2',
-    'name': 'Jane',
-    'age': 25
-})
-dest.close()
+with open_iterable('output.jsonld', mode='w') as dest:
+    dest.write({
+        '@context': {'@vocab': 'http://example.org/'},
+        '@id': 'person1',
+        'name': 'John',
+        'age': 30
+    })
+    dest.write({
+        '@context': {'@vocab': 'http://example.org/'},
+        '@id': 'person2',
+        'name': 'Jane',
+        'age': 25
+    })
 
 # Bulk writing
-dest = open_iterable('output.jsonld', mode='w')
-records = [
-    {'@context': {'@vocab': 'http://example.org/'}, '@id': '1', 'id': '1', 'value': 'a'},
-    {'@context': {'@vocab': 'http://example.org/'}, '@id': '2', 'id': '2', 'value': 'b'}
-]
-dest.write_bulk(records)
-dest.close()
+with open_iterable('output.jsonld', mode='w') as dest:
+    records = [
+        {'@context': {'@vocab': 'http://example.org/'}, '@id': '1', 'id': '1', 'value': 'a'},
+        {'@context': {'@vocab': 'http://example.org/'}, '@id': '2', 'id': '2', 'value': 'b'}
+    ]
+    dest.write_bulk(records)
 ```
 
 ## JSON-LD Structure

@@ -39,11 +39,10 @@ Writing is not currently supported for PC-Axis format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.px')
-for row in source:
-    print(row)
-    # Each row contains dimension variables and a VALUE field
-source.close()
+with open_iterable('data.px') as source:
+    for row in source:
+        print(row)
+        # Each row contains dimension variables and a VALUE field
 
 # With specific encoding
 source = open_iterable('data.px', iterableargs={
@@ -51,10 +50,9 @@ source = open_iterable('data.px', iterableargs={
 })
 
 # Check total records
-source = open_iterable('data.px')
-total = source.totals()
-print(f"Total records: {total}")
-source.close()
+with open_iterable('data.px') as source:
+    total = source.totals()
+    print(f"Total records: {total}")
 ```
 
 ## Record Structure

@@ -37,10 +37,9 @@ Writing is not currently supported for CDX format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('index.cdx')
-for row in source:
-    print(row)  # Contains: url, timestamp, mime_type, status_code, etc.
-source.close()
+with open_iterable('index.cdx') as source:
+    for row in source:
+        print(row)  # Contains: url, timestamp, mime_type, status_code, etc.
 
 # With custom field names
 source = open_iterable('index.cdx', iterableargs={

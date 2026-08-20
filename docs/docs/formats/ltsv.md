@@ -55,20 +55,18 @@ The LTSV implementation:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.ltsv')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.ltsv') as source:
+    for row in source:
+        print(row)
 
 # Writing
-dest = open_iterable('output.ltsv', mode='w')
-dest.write({
-    'time': '2023-01-01T00:00:00Z',
-    'host': 'example.com',
-    'status': '200',
-    'method': 'GET'
-})
-dest.close()
+with open_iterable('output.ltsv', mode='w') as dest:
+    dest.write({
+        'time': '2023-01-01T00:00:00Z',
+        'host': 'example.com',
+        'status': '200',
+        'method': 'GET'
+    })
 ```
 
 ## Parameters
@@ -128,10 +126,9 @@ LTSV files can be compressed with all supported codecs:
 ```python
 from iterable import open_iterable
 
-source = open_iterable('access.ltsv')
-for record in source:
-    print(f"Time: {record.get('time')}, Status: {record.get('status')}")
-source.close()
+with open_iterable('access.ltsv') as source:
+    for record in source:
+        print(f"Time: {record.get('time')}, Status: {record.get('status')}")
 ```
 
 ### Writing LTSV
@@ -139,13 +136,12 @@ source.close()
 ```python
 from iterable import open_iterable
 
-dest = open_iterable('output.ltsv', mode='w')
-records = [
-    {'time': '2023-01-01T00:00:00Z', 'host': 'example.com', 'status': '200'},
-    {'time': '2023-01-01T00:01:00Z', 'host': 'example.com', 'status': '404'}
-]
-dest.write_bulk(records)
-dest.close()
+with open_iterable('output.ltsv', mode='w') as dest:
+    records = [
+        {'time': '2023-01-01T00:00:00Z', 'host': 'example.com', 'status': '200'},
+        {'time': '2023-01-01T00:01:00Z', 'host': 'example.com', 'status': '404'}
+    ]
+    dest.write_bulk(records)
 ```
 
 ### Converting from CSV to LTSV
@@ -154,11 +150,10 @@ dest.close()
 from iterable import open_iterable
 
 source = open_iterable('data.csv')
-dest = open_iterable('data.ltsv', mode='w')
+with open_iterable('data.ltsv', mode='w') as dest:
 
-for record in source:
-    dest.write(record)
+    for record in source:
+        dest.write(record)
 
-source.close()
-dest.close()
+    source.close()
 ```

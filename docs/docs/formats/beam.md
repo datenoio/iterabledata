@@ -36,14 +36,13 @@ Writing is not currently supported for Beam format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('beam.data', iterableargs={
+with open_iterable('beam.data', iterableargs={
     'key_name': 'key',
     'value_name': 'value',
     'include_metadata': True
-})
-for record in source:
-    print(record)  # Contains key, value, window, timestamp
-source.close()
+}) as source:
+    for record in source:
+        print(record)  # Contains key, value, window, timestamp
 ```
 
 ## Parameters

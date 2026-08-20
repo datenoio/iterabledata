@@ -10,23 +10,11 @@ ROOT = Path(__file__).resolve().parents[2]
 FORMATS_DIR = ROOT / "docs" / "docs" / "formats"
 TEMPLATE = ROOT / "docs" / "FORMAT_PAGE_TEMPLATE.md"
 
-# Registry id -> doc filename when they differ
-_DOC_FILENAMES: dict[str, str] = {
-    "fa": "fa.md",
-    "fq": "fq.md",
-    "pb": "protobuf.md",
-    "yml": "yaml.md",
-    "mp": "msgpack.md",
-    "h5": "hdf5.md",
-    "db": "sqlite.md",
-    "ddb": "duckdb.md",
-    "ttl": "turtle.md",
-    "gv": "gv.md",
-}
-
 
 def _doc_path(format_id: str) -> Path:
-    name = _DOC_FILENAMES.get(format_id, f"{format_id}.md")
+    from iterable.helpers.format_descriptions import DOC_FILENAMES
+
+    name = DOC_FILENAMES.get(format_id, f"{format_id}.md")
     return FORMATS_DIR / name
 
 

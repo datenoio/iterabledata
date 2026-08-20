@@ -49,7 +49,9 @@ with open_iterable('out.geojsonl', mode='w') as dest:
 
 ## Parameters
 
-- `encoding` (str): File encoding (default: `utf8`)
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `encoding` | str | `utf8` | No | Text encoding |
 
 ## Compression Support
 

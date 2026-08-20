@@ -40,18 +40,16 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.orc')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.orc') as source:
+    for row in source:
+        print(row)
 
 # Writing with schema
-dest = open_iterable('output.orc', mode='w', iterableargs={
+with open_iterable('output.orc', mode='w', iterableargs={
     'keys': ['id', 'name', 'age'],
     'compression': 5  # Compression level (0-9)
-})
-dest.write({'id': '1', 'name': 'John', 'age': '30'})
-dest.close()
+}) as dest:
+    dest.write({'id': '1', 'name': 'John', 'age': '30'})
 ```
 
 ## Parameters

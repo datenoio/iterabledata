@@ -40,3 +40,10 @@ with open_iterable("dem.asc", iterableargs={"mode": "row"}) as source:
 - [LAS](/formats/las) — LiDAR points
 - [BAG](/formats/bag) — bathymetric grids
 - [Supported formats](/formats/)
+
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `encoding` | str | `'utf-8'` | No | Passed via `iterableargs`. |
+

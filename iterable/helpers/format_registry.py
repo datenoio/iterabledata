@@ -116,7 +116,7 @@ _LLM_METADATA: dict[str, dict[str, Any]] = {
     },
     "flatgeobuf": {
         "description": "Streaming FlatGeobuf geospatial features through Fiona/GDAL.",
-        "doc_url": f"{_DOCS_BASE}/geoparquet.md",
+        "doc_url": f"{_DOCS_BASE}/flatgeobuf.md",
         "limitations": ("Read-only; requires Fiona/GDAL",),
     },
     "zarr": {

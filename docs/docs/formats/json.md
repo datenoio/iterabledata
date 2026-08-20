@@ -34,15 +34,14 @@ Writing is not directly supported for JSON format. Use JSONL format for writing 
 from iterable import open_iterable
 
 # Basic usage - expects array of objects
-source = open_iterable('data.json')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.json') as source:
+    for row in source:
+        print(row)
 
 # Extract specific key from root object
-source = open_iterable('data.json', iterableargs={
-    'tagname': 'items'  # Extract 'items' array from root
-})
+with open_iterable("data.json", iterableargs={"tagname": "items"}) as source:
+    for row in source:
+        print(row)
 ```
 
 ## Parameters

@@ -39,10 +39,9 @@ Writing is not currently supported for MHTML format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('page.mhtml')
-for part in source:
-    print(part)  # Contains content type, location, and content
-source.close()
+with open_iterable('page.mhtml') as source:
+    for part in source:
+        print(part)  # Contains content type, location, and content
 ```
 
 ## Parameters

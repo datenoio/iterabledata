@@ -40,20 +40,18 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.geojson')
-for feature in source:
-    print(feature)  # Each feature is a dict with geometry and properties
-source.close()
+with open_iterable('data.geojson') as source:
+    for feature in source:
+        print(feature)  # Each feature is a dict with geometry and properties
 
 # Writing
-dest = open_iterable('output.geojson', mode='w')
-feature = {
-    'type': 'Feature',
-    'geometry': {'type': 'Point', 'coordinates': [102.0, 0.5]},
-    'properties': {'name': 'Location'}
-}
-dest.write(feature)
-dest.close()
+with open_iterable('output.geojson', mode='w') as dest:
+    feature = {
+        'type': 'Feature',
+        'geometry': {'type': 'Point', 'coordinates': [102.0, 0.5]},
+        'properties': {'name': 'Location'}
+    }
+    dest.write(feature)
 ```
 
 ## Parameters

@@ -47,25 +47,22 @@ datasets = HDF5Iterable('data.h5').list_tables('data.h5')
 print(f"Available datasets: {datasets}")  # e.g., ['/data', '/group/dataset1']
 
 # Reading with dataset path
-source = open_iterable('data.h5', iterableargs={
+with open_iterable('data.h5', iterableargs={
     'dataset_path': '/data'  # Path to dataset in HDF5 file
-})
-for row in source:
-    print(row)
-source.close()
+}) as source:
+    for row in source:
+        print(row)
 
 # List datasets after opening (reuses file handle)
-source = open_iterable('data.h5', iterableargs={'dataset_path': '/data'})
-all_datasets = source.list_tables()  # Reuses open file handle
-print(f"All datasets: {all_datasets}")
-source.close()
+with open_iterable('data.h5', iterableargs={'dataset_path': '/data'}) as source:
+    all_datasets = source.list_tables()  # Reuses open file handle
+    print(f"All datasets: {all_datasets}")
 
 # Writing
-dest = open_iterable('output.h5', mode='w', iterableargs={
+with open_iterable('output.h5', mode='w', iterableargs={
     'dataset_path': '/data'
-})
-dest.write({'col1': 1, 'col2': 2})
-dest.close()
+}) as dest:
+    dest.write({'col1': 1, 'col2': 2})
 ```
 
 ## Parameters

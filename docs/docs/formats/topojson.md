@@ -40,3 +40,10 @@ Install with `pip install iterabledata[topojson]`.
 - [GeoJSON](/formats/geojson) — GeoJSON features
 - [MVT](/formats/mvt) — Mapbox Vector Tiles
 - [Supported formats](/formats/)
+
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `encoding` | str | `'utf8'` | No | Passed via `iterableargs`. |
+

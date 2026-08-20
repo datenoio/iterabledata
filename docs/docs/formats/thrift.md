@@ -42,19 +42,17 @@ from iterable import open_iterable
 from my_thrift_module import MyStruct  # Generated from .thrift file
 
 # Reading
-source = open_iterable('data.thrift', iterableargs={
+with open_iterable('data.thrift', iterableargs={
     'struct_class': MyStruct
-})
-for row in source:
-    print(row)  # row is a dict
-source.close()
+}) as source:
+    for row in source:
+        print(row)  # row is a dict
 
 # Writing
-dest = open_iterable('output.thrift', mode='w', iterableargs={
+with open_iterable('output.thrift', mode='w', iterableargs={
     'struct_class': MyStruct
-})
-dest.write({'field1': 'value1', 'field2': 123})
-dest.close()
+}) as dest:
+    dest.write({'field1': 'value1', 'field2': 123})
 ```
 
 ## Parameters

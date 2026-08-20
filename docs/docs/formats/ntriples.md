@@ -38,10 +38,9 @@ Writing is not currently supported for N-Triples format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.nt')
-for row in source:
-    print(row)  # Contains: subject, predicate, object
-source.close()
+with open_iterable('data.nt') as source:
+    for row in source:
+        print(row)  # Contains: subject, predicate, object
 ```
 
 ## Parameters

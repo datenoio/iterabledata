@@ -36,10 +36,9 @@ Writing is not currently supported for CEF format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('events.cef')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('events.cef') as source:
+    for row in source:
+        print(row)
 ```
 
 ## Parameters

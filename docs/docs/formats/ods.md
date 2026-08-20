@@ -13,141 +13,85 @@ ODS (OpenDocument Spreadsheet) is an open standard spreadsheet format used by Li
 ### Reading
 
 The ODS implementation:
-- Uses `odfpy` library (preferred) or `pyexcel-ods3` library
+- Uses `odfpy` (preferred) or `pyexcel-ods3`
 - Supports multiple sheets (pages)
-- Extracts column headers from first row (if not specified)
+- Extracts column headers from the first row when not specified
 - Converts each row to a dictionary
-- Requires file path (not stream)
+- Requires a file path (not a stream)
 
 ### Writing
 
-Writing support:
-- Creates ODS files
-- Writes data to sheets
-- Supports multiple sheets
+Writing is **not supported**. `write()` / `write_bulk()` raise `WriteNotSupportedError`. Convert to [CSV](csv.md) or [Parquet](parquet.md) for output.
 
 ### Key Features
 
-- **Multiple sheets**: Can read/write from specific sheet
-- **Header detection**: Automatically extracts headers from first row
-- **Open standard**: Open format, not proprietary
+- **Multiple sheets**: Read a specific sheet by index
+- **Header detection**: Automatically extracts headers from the first row
+- **Open standard**: Not a proprietary Excel format
 - **Totals support**: Can count total rows
+- **Read-only**: No ODS writer in this release
 
 ## Usage
 
 ```python
 from iterable import open_iterable
-
-# Basic reading (first sheet, headers from first row)
-source = open_iterable('data.ods')
-for row in source:
-    print(row)
-source.close()
-
-# Read specific sheet
-source = open_iterable('data.ods', iterableargs={
-    'page': 1  # Second sheet (0-indexed)
-})
-
-# List available sheets
 from iterable.datatypes.ods import ODSIterable
 
-# Discover sheets before opening
-sheets = ODSIterable('data.ods').list_tables('data.ods')
-print(f"Available sheets: {sheets}")
+with open_iterable("data.ods") as source:
+    for row in source:
+        print(row)
 
-# List sheets after opening (reuses document)
-source = open_iterable('data.ods', iterableargs={'page': 0})
-all_sheets = source.list_tables()  # Reuses open document
-print(f"All sheets: {all_sheets}")
-source.close()
+with open_iterable("data.ods", iterableargs={"page": 1}) as source:
+    for row in source:
+        print(row)
 
-# Writing
-dest = open_iterable('output.ods', mode='w')
-dest.write({'id': 1, 'name': 'John', 'age': 30})
-dest.close()
+sheets = ODSIterable("data.ods").list_tables("data.ods")
+print("Available sheets:", sheets)
 ```
 
 ## Parameters
 
 | Parameter | Type | Default | Required | Description |
 |-----------|------|---------|----------|-------------|
-| `page` | int | `0` | No | Sheet index to read/write (0-indexed). Use `0` for first sheet, `1` for second sheet, etc. |
-| `keys` | list[str] | auto-detected | No | Column names. When reading, extracted from first row if not specified. When writing, required if first row doesn't contain headers. |
-| `start_line` | int | `0` | No | Row number to start reading from (0-indexed). Useful for skipping header rows or starting at a specific row. |
+| `page` | int | `0` | No | Sheet index to read (0-indexed) |
+| `keys` | list[str] | auto-detected | No | Column names. Extracted from the first row if omitted. |
+| `start_line` | int | `0` | No | Row number to start reading from (0-indexed) |
 
 ## Error Handling
 
 ```python
 from iterable import open_iterable
+from iterable.datatypes.ods import ODSIterable
 
 try:
-    # Reading with error handling
-    with open_iterable('data.ods', iterableargs={
-        'page': 0  # Sheet index
-    }) as source:
+    with open_iterable("data.ods", iterableargs={"page": 0}) as source:
         for row in source:
             process(row)
 except FileNotFoundError:
     print("ODS file not found")
 except ValueError as e:
-    # May occur if sheet index is invalid
     print(f"Invalid sheet index: {e}")
-    # List available sheets first
-    from iterable.datatypes.ods import ODSIterable
-    sheets = ODSIterable('data.ods').list_tables('data.ods')
-    print(f"Available sheets: {sheets}")
+    print("Available sheets:", ODSIterable("data.ods").list_tables("data.ods"))
 except ImportError as e:
     print(f"Missing dependency: {e}")
-    print("Install with: pip install iterabledata[ods] or pip install odfpy")
-except Exception as e:
-    print(f"Error reading ODS: {e}")
-
-try:
-    # Writing with error handling
-    with open_iterable('output.ods', mode='w') as dest:
-        dest.write({'id': 1, 'name': 'John', 'age': 30})
-except ImportError as e:
-    print(f"Missing dependency: {e}")
-    print("Install with: pip install iterabledata[ods] or pip install odfpy")
-except Exception as e:
-    print(f"Error writing ODS: {e}")
+    print("Install with: pip install iterabledata[ods]")
 ```
 
 ### Common Errors
 
-- **ValueError**: Invalid sheet index - use `list_tables()` to see available sheets
-- **ImportError**: Missing `odfpy` package - install with `pip install odfpy`
-- **FileNotFoundError**: File path is incorrect or file doesn't exist
+- **ValueError**: Invalid sheet index — use `list_tables()` first
+- **ImportError**: Missing `odfpy` — `pip install iterabledata[ods]`
+- **WriteNotSupportedError**: Writing ODS is not implemented
 
 ## Limitations
 
-1. **Dependency**: Requires `odfpy` or `pyexcel-ods3` package
-2. **File path required**: Requires filename, not stream
-3. **Flat data only**: Only supports tabular data
-4. **Memory usage**: Large files may use significant memory
-5. **Formatting**: Basic writing doesn't preserve spreadsheet formatting
-
-## Compression Support
-
-ODS files are already ZIP archives internally, so additional compression may not provide much benefit. However, they can still be compressed:
-- GZip (`.ods.gz`)
-- BZip2 (`.ods.bz2`)
-- LZMA (`.ods.xz`)
-- LZ4 (`.ods.lz4`)
-- ZIP (`.ods.zip`)
-- Brotli (`.ods.br`)
-- ZStandard (`.ods.zst`)
-
-## Use Cases
-
-- **OpenOffice/LibreOffice**: Working with open office suite files
-- **Data migration**: Converting from proprietary formats
-- **Open standards**: When you need open, non-proprietary format
-- **Cross-platform**: Compatible across different office suites
+1. **Dependency**: Requires `odfpy` or `pyexcel-ods3`
+2. **File path required**: Filename, not a stream
+3. **Flat data only**
+4. **Read-only**
 
 ## Related Formats
 
-- [XLSX](xlsx.md) - Microsoft Excel format
-- [XLS](xls.md) - Legacy Excel format
-- [CSV](csv.md) - Simple text format
+- [XLSX](xlsx.md) - Microsoft Excel (read-only)
+- [XLS](xls.md) - Legacy Excel (read-only)
+- [CSV](csv.md) - Writable tabular text

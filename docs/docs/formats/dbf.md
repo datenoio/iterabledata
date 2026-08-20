@@ -36,10 +36,9 @@ Writing is not currently supported for DBF format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.dbf')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.dbf') as source:
+    for row in source:
+        print(row)
 
 # With specific encoding
 source = open_iterable('data.dbf', iterableargs={

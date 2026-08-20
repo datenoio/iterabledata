@@ -39,22 +39,20 @@ Writing support:
 from iterable import open_iterable
 
 # Reading fixed-width file
-source = open_iterable('data.fwf', iterableargs={
+with open_iterable('data.fwf', iterableargs={
     'widths': [10, 20, 15],  # Width of each field
     'names': ['id', 'name', 'date'],  # Field names
     'encoding': 'utf-8'
-})
-for row in source:
-    print(row)
-source.close()
+}) as source:
+    for row in source:
+        print(row)
 
 # Writing fixed-width file
-dest = open_iterable('output.fwf', mode='w', iterableargs={
+with open_iterable('output.fwf', mode='w', iterableargs={
     'widths': [10, 20, 15],
     'names': ['id', 'name', 'date']
-})
-dest.write({'id': '1', 'name': 'John', 'date': '2024-01-01'})
-dest.close()
+}) as dest:
+    dest.write({'id': '1', 'name': 'John', 'date': '2024-01-01'})
 ```
 
 ## Parameters

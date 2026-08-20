@@ -454,8 +454,8 @@ with open_iterable('data.csv') as source:
     row2 = source.read()  # Same as row1
 
 # ❌ Incorrect: Reset after close
-source = open_iterable('data.csv')
-source.close()
+with open_iterable('data.csv') as source:
+    pass
 source.reset()  # Error: file is closed
 ```
 

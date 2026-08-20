@@ -41,19 +41,17 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('calendar.ics')
-for event in source:
-    print(event)  # Contains event properties
-source.close()
+with open_iterable('calendar.ics') as source:
+    for event in source:
+        print(event)  # Contains event properties
 
 # Writing
-dest = open_iterable('output.ics', mode='w')
-dest.write({
-    'summary': 'Meeting',
-    'dtstart': '20240101T120000Z',
-    'dtend': '20240101T130000Z'
-})
-dest.close()
+with open_iterable('output.ics', mode='w') as dest:
+    dest.write({
+        'summary': 'Meeting',
+        'dtstart': '20240101T120000Z',
+        'dtend': '20240101T130000Z'
+    })
 ```
 
 ## Parameters

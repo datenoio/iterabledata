@@ -67,14 +67,13 @@ RESULT_FILE = 'data/raw/simplewiki.jsonl.zst'
 source = open_iterable(RAW_FILE, iterableargs={'tagname': 'page'})
 
 # Open output JSONL file with ZStandard compression
-destination = open_iterable(RESULT_FILE, mode='w')
+with open_iterable(RESULT_FILE, mode='w') as destination:
 
-# Process with progress tracking
-for row in tqdm(source, desc='Converting Wikipedia dump'):
-    destination.write(row)
+    # Process with progress tracking
+    for row in tqdm(source, desc='Converting Wikipedia dump'):
+        destination.write(row)
 
-source.close()
-destination.close()
+    source.close()
 ```
 
 ## Enriching Wikipedia Data
@@ -94,16 +93,15 @@ def enrich_wikipedia_page(page, state):
 
 # Read converted JSONL file
 source = open_iterable('simplewiki.jsonl.zst')
-destination = open_iterable('simplewiki_enriched.jsonl.zst', mode='w')
+with open_iterable('simplewiki_enriched.jsonl.zst', mode='w') as destination:
 
-pipeline(
-    source=source,
-    destination=destination,
-    process_func=enrich_wikipedia_page
-)
+    pipeline(
+        source=source,
+        destination=destination,
+        process_func=enrich_wikipedia_page
+    )
 
-source.close()
-destination.close()
+    source.close()
 ```
 
 ## Querying with DuckDB
@@ -114,18 +112,17 @@ Once converted to JSONL, you can query the data efficiently with DuckDB:
 from iterable import open_iterable
 
 # Use DuckDB engine for fast queries
-source = open_iterable('simplewiki.jsonl.zst', engine='duckdb')
+with open_iterable('simplewiki.jsonl.zst', engine='duckdb') as source:
 
-# Get total count
-total = source.totals()
-print(f"Total pages: {total}")
+    # Get total count
+    total = source.totals()
+    print(f"Total pages: {total}")
 
-# Query specific pages
-for page in source:
-    if 'Argentina' in page.get('categories', []):
-        print(page['title'])
+    # Query specific pages
+    for page in source:
+        if 'Argentina' in page.get('categories', []):
+            print(page['title'])
 
-source.close()
 ```
 
 Or use DuckDB directly:

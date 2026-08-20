@@ -41,20 +41,18 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('mailbox.mbox')
-for email in source:
-    print(email)  # Contains email headers and body
-source.close()
+with open_iterable('mailbox.mbox') as source:
+    for email in source:
+        print(email)  # Contains email headers and body
 
 # Writing
-dest = open_iterable('output.mbox', mode='w')
-dest.write({
-    'from': 'sender@example.com',
-    'to': 'recipient@example.com',
-    'subject': 'Test',
-    'body': 'Message body'
-})
-dest.close()
+with open_iterable('output.mbox', mode='w') as dest:
+    dest.write({
+        'from': 'sender@example.com',
+        'to': 'recipient@example.com',
+        'subject': 'Test',
+        'body': 'Message body'
+    })
 ```
 
 ## Parameters

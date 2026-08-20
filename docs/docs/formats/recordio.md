@@ -38,12 +38,11 @@ Writing is not currently supported for RecordIO format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.rio', iterableargs={
+with open_iterable('data.rio', iterableargs={
     'value_key': 'value'
-})
-for record in source:
-    print(record)  # Contains record data
-source.close()
+}) as source:
+    for record in source:
+        print(record)  # Contains record data
 ```
 
 ## Parameters

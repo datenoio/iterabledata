@@ -44,3 +44,10 @@ Plain `open_iterable("shard.tar")` without `format="webdataset"` continues to us
 
 - [TAR](/formats/tar) — member-oriented archive container
 - [Supported formats](/formats/)
+
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `encoding` | str | `'utf8'` | No | Passed via `iterableargs`. |
+

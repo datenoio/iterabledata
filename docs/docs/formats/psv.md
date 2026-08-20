@@ -39,17 +39,15 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.psv')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.psv') as source:
+    for row in source:
+        print(row)
 
 # Writing
-dest = open_iterable('output.psv', mode='w', iterableargs={
+with open_iterable('output.psv', mode='w', iterableargs={
     'keys': ['id', 'name', 'value']
-})
-dest.write({'id': '1', 'name': 'John', 'value': 'test'})
-dest.close()
+}) as dest:
+    dest.write({'id': '1', 'name': 'John', 'value': 'test'})
 ```
 
 ## Parameters

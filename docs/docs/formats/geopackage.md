@@ -43,13 +43,12 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.gpkg')
-for feature in source:
-    print(feature)  # Each feature is a dict with geometry and properties
-    # feature['type'] == 'Feature'
-    # feature['geometry'] contains geometry data
-    # feature['properties'] contains attributes
-source.close()
+with open_iterable('data.gpkg') as source:
+    for feature in source:
+        print(feature)  # Each feature is a dict with geometry and properties
+        # feature['type'] == 'Feature'
+        # feature['geometry'] contains geometry data
+        # feature['properties'] contains attributes
 
 # List available layers
 from iterable.datatypes.geopackage import GeoPackageIterable
@@ -59,31 +58,28 @@ layers = GeoPackageIterable('data.gpkg').list_tables('data.gpkg')
 print(f"Available layers: {layers}")  # e.g., ['roads', 'buildings', 'parcels']
 
 # Reading specific layer
-source = open_iterable('data.gpkg', iterableargs={'layer': 'layer_name'})
-for feature in source:
-    print(feature)
-source.close()
+with open_iterable('data.gpkg', iterableargs={'layer': 'layer_name'}) as source:
+    for feature in source:
+        print(feature)
 
 # Process all layers
 for layer_name in layers:
-    source = open_iterable('data.gpkg', iterableargs={'layer': layer_name})
-    print(f"Processing layer: {layer_name}")
-    for feature in source:
-        process(feature)
-    source.close()
+    with open_iterable('data.gpkg', iterableargs={'layer': layer_name}) as source:
+        print(f"Processing layer: {layer_name}")
+        for feature in source:
+            process(feature)
 
 # Writing
-dest = open_iterable('output.gpkg', mode='w')
-feature = {
-    'type': 'Feature',
-    'geometry': {'type': 'Point', 'coordinates': [102.0, 0.5]},
-    'properties': {
-        'id': '1',
-        'name': 'Location'
+with open_iterable('output.gpkg', mode='w') as dest:
+    feature = {
+        'type': 'Feature',
+        'geometry': {'type': 'Point', 'coordinates': [102.0, 0.5]},
+        'properties': {
+            'id': '1',
+            'name': 'Location'
+        }
     }
-}
-dest.write(feature)
-dest.close()
+    dest.write(feature)
 ```
 
 ## Parameters

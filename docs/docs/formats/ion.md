@@ -38,15 +38,13 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.ion')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.ion') as source:
+    for row in source:
+        print(row)
 
 # Writing
-dest = open_iterable('output.ion', mode='w')
-dest.write({'name': 'John', 'age': 30})
-dest.close()
+with open_iterable('output.ion', mode='w') as dest:
+    dest.write({'name': 'John', 'age': 30})
 ```
 
 ## Parameters

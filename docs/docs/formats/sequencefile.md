@@ -38,13 +38,12 @@ Writing is not currently supported for SequenceFile format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.seq', iterableargs={
+with open_iterable('data.seq', iterableargs={
     'key_name': 'key',
     'value_name': 'value'
-})
-for record in source:
-    print(record)  # Contains key and value
-source.close()
+}) as source:
+    for record in source:
+        print(record)  # Contains key and value
 ```
 
 ## Parameters

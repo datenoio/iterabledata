@@ -52,3 +52,10 @@ Install with `pip install iterabledata[feed]`.
 ## See also
 
 - [Supported formats](/formats/)
+
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `encoding` | str | `'utf8'` | No | Passed via `iterableargs`. |
+

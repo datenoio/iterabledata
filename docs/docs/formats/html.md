@@ -61,24 +61,20 @@ tables = iterable.list_tables('data.html')
 print(f"Available tables: {tables}")
 
 # After opening - list all tables (reuses parsed HTML)
-source = open_iterable('data.html', iterableargs={'table_index': 0})
-all_tables = source.list_tables()  # Reuses parsed HTML
-print(f"All tables: {all_tables}")
+with open_iterable("data.html", iterableargs={"table_index": 0}) as source:
+    all_tables = source.list_tables()
+    print(f"All tables: {all_tables}")
 
 # Process different tables
 for table_id in all_tables:
-    # If table_id is numeric string, use as index
     try:
         table_index = int(table_id)
-        source = open_iterable('data.html', iterableargs={'table_index': table_index})
     except ValueError:
-        # Table has ID or caption - would need to find by ID
-        # For now, iterate through indices
         continue
-    print(f"Processing table: {table_id}")
-    for row in source:
-        process(row)
-    source.close()
+    with open_iterable("data.html", iterableargs={"table_index": table_index}) as source:
+        print(f"Processing table: {table_id}")
+        for row in source:
+            process(row)
 
 # Alternative: Manual close (still supported)
 source = open_iterable('data.html')
@@ -114,11 +110,10 @@ for table_id in all_tables:
     # Numeric strings represent indices
     try:
         table_index = int(table_id)
-        source = open_iterable('data.html', iterableargs={'table_index': table_index})
-        print(f"Processing table {table_index}")
-        for row in source:
-            process(row)
-        source.close()
+        with open_iterable('data.html', iterableargs={'table_index': table_index}) as source:
+            print(f"Processing table {table_index}")
+            for row in source:
+                process(row)
     except ValueError:
         # Table has ID or caption - process accordingly
         print(f"Processing table: {table_id}")

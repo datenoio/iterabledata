@@ -55,13 +55,12 @@ Requires `pyiceberg` with SQL catalog extras (e.g. `sqlalchemy` / `pyiceberg[sql
 from iterable import open_iterable
 
 # Reading Iceberg table
-source = open_iterable('catalog.properties', iterableargs={
+with open_iterable('catalog.properties', iterableargs={
     'catalog_name': 'my_catalog',
     'table_name': 'my_table'
-})
-for row in source:
-    print(row)
-source.close()
+}) as source:
+    for row in source:
+        print(row)
 
 # Discover available tables in catalog
 from iterable.datatypes.iceberg import IcebergIterable
@@ -85,14 +84,13 @@ print(f"All tables: {all_tables}")
 
 # Process different tables
 for table_name in all_tables:
-    source = open_iterable('catalog.properties', iterableargs={
+    with open_iterable('catalog.properties', iterableargs={
         'catalog_name': 'my_catalog',
         'table_name': table_name
-    })
-    print(f"Processing table: {table_name}")
-    for row in source:
-        process(row)
-    source.close()
+    }) as source:
+        print(f"Processing table: {table_name}")
+        for row in source:
+            process(row)
 ```
 
 ### Discovering Available Tables

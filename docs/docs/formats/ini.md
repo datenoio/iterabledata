@@ -41,15 +41,13 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('config.ini')
-for row in source:
-    print(row)  # Each row has _section and key-value pairs
-source.close()
+with open_iterable('config.ini') as source:
+    for row in source:
+        print(row)  # Each row has _section and key-value pairs
 
 # Writing
-dest = open_iterable('output.ini', mode='w')
-dest.write({'_section': 'database', 'host': 'localhost', 'port': '5432'})
-dest.close()
+with open_iterable('output.ini', mode='w') as dest:
+    dest.write({'_section': 'database', 'host': 'localhost', 'port': '5432'})
 ```
 
 ## Parameters

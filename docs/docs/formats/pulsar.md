@@ -40,24 +40,22 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('pulsar.data', iterableargs={
+with open_iterable('pulsar.data', iterableargs={
     'key_name': 'key',
     'value_name': 'value',
     'include_metadata': True
-})
-for message in source:
-    print(message)  # Contains key, value, message_id, publish_time, etc.
-source.close()
+}) as source:
+    for message in source:
+        print(message)  # Contains key, value, message_id, publish_time, etc.
 
 # Writing
-dest = open_iterable('output.pulsar', mode='w')
-dest.write({
-    'key': 'message-key',
-    'value': {'data': 'message content'},
-    'message_id': 'msg-123',
-    'publish_time': 1234567890000
-})
-dest.close()
+with open_iterable('output.pulsar', mode='w') as dest:
+    dest.write({
+        'key': 'message-key',
+        'value': {'data': 'message content'},
+        'message_id': 'msg-123',
+        'publish_time': 1234567890000
+    })
 ```
 
 ## Parameters

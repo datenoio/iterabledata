@@ -45,10 +45,9 @@ with open_iterable("/path/to/delta/table", mode="w", iterableargs={
 from iterable import open_iterable
 
 # Reading Delta table (path to table directory)
-source = open_iterable('/path/to/delta/table')
-for row in source:
-    print(row)
-source.close()
+with open_iterable('/path/to/delta/table') as source:
+    for row in source:
+        print(row)
 
 # Note: Delta Lake typically uses single table directories
 # list_tables() returns None for single table directories

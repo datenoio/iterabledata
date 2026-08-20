@@ -39,10 +39,9 @@ back to vCard entries (requires the `vobject` package).
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('contacts.vcf')
-for contact in source:
-    print(contact)  # Contains contact information
-source.close()
+with open_iterable('contacts.vcf') as source:
+    for contact in source:
+        print(contact)  # Contains contact information
 ```
 
 ## Parameters

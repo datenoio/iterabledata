@@ -42,21 +42,18 @@ Writing support:
 from iterable import open_iterable
 
 # Basic reading (automatically finds metadata file)
-source = open_iterable('data.csv')
-for row in source:
-    print(row)  # Rows are dicts with type-converted values
-source.close()
+with open_iterable('data.csv') as source:
+    for row in source:
+        print(row)  # Rows are dicts with type-converted values
 
 # Reading with explicit metadata file
-source = open_iterable('data.csv', iterableargs={'metadata_file': 'data.csv-metadata.json'})
-for row in source:
-    print(row)
-source.close()
+with open_iterable('data.csv', iterableargs={'metadata_file': 'data.csv-metadata.json'}) as source:
+    for row in source:
+        print(row)
 
 # Writing
-dest = open_iterable('output.csvw', mode='w', iterableargs={'keys': ['id', 'name']})
-dest.write({'id': '1', 'name': 'John'})
-dest.close()
+with open_iterable('output.csvw', mode='w', iterableargs={'keys': ['id', 'name']}) as dest:
+    dest.write({'id': '1', 'name': 'John'})
 ```
 
 ## Parameters

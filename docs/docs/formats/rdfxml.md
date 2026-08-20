@@ -38,10 +38,9 @@ Writing is not currently supported for RDF/XML format.
 from iterable import open_iterable
 
 # Basic reading
-source = open_iterable('data.rdf')
-for row in source:
-    print(row)  # Contains RDF triples grouped by subject
-source.close()
+with open_iterable('data.rdf') as source:
+    for row in source:
+        print(row)  # Contains RDF triples grouped by subject
 ```
 
 ## Parameters

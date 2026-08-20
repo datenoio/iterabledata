@@ -158,10 +158,9 @@ from iterable.datatypes.xlsx import XLSXIterable
 
 if XLSXIterable.has_tables():
     # This format supports multiple sheets
-    source = open_iterable('data.xlsx')
-    sheets = source.list_tables()
-    print(f"Available sheets: {sheets}")
-    source.close()
+    with open_iterable('data.xlsx') as source:
+        sheets = source.list_tables()
+        print(f"Available sheets: {sheets}")
 ```
 
 ### `list_tables(filename: str | None = None) -> list[str] | None`
