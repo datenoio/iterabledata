@@ -34,8 +34,7 @@ except ImportError:
     HAS_OBSPY = False
 
 _IMPORT_ERROR = (
-    "miniSEED support requires 'obspy'. Install with: pip install obspy "
-    "(or pip install iterabledata[geophysical])"
+    "miniSEED support requires 'obspy'. Install with: pip install obspy (or pip install iterabledata[geophysical])"
 )
 
 
