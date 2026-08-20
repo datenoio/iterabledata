@@ -92,6 +92,14 @@ N-Quads files can be compressed with all supported codecs:
 - **Knowledge graphs**: Building knowledge graphs with multiple graphs
 - **Data exchange**: RDF dataset exchange
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Write mode**: read-only formats raise `WriteNotSupportedError` or `ValueError` when opened with `mode="w"`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [N-Triples](ntriples.md) - Simpler format without graph context

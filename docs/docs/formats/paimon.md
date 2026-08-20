@@ -61,6 +61,14 @@ with open_iterable(warehouse, iterableargs={
 | `create_table` | Create append-only table on write |
 | `batch_size` | Writer flush threshold |
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Write mode**: read-only formats raise `WriteNotSupportedError` or `ValueError` when opened with `mode="w"`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## See Also
 
 - [PyPaimon](https://paimon.apache.org/docs/master/pypaimon/)

@@ -47,6 +47,14 @@ with open_iterable(
 
 Install with `pip install iterabledata[fst]` (or install a compatible `fst` / `rfst` binding).
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Read-only**: opening with `mode="w"` raises `WriteNotSupportedError` or `ValueError`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## See also
 
 - [RDS](/formats/rds) / [RData](/formats/rdata) — R serialized objects

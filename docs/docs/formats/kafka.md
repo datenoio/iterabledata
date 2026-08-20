@@ -15,18 +15,20 @@ This reader/writer stores a **simplified on-disk dump** of Kafka-like messages (
 - Parses a length-prefixed binary dump
 - Extracts offset, timestamp, key, value, and headers
 - Converts each message to a dictionary
+- UTF-8 text is JSON-decoded when possible; otherwise kept as a string (binary payloads become base64)
 - Optional metadata via `include_metadata`
 
 ### Writing
 
 - Writes the same dump format
-- Nested values are JSON-encoded
+- Nested values (dict/list) are JSON-encoded
+- Offset defaults to previous + 1 when omitted; timestamp defaults to `0`
 
 ### Key Features
 
 - **On-disk dump**: File-based, not a live consumer/producer
 - **Key/value records**: Configurable field names
-- **Metadata**: Offset, timestamp, partition when enabled
+- **Metadata**: Offset, timestamp, headers when enabled
 
 ## Usage
 
@@ -52,9 +54,19 @@ with open_iterable("output.kafka", mode="w", format="kafka") as dest:
 
 ## Parameters
 
-- `key_name` (str): Key name for message key (default: `key`)
-- `value_name` (str): Key name for message value (default: `value`)
-- `include_metadata` (bool): Include offset, timestamp, partition (default: `True`)
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `key_name` | str | `"key"` | No | Dict key for the message key |
+| `value_name` | str | `"value"` | No | Dict key for the message value |
+| `include_metadata` | bool | `True` | No | Include `offset`, `timestamp`, and `headers` when present |
+
+## Error Handling
+
+- **FormatParseError**: Truncated or corrupt dump framing while reading
+- **FileNotFoundError**: Path is wrong or the file is missing
+- No optional dependency — missing Kafka client libraries are expected (this is not a broker client)
+
+See [Troubleshooting](/getting-started/troubleshooting) for more help.
 
 ## Limitations
 

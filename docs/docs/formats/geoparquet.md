@@ -69,6 +69,14 @@ Requires `pyarrow`. Decode WKB with a geospatial library if you need Shapely/Geo
 2. **Requires pyarrow**
 3. **Experimental geospatial extras** may still be needed for related formats (FlatGeobuf, Shapefile)
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Write mode**: read-only formats raise `WriteNotSupportedError` or `ValueError` when opened with `mode="w"`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [Parquet](parquet.md) — non-spatial columnar files

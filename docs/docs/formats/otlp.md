@@ -72,6 +72,14 @@ Protobuf profile also needs generated OpenTelemetry proto modules for `message_c
 2. **Protobuf needs `message_class`**
 3. **No OTLP HTTP/gRPC client** — files and streams only
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Write mode**: read-only formats raise `WriteNotSupportedError` or `ValueError` when opened with `mode="w"`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [JSON](json.md) / [JSON Lines](jsonl.md) — generic JSON

@@ -79,6 +79,14 @@ Note: Avro also has built-in compression (null, deflate, snappy), which is separ
 - **Kafka**: Message serialization format
 - **Data warehousing**: Efficient storage for analytics
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Write mode**: read-only formats raise `WriteNotSupportedError` or `ValueError` when opened with `mode="w"`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [Parquet](parquet.md) - Another columnar format

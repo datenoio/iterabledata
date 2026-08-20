@@ -1,45 +1,75 @@
 ---
 title: TriX Format
-description: TriX RDF XML triples in IterableData
+description: TriX XML RDF triples in IterableData
 ---
 
 # TriX Format
 
-Read TriX RDF/XML triples as subject/predicate/object records (via rdflib).
+## Description
 
-## Overview
+TriX is an XML serialization for RDF graphs. IterableData parses TriX with `rdflib` and yields one triple record per statement (`subject`, `predicate`, `object`). It is **read-only** in this release.
 
-| Property | Value |
-|----------|-------|
-| Format id | `trix` |
-| Class | `TriXIterable` |
-| Extensions | `.trix` |
-| Read | Yes |
-| Write | No |
-| Extra | `rdf` (`rdflib`) |
-| Maturity | stable |
+## File Extensions
 
-## Record shape
+- `.trix` — TriX RDF/XML-style graphs
 
-```python
-{"subject": "...", "predicate": "...", "object": "..."}
-```
+## Implementation Details
+
+### Reading
+
+- Loads an `rdflib.Graph` and parses with `format="trix"`
+- Accepts filename or stream text
+- Materializes all triples as string-valued dicts
+
+### Writing
+
+Writing is not supported. Use [Turtle](turtle.md) or [RDF/XML](rdfxml.md) when write support is needed.
+
+### Key Features
+
+- **XML RDF**: interoperates with TriX producers
+- **Triple rows**: consistent SPO dict shape with N3/TriG (without graph)
+- **rdflib backed**
 
 ## Usage
 
 ```python
 from iterable import open_iterable
 
-with open_iterable("graph.trix") as source:
+with open_iterable("data.trix") as source:
     for triple in source:
         print(triple["subject"], triple["predicate"], triple["object"])
 ```
 
-Install with `pip install iterabledata[rdf]`.
+## Parameters
 
-## See also
+No format-specific `iterableargs`.
 
-- [N3](/formats/n3) — Notation3 triples
-- [TriG](/formats/trig) — named-graph quads
-- [RDF/XML](/formats/rdfxml) — RDF/XML
-- [Supported formats](/formats/)
+## Installation
+
+```bash
+pip install 'iterabledata[rdf]'
+```
+
+Requires `rdflib`.
+
+## Limitations
+
+1. **Read-only**
+2. **Memory**: full graph in memory
+3. **Requires rdflib**
+4. Named-graph structure in TriX is flattened to triples as exposed by rdflib’s Graph parse
+
+## Error Handling
+
+- **ImportError**: missing `rdflib` — install `iterabledata[rdf]`
+- **Parse errors**: invalid TriX from rdflib
+- **I/O errors**: missing or unreadable files
+- Format is registered **writable=False**
+
+## Related Formats
+
+- [TriG](trig.md) — TriG quads
+- [N3](n3.md) — Notation3
+- [RDF/XML](rdfxml.md) — RDF/XML
+- [Turtle](turtle.md) — Turtle

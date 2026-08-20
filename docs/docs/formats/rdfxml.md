@@ -78,6 +78,14 @@ RDF/XML files can be compressed with all supported codecs:
 - **Knowledge graphs**: Building and querying knowledge graphs
 - **Metadata**: Working with RDF metadata
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Write mode**: read-only formats raise `WriteNotSupportedError` or `ValueError` when opened with `mode="w"`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [Turtle](turtle.md) - More readable RDF format

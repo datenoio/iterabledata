@@ -15,11 +15,14 @@ This reader/writer stores a **simplified on-disk dump** of Pulsar-like messages 
 - Parses a length-prefixed binary dump
 - Extracts message id, publish time, key, properties, and payload
 - Converts each message to a dictionary
+- UTF-8 text is JSON-decoded when possible; otherwise kept as a string (binary payloads become base64)
+- Optional metadata via `include_metadata`
 
 ### Writing
 
 - Writes the same dump format
-- Nested values are JSON-encoded
+- Nested values (dict/list) are JSON-encoded
+- `message_id` defaults to `msg_{pos}` when omitted; `publish_time` defaults to `0`
 
 ### Key Features
 
@@ -51,9 +54,19 @@ with open_iterable("output.pulsar", mode="w", format="pulsar") as dest:
 
 ## Parameters
 
-- `key_name` (str): Key name for message key (default: `key`)
-- `value_name` (str): Key name for message value (default: `value`)
-- `include_metadata` (bool): Include message_id, publish time, properties (default: `True`)
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `key_name` | str | `"key"` | No | Dict key for the message key |
+| `value_name` | str | `"value"` | No | Dict key for the message payload |
+| `include_metadata` | bool | `True` | No | Include `message_id`, `publish_time`, and `properties` when present |
+
+## Error Handling
+
+- **FormatParseError**: Truncated or corrupt dump framing while reading
+- **FileNotFoundError**: Path is wrong or the file is missing
+- No optional dependency — missing Pulsar client libraries are expected (this is not a broker client)
+
+See [Troubleshooting](/getting-started/troubleshooting) for more help.
 
 ## Limitations
 

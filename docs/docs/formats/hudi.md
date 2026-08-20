@@ -115,6 +115,14 @@ Hudi uses underlying file formats (typically Parquet) which have built-in compre
 - **Streaming**: Real-time data processing
 - **Incremental processing**: Processing only changed data
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Read-only**: opening with `mode="w"` raises `WriteNotSupportedError` or `ValueError`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [Parquet](parquet.md) - Common underlying format

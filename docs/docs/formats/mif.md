@@ -44,6 +44,17 @@ with open_iterable("parcels.mif", format="mif") as source:
 
 Install with `pip install iterabledata[geospatial]`.
 
+## Parameters
+
+No format-specific `iterableargs`. A filesystem path is required (streams and codecs are not supported). Companion `.mid` attribute files are resolved by Fiona's MapInfo driver when co-located.
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Read-only**: opening with `mode="w"` raises `WriteNotSupportedError` or `ValueError`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## See also
 
 - [Shapefile](/formats/shapefile) — ESRI shapefiles

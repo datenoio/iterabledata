@@ -67,6 +67,14 @@ GeoJSONSeq files can be compressed with all supported codecs:
 - **Geospatial ETL**: converting large feature sets without loading them into memory
 - **Data exchange**: line-oriented output of PostGIS, GDAL/OGR (`ogr2ogr -f GeoJSONSeq`)
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Write mode**: read-only formats raise `WriteNotSupportedError` or `ValueError` when opened with `mode="w"`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [GeoJSON](geojson.md) - Document-oriented FeatureCollection format

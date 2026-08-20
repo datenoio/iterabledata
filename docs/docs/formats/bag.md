@@ -47,6 +47,22 @@ with open_iterable(
 
 Requires a filename (not a stream). Install with `pip install iterabledata[hdf5]`.
 
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `dataset` | str | first elevation under `/BAG_root` | No | HDF5 dataset path to stream |
+| `table` | str | same as `dataset` | No | Alias for `dataset` |
+
+Pass via `iterableargs`, for example `iterableargs={"dataset": "/BAG_root/elevation"}`.
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Read-only**: opening with `mode="w"` raises `WriteNotSupportedError` or `ValueError`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## See also
 
 - [ASCII Grid](/formats/asc) — Esri ASCII rasters

@@ -71,6 +71,14 @@ SAS files can be compressed with all supported codecs:
 - **Research data**: Processing research datasets in SAS format
 - **Government data**: Some government datasets use SAS format
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Read-only**: opening with `mode="w"` raises `WriteNotSupportedError` or `ValueError`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [Stata](stata.md) - Another statistical format

@@ -1,7 +1,6 @@
 # Documentation status
 
-This file used to be a backlog. The items below were addressed in the docs
-pass that aligned published Docusaurus pages with the format registry.
+This file tracks documentation backlog for the Docusaurus site under `docs/docs/`.
 
 ## Done
 
@@ -26,12 +25,23 @@ pass that aligned published Docusaurus pages with the format registry.
 - Write flags, extras, and API signatures aligned with the code (Avro/WARC/MBOX
   and other implemented writers; Kafka/Pulsar described as on-disk dumps;
   troubleshooting frontmatter restored).
+- Registry stub format pages (KMZ, GPX, MVT, DXF, RDF TriG/N3/TriX, GraphML/GEXF/DOT,
+  BAM/SAM, FASTA/FASTQ, FileGDB, miniSEED, EDI, ASCII Grid) expanded to the full
+  template with Parameters and Error Handling.
+- Thin pages (CDF, PCAP, NetCDF, FlatGeobuf, genomic VCF, TopoJSON, XLSB, LIBSVM,
+  NumPy, RSS/Atom, ARFF, genomic intervals, Kafka, Pulsar, BAG, MIF, GRIB2) given
+  Parameters and Error Handling.
+- Every content format page now has `## Parameters` and `## Error Handling`
+  (or Troubleshooting).
+- `adding-formats.md` includes a worked in-tree example and points at plugins.
+- `frameworks.md` summarizes in-docs vs GitHub guides; `plugins.md` has a
+  reference plugin package walkthrough.
 
 ## Still incremental
 
-- Error handling and troubleshooting sections are not uniform on every format
-  page. Follow `docs/FORMAT_PAGE_TEMPLATE.md` when touching a page.
-- Some parameter tables are constructor-derived one-liners; expand them when
-  you next edit that format.
-- Framework guides (`docs/integrations/*.md`) remain GitHub-canonical; the
-  published site links them from `docs/docs/integrations/frameworks.md`.
+- Some parameter tables remain constructor-derived one-liners; expand narrative
+  when you next edit that format.
+- Framework provider guides (`docs/integrations/*.md`) remain GitHub-canonical;
+  the published site links and summarizes them from `frameworks.md`.
+- A real published reference plugin package on PyPI is still a product goal
+  (IMPROVEMENT_PLAN 6.5); docs now describe the layout.

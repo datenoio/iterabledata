@@ -116,6 +116,14 @@ Note: Metadata files (`.json`) are typically not compressed separately.
 - **Data validation**: Validating CSV data against schemas
 - **Type safety**: Ensuring correct data types in CSV processing
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Write mode**: read-only formats raise `WriteNotSupportedError` or `ValueError` when opened with `mode="w"`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [CSV](csv.md) - Base CSV format

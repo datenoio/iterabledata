@@ -100,6 +100,14 @@ HDF5 files can also be compressed with file-level codecs:
 - **Data analysis**: Large-scale data analysis
 - **Simulations**: Storing simulation results
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Read-only**: opening with `mode="w"` raises `WriteNotSupportedError` or `ValueError`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [Parquet](parquet.md) - Columnar format for analytics

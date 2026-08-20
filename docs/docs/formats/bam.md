@@ -1,57 +1,77 @@
 ---
 title: BAM Format
-description: Binary Alignment Map genomic reads in IterableData
+description: Binary Alignment Map (BAM) in IterableData
 ---
 
 # BAM Format
 
-Stream BAM (Binary Alignment/Map) alignments as one record per read.
+## Description
 
-## Overview
+BAM is the compressed binary form of the Sequence Alignment/Map (SAM) format used for genomic read alignments. IterableData streams alignments with `pysam` and yields one dict per aligned segment. It is **read-only** in this release.
 
-| Property | Value |
-|----------|-------|
-| Format id | `bam` |
-| Class | `BAMIterable` |
-| Extensions | `.bam` |
-| Read | Yes |
-| Write | No |
-| Extra | `alignment` (`pysam`) |
-| Maturity | stable |
+## File Extensions
 
-## Record shape
+- `.bam` — Binary Alignment Map
 
-```python
-{
-    "query_name": "read1",
-    "flag": 0,
-    "reference_id": 0,
-    "reference_start": 100,
-    "mapping_quality": 60,
-    "cigarstring": "50M",
-    "next_reference_id": -1,
-    "next_reference_start": -1,
-    "template_length": 0,
-    "query_sequence": "ACGT...",
-    "query_qualities": "IIII...",
-}
-```
+## Implementation Details
 
-Requires a filename (streams not supported).
+### Reading
+
+- Opens with `pysam.AlignmentFile(filename, "rb")`
+- Requires a local **filename** (streams are not supported)
+- Yields fields: `query_name`, `flag`, `reference_id`, `reference_start`, `mapping_quality`, `cigarstring`, `next_reference_id`, `next_reference_start`, `template_length`, `query_sequence`, `query_qualities` (Phred+33 string)
+
+### Writing
+
+Writing is not supported.
+
+### Key Features
+
+- **Streaming alignments**: one read at a time via pysam
+- **Shared field model** with [SAM](sam.md)
+- **Binary datamode**
 
 ## Usage
 
 ```python
 from iterable import open_iterable
 
-with open_iterable("alignments.bam", format="bam") as source:
+with open_iterable("alignments.bam") as source:
     for aln in source:
         print(aln["query_name"], aln["reference_start"], aln["cigarstring"])
 ```
 
-Install with `pip install iterabledata[alignment]`.
+## Parameters
 
-## See also
+No format-specific `iterableargs`. A filesystem path is required.
 
-- [SAM](/formats/sam) — text Sequence Alignment/Map
-- [Supported formats](/formats/)
+## Installation
+
+```bash
+pip install 'iterabledata[alignment]'
+# or
+pip install 'iterabledata[bio]'
+```
+
+Requires `pysam`.
+
+## Limitations
+
+1. **Read-only**
+2. **Filename required** (no stream)
+3. **Requires pysam**
+4. Optional BAM tags / mate details beyond the listed fields are not exported
+
+## Error Handling
+
+- **ImportError**: missing `pysam` — install `iterabledata[alignment]` or `[bio]`
+- **ValueError**: neither filename nor stream provided (streams still unsupported for open)
+- **I/O / pysam errors**: corrupt BAM or missing index scenarios as raised by pysam
+- Format is registered **writable=False**
+
+## Related Formats
+
+- [SAM](sam.md) — text alignments
+- [FASTA](fa.md) — reference / contig sequences
+- [FASTQ](fq.md) — reads with quality scores
+- [Genomic intervals](genomic-intervals.md) — BED/GFF/GTF/CRAM

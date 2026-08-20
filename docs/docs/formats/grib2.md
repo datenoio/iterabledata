@@ -35,7 +35,18 @@ with open_iterable("forecast.grib2", format="grib2") as source:
         print(msg["shortName"], len(msg["values"]))
 ```
 
-Install with `pip install iterabledata[geophysical]`.
+Install with `pip install iterabledata[geophysical]`, or install a backend directly (`cfgrib` + `xarray`, `pygrib`, or `eccodes`).
+
+## Parameters
+
+No format-specific `iterableargs`. A filesystem path is required (streams and codecs are not supported). Backend preference: cfgrib + xarray → pygrib → eccodes.
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Read-only**: opening with `mode="w"` raises `WriteNotSupportedError` or `ValueError`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
 ## See also
 

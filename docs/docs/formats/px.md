@@ -107,6 +107,14 @@ PC-Axis files can be compressed with all supported codecs:
 - **Data migration**: Converting from PC-Axis to other formats
 - **Research**: Working with official statistical datasets
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Read-only**: opening with `mode="w"` raises `WriteNotSupportedError` or `ValueError`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [CSV](csv.md) - Simple text format

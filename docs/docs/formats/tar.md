@@ -68,6 +68,14 @@ with open_iterable('dataset.tar', iterableargs={'member_key': None}) as source:
 2. **Member order**: Members are read strictly in archive order (stream-friendly)
 3. **Undetected members are skipped**: Only members with recognizable data formats are read
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Read-only**: opening with `mode="w"` raises `WriteNotSupportedError` or `ValueError`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [ZIP XML](zipxml.md) - XML inside ZIP archives

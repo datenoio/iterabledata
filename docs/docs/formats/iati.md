@@ -43,6 +43,14 @@ with open_iterable("activities.iati.xml", format="iati") as source:
 
 Install with `pip install iterabledata[xml]`.
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Read-only**: opening with `mode="w"` raises `WriteNotSupportedError` or `ValueError`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## See also
 
 - [XML](/formats/xml) — generic XML element streaming

@@ -89,6 +89,14 @@ TXT files can be compressed with all supported codecs:
 - **Line-by-line processing**: When you need line-by-line access
 - **Data transformation**: Converting text to structured data
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Write mode**: read-only formats raise `WriteNotSupportedError` or `ValueError` when opened with `mode="w"`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [Apache Log](apachelog.md) - Structured log format

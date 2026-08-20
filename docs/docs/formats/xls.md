@@ -98,6 +98,14 @@ XLS files can be compressed with all supported codecs:
 - **Data analysis**: Processing Excel data
 - **Reporting**: Reading Excel reports
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Read-only**: opening with `mode="w"` raises `WriteNotSupportedError` or `ValueError`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [XLSX](xlsx.md) - Modern Excel format (supports writing)

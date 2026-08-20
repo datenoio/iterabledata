@@ -16,7 +16,7 @@ FlatGeobuf is a compact, cloud-friendly binary encoding for geospatial features.
 
 ### Writing
 
-Writing is not supported. Use [GeoParquet](geoparquet.md) or [GeoJSONSeq](geojsonseq.md) for writeable geospatial pipelines.
+Writing is not supported. Use [GeoParquet](geoparquet.md) or [GeoJSONSeq](geojsonseq.md) for writeable geospatial pipelines. Attempting to write raises `WriteNotSupportedError`.
 
 ### Key Features
 
@@ -46,6 +46,15 @@ with open_iterable(
 | Parameter | Type | Default | Required | Description |
 |-----------|------|---------|----------|-------------|
 | `bbox` | tuple of 4 floats | none | No | `(minx, miny, maxx, maxy)` spatial filter |
+
+## Error Handling
+
+- **ImportError**: Missing Fiona/GDAL — install with `pip install iterabledata[geospatial]`
+- **ValueError**: Stream input or missing filename (`FlatGeobuf requires a local filename`)
+- **WriteNotSupportedError**: Writing FlatGeobuf is not supported
+- **FileNotFoundError** / Fiona errors: missing path, missing FlatGeobuf driver, or corrupt `.fgb`
+
+See [Troubleshooting](/getting-started/troubleshooting) for more help.
 
 ## Installation
 

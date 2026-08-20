@@ -35,7 +35,7 @@ except ImportError:
 
 _IMPORT_ERROR = (
     "miniSEED support requires 'obspy'. Install with: pip install obspy "
-    "(or pip install iterabledata[seismo] when that extra is configured)"
+    "(or pip install iterabledata[geophysical])"
 )
 
 

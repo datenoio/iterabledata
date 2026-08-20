@@ -60,6 +60,14 @@ Supported primitive types: `boolean`, `tinyint`, `smallint`, `int`/`date`/`time`
 - Nested ARRAY/MAP/ROW and VARIANT are not supported yet
 - Stream mode without a filename is not the preferred path; use filenames for footer-based I/O
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Write mode**: read-only formats raise `WriteNotSupportedError` or `ValueError` when opened with `mode="w"`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## See Also
 
 - [Paimon Row Format Spec](https://paimon.apache.org/docs/master/concepts/spec/rowformat/)

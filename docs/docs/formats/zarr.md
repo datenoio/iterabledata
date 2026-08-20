@@ -76,6 +76,14 @@ Requires `zarr` and `numpy`.
 3. **One array per iterable**: select with `array=`
 4. **Rows are `{value: ...}`** unless you write with a matching field name
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Write mode**: read-only formats raise `WriteNotSupportedError` or `ValueError` when opened with `mode="w"`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [HDF5](hdf5.md) — hierarchical scientific arrays

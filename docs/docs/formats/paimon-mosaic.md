@@ -62,6 +62,14 @@ with open_iterable("wide.mosaic", iterableargs={"columns": ["name", "score"]}) a
 - Experimental; stabilize after cross-tool golden fixtures pass
 - Depends on native `paimon-mosaic` wheels
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Write mode**: read-only formats raise `WriteNotSupportedError` or `ValueError` when opened with `mode="w"`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## See Also
 
 - [Paimon Mosaic](https://paimon.apache.org/docs/mosaic/)

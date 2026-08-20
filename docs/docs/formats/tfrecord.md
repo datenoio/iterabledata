@@ -82,6 +82,14 @@ Note: TFRecord also supports internal compression.
 - **Model training**: Preparing training datasets
 - **Data storage**: Efficient storage of training data
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Write mode**: read-only formats raise `WriteNotSupportedError` or `ValueError` when opened with `mode="w"`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## Related Formats
 
 - [Protocol Buffers](protobuf.md) - Base format used by TFRecord

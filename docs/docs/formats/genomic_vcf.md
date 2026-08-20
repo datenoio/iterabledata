@@ -6,7 +6,7 @@ Genomic **Variant Call Format** (VCF) and its binary form **BCF** describe
 sequence variants produced by bioinformatics pipelines. VCF files declare
 `##fileformat=VCFv4.x` in their header and list one variant per line with the
 columns `CHROM`, `POS`, `ID`, `REF`, `ALT`, `QUAL`, `FILTER`, `INFO`, and
-optional per-sample `FORMAT` fields.
+optional per-sample `FORMAT` fields. This format is **read-only**.
 
 > **`.vcf` is a shared extension.** The same extension is used by
 > [vCard contact files](vcf.md). IterableData disambiguates by content:
@@ -22,16 +22,26 @@ optional per-sample `FORMAT` fields.
 - `.vcf` - Variant Call Format (text; disambiguated from vCard by content)
 - `.bcf` - Binary Call Format
 
-## Installation
+## Implementation Details
 
-Genomic VCF/BCF support requires [`pysam`](https://pysam.readthedocs.io):
+### Reading
 
-```bash
-pip install 'iterabledata[bio]'
-```
+- Backed by `pysam.VariantFile`, which auto-detects plain VCF, bgzipped VCF,
+  and BCF from content
+- **Streaming**: variants are read incrementally; the file is never fully
+  materialized in memory
+- Requires a file path; stream input is not supported (`pysam` needs a
+  seekable/indexable file)
 
-If `pysam` is not installed, opening a genomic VCF raises an `ImportError`
-naming the `bio` extra.
+### Writing
+
+Writing is not supported. Attempting to write raises `WriteNotSupportedError`.
+
+### Key Features
+
+- **Content detection**: disambiguates genomic VCF from vCard `.vcf`
+- **Sample fields**: per-sample FORMAT values under `SAMPLES`
+- **INFO parsing**: INFO keys become a dictionary
 
 ## Usage
 
@@ -59,18 +69,42 @@ Each record is a dictionary:
 | `INFO`    | Parsed INFO dictionary                             |
 | `SAMPLES` | Mapping of sample name to its FORMAT fields        |
 
-## Implementation Details
+## Parameters
 
-- Backed by `pysam.VariantFile`, which auto-detects plain VCF, bgzipped VCF,
-  and BCF from content.
-- **Streaming**: variants are read incrementally; the file is never fully
-  materialized in memory.
-- **Read-only**: writing is not supported.
-- Requires a file path; stream input is not supported (`pysam` needs a
-  seekable/indexable file).
+No format-specific `iterableargs`. Pass a filename.
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| *(none)* | — | — | — | Filename required; no format-specific parameters |
+
+## Error Handling
+
+- **ImportError**: Missing `pysam` — install with `pip install iterabledata[bio]`
+- **ValueError**: Stream / missing filename (`Genomic VCF format requires a filename`)
+- **WriteNotSupportedError**: Writing genomic VCF/BCF is not supported
+- **FileNotFoundError** / pysam errors: missing path or corrupt VCF/BCF
+
+See [Troubleshooting](/getting-started/troubleshooting) for more help.
+
+## Installation
+
+Genomic VCF/BCF support requires [`pysam`](https://pysam.readthedocs.io):
+
+```bash
+pip install 'iterabledata[bio]'
+```
+
+If `pysam` is not installed, opening a genomic VCF raises an `ImportError`
+naming the `bio` extra.
 
 ## Limitations
 
 - Read-only.
 - Requires the `pysam` optional dependency (`bio` extra).
 - Stream/file-object input is not supported; pass a filename.
+
+## Related Formats
+
+- [Genomic intervals](genomic-intervals.md) — CRAM, BED, GFF3, GTF
+- [SAM](sam.md) / [BAM](bam.md) — alignments
+- [vCard VCF](vcf.md) — contact cards (same `.vcf` extension)

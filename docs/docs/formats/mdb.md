@@ -39,6 +39,14 @@ with open_iterable("inventory.mdb", format="mdb", iterableargs={"table": "Produc
 
 Install with `pip install iterabledata[access]`.
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Read-only**: opening with `mode="w"` raises `WriteNotSupportedError` or `ValueError`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## See also
 
 - [SQLite](/formats/sqlite) — embedded SQL databases

@@ -1,47 +1,74 @@
 ---
-title: DOT / Graphviz Format
-description: Graphviz DOT graphs as node/edge records in IterableData
+title: DOT / GV Format
+description: GraphViz DOT graphs in IterableData
 ---
 
-# DOT / Graphviz Format
+# DOT / GV Format
 
-Read Graphviz DOT (`.gv` / `.dot`) graphs as node then edge records (via NetworkX / pydot).
+## Description
 
-## Overview
+DOT is the GraphViz textual language for describing directed and undirected graphs. IterableData reads `.gv` / `.dot` via NetworkX’s pydot bridge and yields node records then edge records. Registry id is `gv` (alias `dot`). It is **read-only** in this release.
 
-| Property | Value |
-|----------|-------|
-| Format id | `gv` (alias `dot`) |
-| Class | `DOTIterable` |
-| Extensions | `.gv`, `.dot` |
-| Read | Yes |
-| Write | No |
-| Extra | `graph` (`networkx`) |
-| Maturity | stable |
+## File Extensions
 
-## Record shape
+- `.gv` — GraphViz DOT (primary registry id `gv`)
+- `.dot` — common DOT alias
 
-```python
-{"_type": "node", "id": "A", "label": "start"}
-{"_type": "edge", "source": "A", "target": "B"}
-```
+## Implementation Details
 
-Requires NetworkX with pydot support for DOT parsing.
+### Reading
+
+- Parses with `networkx.nx_pydot.read_dot`
+- Converts to node then edge dicts
+- Node: `{"_type": "node", "id": "...", ...}`
+- Edge: `{"_type": "edge", "source": "...", "target": "...", ...}`
+
+### Writing
+
+Writing is not supported.
+
+### Key Features
+
+- **GraphViz text**: works with `.gv` / `.dot` sources
+- **Shared graph row model** with GraphML and GEXF
+- **Attribute passthrough** from DOT attributes
 
 ## Usage
 
 ```python
 from iterable import open_iterable
 
-with open_iterable("graph.dot") as source:
-    for rec in source:
-        print(rec["_type"], rec)
+with open_iterable("graph.gv") as source:
+    for row in source:
+        print(row["_type"], row)
 ```
 
-Install with `pip install iterabledata[graph]`.
+## Parameters
 
-## See also
+No format-specific `iterableargs`.
 
-- [GEXF](/formats/gexf) — GEXF graphs
-- [GraphML](/formats/graphml) — GraphML graphs
-- [Supported formats](/formats/)
+## Installation
+
+```bash
+pip install 'iterabledata[graph]'
+```
+
+Requires `networkx`. DOT parsing also typically needs a `pydot` (or compatible) backend available to NetworkX.
+
+## Limitations
+
+1. **Read-only**
+2. **Memory**: entire graph loaded before iteration
+3. **Requires networkx** (+ pydot-compatible backend for `nx_pydot`)
+4. Complex GraphViz layout attributes are stored as data, not rendered
+
+## Error Handling
+
+- **ImportError**: missing `networkx` — install `iterabledata[graph]`
+- **Parse / I/O errors**: invalid DOT, missing pydot backend, or unreadable files
+- Format is registered **writable=False**
+
+## Related Formats
+
+- [GraphML](graphml.md) — GraphML
+- [GEXF](gexf.md) — GEXF

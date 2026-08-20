@@ -49,6 +49,14 @@ with open_iterable("data.mat", format="mat", iterableargs={"variable": "data"}) 
 
 Install with `pip install iterabledata[mat]`.
 
+
+## Error Handling
+
+- **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
+- **Read-only**: opening with `mode="w"` raises `WriteNotSupportedError` or `ValueError`.
+- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
+
 ## See also
 
 - [HDF5](/formats/hdf5) — hierarchical scientific arrays

@@ -378,6 +378,48 @@ with open_iterable("data.custom") as source:
         print(row)
 ```
 
+## Reference plugin package
+
+A minimal third-party package that adds one format end to end:
+
+```text
+iterabledata-plugin-acme/
+  pyproject.toml
+  src/iterabledata_plugin_acme/
+    __init__.py
+    acme.py          # BaseFileIterable subclass
+  tests/test_acme.py
+  README.md
+```
+
+`pyproject.toml`:
+
+```toml
+[project]
+name = "iterabledata-plugin-acme"
+version = "0.1.0"
+dependencies = ["iterabledata>=1.0"]
+
+[project.entry-points."iterabledata.formats"]
+acme = "iterabledata_plugin_acme.acme:AcmeIterable"
+```
+
+Implement `AcmeIterable` like any in-tree format (`id()`, `fileexts()`, `read()`, raise `WriteNotSupportedError` if read-only). Then:
+
+```bash
+pip install -e ./iterabledata-plugin-acme
+```
+
+```python
+from iterable import open_iterable
+
+with open_iterable("sample.acme") as source:
+    for row in source:
+        print(row)
+```
+
+Built-in format ids always win over plugins with the same id. For an in-tree checklist (registry, detection, docs site), see [Adding formats](/development/adding-formats).
+
 ## Best Practices
 
 1. **Follow Naming Conventions**: Use descriptive plugin IDs (e.g., `customformat` not `cf`)

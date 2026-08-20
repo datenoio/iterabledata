@@ -5,7 +5,7 @@ description: NetCDF dimension-sliced variable records in IterableData
 
 # NetCDF Format
 
-Read NetCDF datasets as one record per index along a chosen dimension.
+Read NetCDF datasets as one record per index along a chosen dimension. NetCDF is **read-only** in this release.
 
 ## Overview
 
@@ -19,21 +19,30 @@ Read NetCDF datasets as one record per index along a chosen dimension.
 | Extra | `netcdf` (`netCDF4`) |
 | Maturity | stable |
 
-## Record shape
+## File Extensions
 
-Keys are variable names; values are scalars or arrays for that dimension index:
+- `.nc` — NetCDF
+- `.netcdf` — NetCDF (alias extension)
 
-```python
-{"time": "...", "temperature": 20.5, "lat": [...], "lon": [...]}
-```
+## Implementation Details
 
-## Parameters
+### Reading
 
-| Parameter | Description |
-|-----------|-------------|
-| `dimension` | Dimension to iterate (default: unlimited, else first) |
+- Opens a local filename (or a file object with a `name` attribute); bare streams are not supported
+- Iterates along `dimension` (default: unlimited dimension, else the first dimension)
+- Each record maps variable names to scalars or arrays for that dimension index
+- Variables that do not use the target dimension are repeated on every record
+- `list_tables()` lists variable names; `totals()` is the target dimension size
 
-Requires a filename (or a named file object). `list_tables()` lists variables; `totals()` is the target dimension size.
+### Writing
+
+Writing is not supported. Opening with `mode="w"` raises `WriteNotSupportedError`.
+
+### Key Features
+
+- **Dimension slicing**: walk time or another axis as records
+- **Variable discovery**: `list_tables()` / `totals()`
+- **Masked values**: masked scalars become `None`
 
 ## Usage
 
@@ -54,10 +63,44 @@ with open_iterable(
         print(row)
 ```
 
-Install with `pip install iterabledata[netcdf]`.
+Record shape:
 
-## See also
+```python
+{"time": "...", "temperature": 20.5, "lat": [...], "lon": [...]}
+```
 
-- [CDF](/formats/cdf) — NASA CDF
-- [HDF5](/formats/hdf5) — hierarchical arrays
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `dimension` | str | unlimited, else first dim | No | Dimension name to iterate |
+
+## Error Handling
+
+- **ImportError**: Missing `netCDF4` — install with `pip install iterabledata[netcdf]` (pulls NumPy as needed)
+- **WriteNotSupportedError**: NetCDF writing is not implemented
+- **ReadError**: No filename / named file object available
+- **FileNotFoundError** / netCDF4 errors: missing path or corrupt / unsupported NetCDF content
+
+See [Troubleshooting](/getting-started/troubleshooting) for more help.
+
+## Installation
+
+```bash
+pip install 'iterabledata[netcdf]'
+```
+
+Requires `netCDF4` (and its native NetCDF/HDF5 libraries). For broader scientific stacks you may also want related extras such as `hdf5` or `npy`.
+
+## Limitations
+
+1. **Read-only**
+2. **Filename (or named file object) required**
+3. **Requires netCDF4**
+4. **Non-sliced variables are repeated** on every record (can be large)
+
+## Related Formats
+
+- [CDF](cdf.md) — NASA CDF
+- [HDF5](hdf5.md) — hierarchical arrays
 - [Supported formats](/formats/)
