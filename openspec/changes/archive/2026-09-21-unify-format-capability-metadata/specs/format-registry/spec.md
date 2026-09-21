@@ -4,7 +4,7 @@
 
 The system SHALL define each built-in format with a single declarative descriptor that records its canonical id, aliases, implementing module and class, text/binary and flat/nested behavior, read/write and API/native bulk support, totals/tables, optional-dependency extra, leading-byte signatures, maturity, read/write memory behavior, codec composition, selection/pushdown support, path/stream/cloud constraints, and optional LLM-oriented metadata. The descriptors SHALL be the single source of truth for built-in format metadata.
 
-#### Scenario: Each format has exactly one complete descriptor
+#### Scenario: Each format has exactly one descriptor
 
 - **WHEN** the format descriptor table is loaded
 - **THEN** every built-in canonical format id SHALL map to exactly one descriptor

@@ -5,26 +5,26 @@ The format registry provides a single declarative source of truth for built-in f
 driving detection lists, capability reporting, and LLM-oriented catalog exports.
 ## Requirements
 ### Requirement: Declarative Format Descriptors
-The system SHALL define each built-in format with a single declarative descriptor that records
-its canonical id, aliases, implementing module and class, whether its content is text or binary,
-whether it is flat/tabular, whether it supports writing, its optional-dependency extra (if any),
-any leading-byte signatures used for content-based detection, and optional LLM-oriented metadata
-(human description, example `iterableargs`, known limitations, documentation URL). The set of
-descriptors SHALL be the single source of truth for built-in format metadata.
+
+The system SHALL define each built-in format with a single declarative descriptor that records its canonical id, aliases, implementing module and class, text/binary and flat/nested behavior, read/write and API/native bulk support, totals/tables, optional-dependency extra, leading-byte signatures, maturity, read/write memory behavior, codec composition, selection/pushdown support, path/stream/cloud constraints, and optional LLM-oriented metadata. The descriptors SHALL be the single source of truth for built-in format metadata.
 
 #### Scenario: Each format has exactly one descriptor
+
 - **WHEN** the format descriptor table is loaded
-- **THEN** every built-in format id maps to exactly one descriptor
-- **AND** every alias resolves to the same implementing module and class as its descriptor's canonical id
+- **THEN** every built-in canonical format id SHALL map to exactly one descriptor
+- **AND** every required field SHALL contain an explicit value or documented unknown
+- **AND** every alias SHALL resolve to the same descriptor
 
 #### Scenario: Adding a format requires one entry
+
 - **WHEN** a new built-in format is added
-- **THEN** adding a single descriptor entry is sufficient for it to appear in the format registry, the read-only/text/flat classifications, and content detection
+- **THEN** adding one descriptor plus its implementation SHALL be sufficient for it to appear in detection, derived classifications, capability reporting, install hints, catalog export, and docs matrices
 
 #### Scenario: LLM metadata available on descriptor
-- **WHEN** `get_descriptor()` returns a descriptor for a format with curated LLM fields
-- **THEN** the descriptor includes `description`, `example_args`, `limitations`, and `doc_url` when set
-- **AND** unset LLM fields default to empty or None without affecting legacy derivation
+
+- **WHEN** `get_descriptor()` returns a descriptor with curated LLM fields
+- **THEN** it SHALL include `description`, `example_args`, `limitations`, and `doc_url` when set
+- **AND** unset optional LLM fields SHALL default to empty or `None` without changing other metadata
 
 ### Requirement: Backward-Compatible Derived Structures
 The system SHALL derive the existing module-level structures `DATATYPE_REGISTRY`,
@@ -92,4 +92,35 @@ LLM-oriented descriptor metadata (descriptions, limitations) and format document
 - **WHEN** a descriptor declares `writable=True`
 - **THEN** its `limitations` metadata SHALL NOT contain a read-only claim
 - **AND** the corresponding page under `docs/docs/formats/` SHALL NOT state that writing is unsupported
+
+### Requirement: Generated Metadata Consumers
+
+Legacy registries, read-only/text/flat collections, dependency hints, magic detection, capability dictionaries, catalog output, and documentation matrices SHALL be derived from descriptors and SHALL NOT maintain competing hand-written format facts.
+
+#### Scenario: Generated structures match descriptors
+
+- **WHEN** the generation/conformance check runs
+- **THEN** every exported format fact SHALL trace to its canonical descriptor
+- **AND** no alias, install extra, magic signature, or capability SHALL differ between consumers
+
+#### Scenario: Descriptor changes
+
+- **WHEN** a descriptor field changes
+- **THEN** generated outputs SHALL change deterministically
+- **AND** check mode SHALL fail until committed generated artifacts are updated
+
+### Requirement: Versioned Catalog Schema
+
+Machine-readable format catalog exports SHALL include a schema version and a documented compatibility policy.
+
+#### Scenario: Catalog is exported
+
+- **WHEN** the catalog JSON is generated
+- **THEN** it SHALL include a schema version
+- **AND** every format entry SHALL conform to the documented versioned shape
+
+#### Scenario: Incompatible catalog change
+
+- **WHEN** a field is removed or its meaning/type changes incompatibly
+- **THEN** the catalog major schema version SHALL increase
 
