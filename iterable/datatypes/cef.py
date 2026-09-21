@@ -9,6 +9,79 @@ from ..base import BaseCodec, BaseFileIterable
 from ..helpers.utils import rowincount
 from ..types import Row
 
+_CEF_HEADER_FIELDS = (
+    "cef_version",
+    "device_vendor",
+    "device_product",
+    "device_version",
+    "signature_id",
+    "name",
+    "severity",
+)
+
+
+def _split_cef_parts(line: str) -> list[str]:
+    """Split a CEF line by pipes, honoring backslash-escaped pipes."""
+    parts = []
+    current = ""
+    escape_next = False
+    for char in line:
+        if escape_next:
+            current += char
+            escape_next = False
+        elif char == "\\":
+            escape_next = True
+        elif char == "|" and not escape_next:
+            parts.append(current)
+            current = ""
+        else:
+            current += char
+    if current:
+        parts.append(current)
+    return parts
+
+
+def _unescape_cef_value(value: str) -> str:
+    """Unescape and URL-decode a CEF extension value."""
+    value = value.replace("\\=", "=").replace("\\ ", " ").replace("\\n", "\n").replace("\\r", "\r").replace("\\t", "\t")
+    # URL decode
+    try:
+        value = unquote(value)
+    except Exception:
+        pass
+    return value
+
+
+def _parse_cef_extension(extension: str, result: dict) -> None:
+    """Parse CEF extension key=value pairs into result (space-separated).
+
+    Handles escaped spaces and equals signs.
+    """
+    ext_parts = re.split(r"(?<!\\)=", extension)
+    i = 0
+    while i < len(ext_parts) - 1:
+        key = ext_parts[i].strip().replace("\\=", "=").replace("\\ ", " ")
+
+        # Find the end of this value (next space that's not escaped, or end)
+        # For simplicity, we'll split by spaces and reconstruct
+        value_parts = []
+        for j in range(i + 1, len(ext_parts)):
+            if j == i + 1:
+                value_parts.append(ext_parts[j])
+            else:
+                # Check if this starts a new key (has space before =)
+                if " " in ext_parts[j]:
+                    space_idx = ext_parts[j].index(" ")
+                    value_parts.append(ext_parts[j][:space_idx])
+                    ext_parts[j] = ext_parts[j][space_idx + 1 :]
+                    break
+                else:
+                    value_parts.append(ext_parts[j])
+
+        value = "=".join(value_parts).strip()
+        result[key] = _unescape_cef_value(value)
+        i += len(value_parts)
+
 
 class CEFIterable(BaseFileIterable):
     """
@@ -69,89 +142,18 @@ class CEFIterable(BaseFileIterable):
         if not line.startswith("CEF:"):
             return {"raw_line": line}
 
-        # Remove CEF: prefix
-        line = line[4:]
-
-        # Split by pipe, but handle escaped pipes in extension
-        parts = []
-        current = ""
-        escape_next = False
-        for char in line:
-            if escape_next:
-                current += char
-                escape_next = False
-            elif char == "\\":
-                escape_next = True
-            elif char == "|" and not escape_next:
-                parts.append(current)
-                current = ""
-            else:
-                current += char
-        if current:
-            parts.append(current)
+        # Remove CEF: prefix and split, handling escaped pipes in extension
+        parts = _split_cef_parts(line[4:])
 
         result = {}
 
         # Standard CEF fields
-        if len(parts) > 0:
-            result["cef_version"] = parts[0]
-        if len(parts) > 1:
-            result["device_vendor"] = parts[1]
-        if len(parts) > 2:
-            result["device_product"] = parts[2]
-        if len(parts) > 3:
-            result["device_version"] = parts[3]
-        if len(parts) > 4:
-            result["signature_id"] = parts[4]
-        if len(parts) > 5:
-            result["name"] = parts[5]
-        if len(parts) > 6:
-            result["severity"] = parts[6]
+        for field, value in zip(_CEF_HEADER_FIELDS, parts, strict=False):
+            result[field] = value
 
         # Parse extension (key=value pairs)
         if len(parts) > 7:
-            extension = parts[7]
-            # Parse extension fields (key=value pairs, space-separated)
-            # Handle escaped spaces and equals signs
-            ext_parts = re.split(r"(?<!\\)=", extension)
-            i = 0
-            while i < len(ext_parts) - 1:
-                key = ext_parts[i].strip().replace("\\=", "=").replace("\\ ", " ")
-                value = ext_parts[i + 1]
-
-                # Find the end of this value (next space that's not escaped, or end)
-                # For simplicity, we'll split by spaces and reconstruct
-                value_parts = []
-                for j in range(i + 1, len(ext_parts)):
-                    if j == i + 1:
-                        value_parts.append(ext_parts[j])
-                    else:
-                        # Check if this starts a new key (has space before =)
-                        if " " in ext_parts[j]:
-                            space_idx = ext_parts[j].index(" ")
-                            value_parts.append(ext_parts[j][:space_idx])
-                            ext_parts[j] = ext_parts[j][space_idx + 1 :]
-                            break
-                        else:
-                            value_parts.append(ext_parts[j])
-
-                value = "=".join(value_parts).strip()
-                # Unescape value
-                value = (
-                    value.replace("\\=", "=")
-                    .replace("\\ ", " ")
-                    .replace("\\n", "\n")
-                    .replace("\\r", "\r")
-                    .replace("\\t", "\t")
-                )
-                # URL decode
-                try:
-                    value = unquote(value)
-                except Exception:
-                    pass
-
-                result[key] = value
-                i += len(value_parts)
+            _parse_cef_extension(parts[7], result)
 
         return result
 

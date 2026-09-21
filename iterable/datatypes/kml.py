@@ -106,6 +106,62 @@ def kml_to_geojson(elem):
     return feature
 
 
+def _kml_coord_text(c):
+    """Format a coordinate tuple as a KML "lon,lat[,alt]" string."""
+    return f"{c[0]},{c[1]}" + (f",{c[2]}" if len(c) > 2 else "")
+
+
+def _add_point_geometry(placemark, ns, coords):
+    point = etree.SubElement(placemark, "{" + ns + "}Point")
+    coords_elem = etree.SubElement(point, "{" + ns + "}coordinates")
+    coords_elem.text = _kml_coord_text(coords)
+
+
+def _add_linestring_geometry(placemark, ns, coords):
+    linestring = etree.SubElement(placemark, "{" + ns + "}LineString")
+    coords_elem = etree.SubElement(linestring, "{" + ns + "}coordinates")
+    coords_elem.text = " ".join(_kml_coord_text(c) for c in coords)
+
+
+def _add_polygon_geometry(placemark, ns, coords):
+    polygon = etree.SubElement(placemark, "{" + ns + "}Polygon")
+    outer_boundary = etree.SubElement(polygon, "{" + ns + "}outerBoundaryIs")
+    linear_ring = etree.SubElement(outer_boundary, "{" + ns + "}LinearRing")
+    coords_elem = etree.SubElement(linear_ring, "{" + ns + "}coordinates")
+    outer_ring = coords[0] if isinstance(coords[0], list) and len(coords) > 0 else coords
+    coords_elem.text = " ".join(_kml_coord_text(c) for c in outer_ring)
+
+
+_KML_GEOMETRY_WRITERS = {
+    "Point": _add_point_geometry,
+    "LineString": _add_linestring_geometry,
+    "Polygon": _add_polygon_geometry,
+}
+
+
+def _add_geometry(placemark, ns, geometry):
+    """Append a KML geometry element for a GeoJSON-like geometry dict."""
+    if not geometry:
+        return
+    geom_type = geometry.get("type")
+    coords = geometry.get("coordinates", [])
+    writer = _KML_GEOMETRY_WRITERS.get(geom_type)
+    if writer is not None and coords:
+        writer(placemark, ns, coords)
+
+
+def _add_extended_data(placemark, ns, properties):
+    """Append ExtendedData elements for properties other than name/description."""
+    if not properties:
+        return
+    extended_data = etree.SubElement(placemark, "{" + ns + "}ExtendedData")
+    for key, value in properties.items():
+        if key not in ["name", "description"]:
+            data = etree.SubElement(extended_data, "{" + ns + "}Data", name=str(key))
+            value_elem = etree.SubElement(data, "{" + ns + "}value")
+            value_elem.text = str(value)
+
+
 class KMLIterable(BaseFileIterable):
     datamode = "binary"
 
@@ -201,37 +257,10 @@ class KMLIterable(BaseFileIterable):
             desc_elem.text = str(record["properties"]["description"])
 
         # Add geometry
-        geometry = record.get("geometry", {})
-        if geometry:
-            geom_type = geometry.get("type")
-            coords = geometry.get("coordinates", [])
-
-            if geom_type == "Point" and coords:
-                point = etree.SubElement(placemark, "{" + ns + "}Point")
-                coords_elem = etree.SubElement(point, "{" + ns + "}coordinates")
-                coords_elem.text = f"{coords[0]},{coords[1]}" + (f",{coords[2]}" if len(coords) > 2 else "")
-            elif geom_type == "LineString" and coords:
-                linestring = etree.SubElement(placemark, "{" + ns + "}LineString")
-                coords_elem = etree.SubElement(linestring, "{" + ns + "}coordinates")
-                coords_str = " ".join(f"{c[0]},{c[1]}" + (f",{c[2]}" if len(c) > 2 else "") for c in coords)
-                coords_elem.text = coords_str
-            elif geom_type == "Polygon" and coords:
-                polygon = etree.SubElement(placemark, "{" + ns + "}Polygon")
-                outer_boundary = etree.SubElement(polygon, "{" + ns + "}outerBoundaryIs")
-                linear_ring = etree.SubElement(outer_boundary, "{" + ns + "}LinearRing")
-                coords_elem = etree.SubElement(linear_ring, "{" + ns + "}coordinates")
-                outer_ring = coords[0] if isinstance(coords[0], list) and len(coords) > 0 else coords
-                coords_str = " ".join(f"{c[0]},{c[1]}" + (f",{c[2]}" if len(c) > 2 else "") for c in outer_ring)
-                coords_elem.text = coords_str
+        _add_geometry(placemark, ns, record.get("geometry", {}))
 
         # Add ExtendedData for other properties
-        if record.get("properties"):
-            extended_data = etree.SubElement(placemark, "{" + ns + "}ExtendedData")
-            for key, value in record["properties"].items():
-                if key not in ["name", "description"]:
-                    data = etree.SubElement(extended_data, "{" + ns + "}Data", name=str(key))
-                    value_elem = etree.SubElement(data, "{" + ns + "}value")
-                    value_elem.text = str(value)
+        _add_extended_data(placemark, ns, record.get("properties"))
 
         # Write to file
         if not hasattr(self, "root_written"):

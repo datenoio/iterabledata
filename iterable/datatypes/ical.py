@@ -21,6 +21,52 @@ from typing import Any
 from ..base import BaseCodec, BaseFileIterable
 from ..types import Row
 
+_ICALENDAR_KEY_MAP = {
+    "dtstart": "dtstart",
+    "start": "dtstart",
+    "dtend": "dtend",
+    "end": "dtend",
+    "summary": "summary",
+    "name": "summary",
+    "description": "description",
+    "location": "location",
+    "uid": "uid",
+}
+
+
+def _record_to_icalendar_event(record: Row):
+    """Build an icalendar.Event from a record dict."""
+    event = Event()
+    for key, value in record.items():
+        prop = _ICALENDAR_KEY_MAP.get(key.lower(), key.upper())
+        event.add(prop, value)
+    return event
+
+
+def _parse_ics_datetime(dt_str: str):
+    """Parse an ISO datetime string for the ics library."""
+    from datetime import datetime
+
+    return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+
+
+def _record_to_ics_event(record: Row):
+    """Build an ics.Event from a record dict."""
+    event = ics.Event()
+    if "name" in record or "summary" in record:
+        event.name = record.get("name") or record.get("summary")
+    if "begin" in record or "dtstart" in record or "start" in record:
+        dt_str = record.get("begin") or record.get("dtstart") or record.get("start")
+        event.begin = _parse_ics_datetime(dt_str)
+    if "end" in record or "dtend" in record:
+        dt_str = record.get("end") or record.get("dtend")
+        event.end = _parse_ics_datetime(dt_str)
+    if "description" in record:
+        event.description = record["description"]
+    if "location" in record:
+        event.location = record["location"]
+    return event
+
 
 class ICALIterable(BaseFileIterable):
     def __init__(
@@ -108,48 +154,13 @@ class ICALIterable(BaseFileIterable):
     def write(self, record: Row) -> None:
         """Write single iCal record"""
         if HAS_ICALENDAR:
-            event = Event()
-            for key, value in record.items():
-                if key.lower() == "dtstart" or key.lower() == "start":
-                    event.add("dtstart", value)
-                elif key.lower() == "dtend" or key.lower() == "end":
-                    event.add("dtend", value)
-                elif key.lower() == "summary" or key.lower() == "name":
-                    event.add("summary", value)
-                elif key.lower() == "description":
-                    event.add("description", value)
-                elif key.lower() == "location":
-                    event.add("location", value)
-                elif key.lower() == "uid":
-                    event.add("uid", value)
-                else:
-                    event.add(key.upper(), value)
-
             cal = Calendar()
-            cal.add_component(event)
+            cal.add_component(_record_to_icalendar_event(record))
             self.fobj.write(cal.to_ical().decode("utf-8"))
         else:
             # ics library
-            event = ics.Event()
-            if "name" in record or "summary" in record:
-                event.name = record.get("name") or record.get("summary")
-            if "begin" in record or "dtstart" in record or "start" in record:
-                from datetime import datetime
-
-                dt_str = record.get("begin") or record.get("dtstart") or record.get("start")
-                event.begin = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-            if "end" in record or "dtend" in record:
-                from datetime import datetime
-
-                dt_str = record.get("end") or record.get("dtend")
-                event.end = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-            if "description" in record:
-                event.description = record["description"]
-            if "location" in record:
-                event.location = record["location"]
-
             cal = ics.Calendar()
-            cal.events.add(event)
+            cal.events.add(_record_to_ics_event(record))
             self.fobj.write(str(cal))
 
     def write_bulk(self, records: list[Row]) -> None:
@@ -157,43 +168,10 @@ class ICALIterable(BaseFileIterable):
         if HAS_ICALENDAR:
             cal = Calendar()
             for record in records:
-                event = Event()
-                for key, value in record.items():
-                    if key.lower() == "dtstart" or key.lower() == "start":
-                        event.add("dtstart", value)
-                    elif key.lower() == "dtend" or key.lower() == "end":
-                        event.add("dtend", value)
-                    elif key.lower() == "summary" or key.lower() == "name":
-                        event.add("summary", value)
-                    elif key.lower() == "description":
-                        event.add("description", value)
-                    elif key.lower() == "location":
-                        event.add("location", value)
-                    elif key.lower() == "uid":
-                        event.add("uid", value)
-                    else:
-                        event.add(key.upper(), value)
-                cal.add_component(event)
+                cal.add_component(_record_to_icalendar_event(record))
             self.fobj.write(cal.to_ical().decode("utf-8"))
         else:
             cal = ics.Calendar()
             for record in records:
-                event = ics.Event()
-                if "name" in record or "summary" in record:
-                    event.name = record.get("name") or record.get("summary")
-                if "begin" in record or "dtstart" in record or "start" in record:
-                    from datetime import datetime
-
-                    dt_str = record.get("begin") or record.get("dtstart") or record.get("start")
-                    event.begin = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-                if "end" in record or "dtend" in record:
-                    from datetime import datetime
-
-                    dt_str = record.get("end") or record.get("dtend")
-                    event.end = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-                if "description" in record:
-                    event.description = record["description"]
-                if "location" in record:
-                    event.location = record["location"]
-                cal.events.add(event)
+                cal.events.add(_record_to_ics_event(record))
             self.fobj.write(str(cal))

@@ -137,47 +137,42 @@ def _normalize_field_type(raw: str) -> str:
     return _TYPE_ALIASES[key]
 
 
-def normalize_schema(schema: Any) -> list[tuple[str, str]]:
-    """Normalize a user-supplied schema into ``[(name, type), ...]``."""
-    if schema is None:
-        raise ValueError(
-            "Paimon Row reads require an explicit schema via iterableargs={'schema': ...}. "
-            "The .row format does not embed schema metadata."
-        )
-    if hasattr(schema, "names") and hasattr(schema, "types"):
-        # pyarrow.Schema
-        out: list[tuple[str, str]] = []
-        for name, typ in zip(schema.names, schema.types, strict=True):
-            type_name = str(typ).lower()
-            if type_name.startswith("timestamp"):
-                type_name = "bigint"
-            elif type_name in {"string", "utf8", "large_string"}:
-                type_name = "string"
-            elif type_name in {"binary", "large_binary"}:
-                type_name = "binary"
-            elif type_name.startswith("int64") or type_name == "int64":
-                type_name = "bigint"
-            elif type_name.startswith("int32"):
-                type_name = "int"
-            elif type_name.startswith("int16"):
-                type_name = "smallint"
-            elif type_name.startswith("int8"):
-                type_name = "tinyint"
-            elif type_name == "bool" or type_name == "boolean":
-                type_name = "boolean"
-            elif type_name.startswith("float64") or type_name == "double":
-                type_name = "double"
-            elif type_name.startswith("float32") or type_name == "float":
-                type_name = "float"
-            out.append((name, _normalize_field_type(type_name)))
-        return out
-    if isinstance(schema, dict):
-        return [(str(k), _normalize_field_type(str(v))) for k, v in schema.items()]
-    if not isinstance(schema, (list, tuple)) or not schema:
-        raise ValueError(
-            "schema must be a non-empty list of (name, type) pairs, a name->type mapping, or a pyarrow.Schema"
-        )
-    out = []
+def _arrow_type_to_paimon(type_name: str) -> str:
+    """Map a lowercased pyarrow type string to a Paimon Row type alias key."""
+    if type_name.startswith("timestamp"):
+        return "bigint"
+    if type_name in {"string", "utf8", "large_string"}:
+        return "string"
+    if type_name in {"binary", "large_binary"}:
+        return "binary"
+    if type_name.startswith("int64"):
+        return "bigint"
+    if type_name.startswith("int32"):
+        return "int"
+    if type_name.startswith("int16"):
+        return "smallint"
+    if type_name.startswith("int8"):
+        return "tinyint"
+    if type_name in {"bool", "boolean"}:
+        return "boolean"
+    if type_name.startswith("float64") or type_name == "double":
+        return "double"
+    if type_name.startswith("float32") or type_name == "float":
+        return "float"
+    return type_name
+
+
+def _schema_from_arrow(schema: Any) -> list[tuple[str, str]]:
+    """Normalize a pyarrow.Schema-like object into ``[(name, type), ...]``."""
+    out: list[tuple[str, str]] = []
+    for name, typ in zip(schema.names, schema.types, strict=True):
+        out.append((name, _normalize_field_type(_arrow_type_to_paimon(str(typ).lower()))))
+    return out
+
+
+def _schema_from_pairs(schema: Any) -> list[tuple[str, str]]:
+    """Normalize a list of ``(name, type)`` pairs or ``{'name', 'type'}`` dicts."""
+    out: list[tuple[str, str]] = []
     for item in schema:
         if isinstance(item, dict):
             name = item.get("name")
@@ -190,6 +185,25 @@ def normalize_schema(schema: Any) -> list[tuple[str, str]]:
         else:
             raise ValueError("schema entries must be (name, type) pairs or {'name','type'} dicts")
     return out
+
+
+def normalize_schema(schema: Any) -> list[tuple[str, str]]:
+    """Normalize a user-supplied schema into ``[(name, type), ...]``."""
+    if schema is None:
+        raise ValueError(
+            "Paimon Row reads require an explicit schema via iterableargs={'schema': ...}. "
+            "The .row format does not embed schema metadata."
+        )
+    if hasattr(schema, "names") and hasattr(schema, "types"):
+        # pyarrow.Schema
+        return _schema_from_arrow(schema)
+    if isinstance(schema, dict):
+        return [(str(k), _normalize_field_type(str(v))) for k, v in schema.items()]
+    if not isinstance(schema, (list, tuple)) or not schema:
+        raise ValueError(
+            "schema must be a non-empty list of (name, type) pairs, a name->type mapping, or a pyarrow.Schema"
+        )
+    return _schema_from_pairs(schema)
 
 
 def _null_bitmap_size(arity: int) -> int:

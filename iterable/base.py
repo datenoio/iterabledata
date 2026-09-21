@@ -573,6 +573,92 @@ class BaseFileIterable(BaseIterable):
         else:
             raise NotImplementedError
 
+    def _reset_file_source(self) -> None:
+        """Seek a file-based source back to the beginning."""
+        if self.fobj is None:
+            return
+        # Check if file object is seekable before attempting to seek
+        if hasattr(self.fobj, "seekable") and not self.fobj.seekable():
+            raise ReadError(
+                f"Cannot reset: file '{self.filename}' is not seekable (e.g., stdin, network stream)",
+                filename=self.filename,
+                error_code="STREAM_NOT_SEEKABLE",
+            )
+        try:
+            self.fobj.seek(0)
+        except (OSError, AttributeError) as e:
+            raise ReadError(
+                f"Cannot reset: failed to seek to beginning of file '{self.filename}': {str(e)}",
+                filename=self.filename,
+                error_code="SEEK_FAILED",
+            ) from e
+
+    def _reset_stream_source(self) -> bool:
+        """Seek a stream-based source back to the beginning.
+
+        Returns False when the reset should stop early (fresh non-seekable
+        stream already positioned at the start), True otherwise.
+        """
+        if self.fobj is None:
+            return True
+        # Check if stream is seekable
+        if hasattr(self.fobj, "seekable") and not self.fobj.seekable():
+            # A fresh stream positioned at the start needs no rewind (this
+            # happens during initial setup), so allow it; only reject an
+            # actual reset that would require seeking backwards.
+            try:
+                at_start = self.fobj.tell() == 0
+            except (OSError, ValueError):
+                at_start = False
+            if at_start:
+                return False
+            raise ReadError(
+                "Cannot reset: stream is not seekable (e.g., stdin, network stream)",
+                filename=getattr(self, "filename", None),
+                error_code="STREAM_NOT_SEEKABLE",
+            )
+        try:
+            self.fobj.seek(0)
+        except (OSError, AttributeError) as e:
+            raise ReadError(
+                f"Cannot reset: failed to seek to beginning of stream: {str(e)}",
+                filename=getattr(self, "filename", None),
+                error_code="SEEK_FAILED",
+            ) from e
+        return True
+
+    def _reset_codec_source(self) -> None:
+        """Reset a codec-based source and recreate the file object."""
+        if self.fobj is None or self.mode in ["w", "wb"]:
+            return
+        # Close any existing wrapper to avoid leaks and ensure buffers are flushed.
+        # Only suppress expected exceptions (already closed, etc.)
+        try:
+            self.fobj.close()
+        except (OSError, ValueError, AttributeError):
+            # These are expected when file is already closed or invalid
+            # Log but don't fail - we're about to recreate the fileobj anyway
+            pass
+        except Exception as e:
+            # Unexpected exceptions should be raised
+            raise ReadError(
+                f"Cannot reset: unexpected error closing codec wrapper: {str(e)}",
+                filename=self.filename,
+                error_code="RESET_FAILED",
+            ) from e
+        if self.codec is not None:
+            try:
+                self.codec.reset()
+                self.fobj = self.codec.fileobj()
+                if self.datamode == "text":
+                    self.fobj = self.codec.textIO(encoding=self.encoding)
+            except Exception as e:
+                raise ReadError(
+                    f"Cannot reset: failed to reset codec: {str(e)}",
+                    filename=self.filename,
+                    error_code="CODEC_RESET_FAILED",
+                ) from e
+
     def reset(self) -> None:
         """Reset file using seek(0).
 
@@ -590,77 +676,12 @@ class BaseFileIterable(BaseIterable):
             file_io_logger.debug(f"Resetting file: {getattr(self, 'filename', 'stream/codec')}")
 
         if self.stype == ITERABLE_TYPE_FILE:
-            if self.fobj is not None:
-                # Check if file object is seekable before attempting to seek
-                if hasattr(self.fobj, "seekable") and not self.fobj.seekable():
-                    raise ReadError(
-                        f"Cannot reset: file '{self.filename}' is not seekable (e.g., stdin, network stream)",
-                        filename=self.filename,
-                        error_code="STREAM_NOT_SEEKABLE",
-                    )
-                try:
-                    self.fobj.seek(0)
-                except (OSError, AttributeError) as e:
-                    raise ReadError(
-                        f"Cannot reset: failed to seek to beginning of file '{self.filename}': {str(e)}",
-                        filename=self.filename,
-                        error_code="SEEK_FAILED",
-                    ) from e
+            self._reset_file_source()
         elif self.stype == ITERABLE_TYPE_STREAM:
-            if self.fobj is not None:
-                # Check if stream is seekable
-                if hasattr(self.fobj, "seekable") and not self.fobj.seekable():
-                    # A fresh stream positioned at the start needs no rewind (this
-                    # happens during initial setup), so allow it; only reject an
-                    # actual reset that would require seeking backwards.
-                    try:
-                        at_start = self.fobj.tell() == 0
-                    except (OSError, ValueError):
-                        at_start = False
-                    if at_start:
-                        return
-                    raise ReadError(
-                        "Cannot reset: stream is not seekable (e.g., stdin, network stream)",
-                        filename=getattr(self, "filename", None),
-                        error_code="STREAM_NOT_SEEKABLE",
-                    )
-                try:
-                    self.fobj.seek(0)
-                except (OSError, AttributeError) as e:
-                    raise ReadError(
-                        f"Cannot reset: failed to seek to beginning of stream: {str(e)}",
-                        filename=getattr(self, "filename", None),
-                        error_code="SEEK_FAILED",
-                    ) from e
+            if not self._reset_stream_source():
+                return
         elif self.stype == ITERABLE_TYPE_CODEC:
-            if self.fobj is not None and self.mode not in ["w", "wb"]:
-                # Close any existing wrapper to avoid leaks and ensure buffers are flushed.
-                # Only suppress expected exceptions (already closed, etc.)
-                try:
-                    self.fobj.close()
-                except (OSError, ValueError, AttributeError):
-                    # These are expected when file is already closed or invalid
-                    # Log but don't fail - we're about to recreate the fileobj anyway
-                    pass
-                except Exception as e:
-                    # Unexpected exceptions should be raised
-                    raise ReadError(
-                        f"Cannot reset: unexpected error closing codec wrapper: {str(e)}",
-                        filename=self.filename,
-                        error_code="RESET_FAILED",
-                    ) from e
-                if self.codec is not None:
-                    try:
-                        self.codec.reset()
-                        self.fobj = self.codec.fileobj()
-                        if self.datamode == "text":
-                            self.fobj = self.codec.textIO(encoding=self.encoding)
-                    except Exception as e:
-                        raise ReadError(
-                            f"Cannot reset: failed to reset codec: {str(e)}",
-                            filename=self.filename,
-                            error_code="CODEC_RESET_FAILED",
-                        ) from e
+            self._reset_codec_source()
 
         # Clear read-ahead buffer if it exists
         if self._read_ahead_buffer is not None:

@@ -48,6 +48,54 @@ def shape_to_geojson(shape_record, shape_obj):
     return feature
 
 
+def _shape_type_for_geometry(geom_type):
+    """Map a GeoJSON geometry type to a shapefile shape type (default POINT)."""
+    if geom_type == "LineString":
+        return shapefile.POLYLINE
+    if geom_type == "Polygon":
+        return shapefile.POLYGON
+    if geom_type == "MultiPoint":
+        return shapefile.MULTIPOINT
+    return shapefile.POINT
+
+
+def _field_defs(properties):
+    """Build shapefile field definitions from a properties dict."""
+    fields = []
+    for key, value in properties.items():
+        # Determine field type
+        if isinstance(value, int):
+            field_type = "N"
+            field_length = 10
+        elif isinstance(value, float):
+            field_type = "F"
+            field_length = 19
+        else:
+            field_type = "C"
+            field_length = 254
+
+        field_def = [key, field_type, field_length]
+        if field_type == "F":
+            field_def.append(10)  # decimal places
+        fields.append(field_def)
+    return fields
+
+
+def _extract_shape_coords(geometry):
+    """Convert a GeoJSON-like geometry dict to shapefile coordinates."""
+    geom_type = geometry.get("type")
+    coords = geometry.get("coordinates", [])
+
+    if geom_type == "Polygon":
+        # Polygon coordinates are nested
+        if isinstance(coords[0], list) and isinstance(coords[0][0], list):
+            return geom_type, coords[0]  # Outer ring
+        return geom_type, coords
+    if geom_type in ("Point", "LineString", "MultiPoint"):
+        return geom_type, coords
+    return geom_type, []
+
+
 class ShapefileIterable(BaseFileIterable):
     """Esri Shapefile reader.
 
@@ -142,6 +190,42 @@ class ShapefileIterable(BaseFileIterable):
         self.pos += 1
         return feature
 
+    def _init_writer(self, record: Row) -> None:
+        """Initialize the shapefile writer using the first record's schema."""
+        # Determine shape type from first record
+        geometry = record.get("geometry", {})
+        geom_type = geometry.get("type") if geometry else None
+        shape_type = _shape_type_for_geometry(geom_type)
+
+        # Get field names from properties
+        properties = record.get("properties", {})
+
+        # Create writer
+        base_name = self.filename.rsplit(".", 1)[0]
+        self.writer = shapefile.Writer(base_name, shapeType=shape_type)
+
+        # Store field names for later use
+        self.field_names = list(properties.keys())
+
+        # Add field definitions
+        for field in _field_defs(properties):
+            self.writer.field(*field)
+
+        self.writer_initialized = True
+
+    def _write_geometry(self, geom_type, shape_coords) -> None:
+        """Write the geometry part of a feature to the shapefile writer."""
+        if not shape_coords:
+            return
+        if geom_type == "Point":
+            self.writer.point(*shape_coords)
+        elif geom_type == "LineString":
+            self.writer.line([shape_coords])
+        elif geom_type == "Polygon":
+            self.writer.poly([shape_coords])
+        elif geom_type == "MultiPoint":
+            self.writer.multipoint(shape_coords)
+
     def write(self, record: Row) -> None:
         """Write single shapefile feature"""
         if not HAS_SHAPEFILE:
@@ -149,83 +233,15 @@ class ShapefileIterable(BaseFileIterable):
 
         # Initialize writer on first write
         if not hasattr(self, "writer_initialized") or not self.writer_initialized:
-            # Determine shape type from first record
-            geometry = record.get("geometry", {})
-            geom_type = geometry.get("type") if geometry else None
-
-            shape_type = shapefile.POINT  # default
-            if geom_type == "LineString":
-                shape_type = shapefile.POLYLINE
-            elif geom_type == "Polygon":
-                shape_type = shapefile.POLYGON
-            elif geom_type == "MultiPoint":
-                shape_type = shapefile.MULTIPOINT
-
-            # Get field names from properties
-            properties = record.get("properties", {})
-            fields = []
-            for key, value in properties.items():
-                # Determine field type
-                if isinstance(value, int):
-                    field_type = "N"
-                    field_length = 10
-                elif isinstance(value, float):
-                    field_type = "F"
-                    field_length = 19
-                else:
-                    field_type = "C"
-                    field_length = 254
-
-                field_def = [key, field_type, field_length]
-                if field_type == "F":
-                    field_def.append(10)  # decimal places
-                fields.append(field_def)
-
-            # Create writer
-            base_name = self.filename.rsplit(".", 1)[0]
-            self.writer = shapefile.Writer(base_name, shapeType=shape_type)
-
-            # Store field names for later use
-            self.field_names = list(properties.keys())
-
-            # Add field definitions
-            for field in fields:
-                self.writer.field(*field)
-
-            self.writer_initialized = True
+            self._init_writer(record)
 
         # Extract geometry and properties
         geometry = record.get("geometry", {})
         properties = record.get("properties", {})
 
-        # Convert geometry to shapefile format
-        geom_type = geometry.get("type")
-        coords = geometry.get("coordinates", [])
-
-        shape_coords = []
-        if geom_type == "Point":
-            shape_coords = coords
-        elif geom_type == "LineString":
-            shape_coords = coords
-        elif geom_type == "Polygon":
-            # Polygon coordinates are nested
-            if isinstance(coords[0], list) and isinstance(coords[0][0], list):
-                shape_coords = coords[0]  # Outer ring
-            else:
-                shape_coords = coords
-        elif geom_type == "MultiPoint":
-            shape_coords = coords
-
-        # Write record
-        if shape_coords:
-            if geom_type == "Point":
-                self.writer.point(*shape_coords)
-            elif geom_type == "LineString":
-                self.writer.line([shape_coords])
-            elif geom_type == "Polygon":
-                self.writer.poly([shape_coords])
-            elif geom_type == "MultiPoint":
-                self.writer.multipoint(shape_coords)
+        # Convert geometry to shapefile format and write it
+        geom_type, shape_coords = _extract_shape_coords(geometry)
+        self._write_geometry(geom_type, shape_coords)
 
         # Write attributes
         if hasattr(self, "field_names"):
