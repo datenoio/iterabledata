@@ -14,6 +14,7 @@ except ImportError:
 from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
+from ..convert.batch import BatchSelection, chunk_rows, resolve_row_window, select_rows, to_pyarrow_expression
 from ..exceptions import ReadError, WriteNotSupportedError
 from ..helpers.lakehouse_write import infer_arrow_schema, records_to_arrow_table
 from ..types import Row
@@ -30,6 +31,7 @@ class DeltaIterable(BaseFileIterable):
     """
 
     datamode = "binary"
+    supports_native_batch = False
 
     def __init__(
         self,
@@ -54,6 +56,9 @@ class DeltaIterable(BaseFileIterable):
         self._buffer: list[Row] = []
         self._arrow_schema = options.pop("schema", None)
         self._wrote_once = False
+        # Native batches (pyarrow dataset scanner pushdown) are available
+        # whenever the deltalake backend is importable.
+        self.supports_native_batch = HAS_DELTALAKE
         super().__init__(filename, stream, codec=codec, binary=True, mode=mode, noopen=True, options=options)
         self.reset()
 
@@ -132,6 +137,49 @@ class DeltaIterable(BaseFileIterable):
         row = next(self.iterator)
         self.pos += 1
         return row
+
+    def read_batches(self, selection: BatchSelection | None = None):
+        """Yield Delta table batches with projection/filter pushdown.
+
+        Column projection and structured predicates are pushed to the
+        PyArrow dataset scanner backing the Delta table (requires
+        ``deltalake>=0.15`` with ``pyarrow``). Row windows and slice steps
+        are applied after the scan with row-fallback-identical semantics.
+        """
+        selection = selection or BatchSelection()
+        if selection.table is not None:
+            raise NotImplementedError("Delta native batches do not support table selection")
+        if self.dataset is None:
+            return
+        start, stop, step = resolve_row_window(selection)
+        target = selection.batch_size or self.batch_size
+        scan_kwargs: dict[str, Any] = {
+            "batch_size": target,
+            # Deterministic data-file order keeps results identical to the
+            # sequential row path.
+            "use_threads": False,
+        }
+        if selection.columns is not None:
+            scan_kwargs["columns"] = list(selection.columns)
+        if selection.predicate is not None:
+            scan_kwargs["filter"] = to_pyarrow_expression(selection.predicate)
+        scanner = self.dataset.scanner(**scan_kwargs)
+
+        def rows():
+            for batch in scanner.to_batches():
+                yield from batch.to_pylist()
+
+        window = BatchSelection(row_range=(start, stop) if start or stop is not None else None)
+        if step != 1:
+            window = BatchSelection(slice=(start, stop, step))
+
+        for chunk in chunk_rows(select_rows(rows(), window), target):
+            self.pos += len(chunk)
+            yield chunk
+
+    def write_batch(self, records: list[Row]) -> None:
+        """Native batch writer hook used by columnar conversion."""
+        self.write_bulk(records)
 
     def _flush_buffer(self) -> None:
         if not self._buffer:

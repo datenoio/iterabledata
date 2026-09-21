@@ -12,12 +12,16 @@ except ImportError:
 from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
+from ..convert.batch import BatchSelection, chunk_rows, resolve_row_window
 from ..exceptions import FormatNotSupportedError, ReadError, WriteError, WriteNotSupportedError
 from ..types import Row
+
+DEFAULT_BATCH_SIZE = 1024
 
 
 class HDF5Iterable(BaseFileIterable):
     datamode = "binary"
+    supports_native_batch = True
 
     def __init__(
         self,
@@ -173,6 +177,73 @@ class HDF5Iterable(BaseFileIterable):
         row = next(self.iterator)
         self.pos += 1
         return row
+
+    def read_batches(self, selection: BatchSelection | None = None):
+        """Yield HDF5 row batches with dataset/slice/column pushdown.
+
+        Pushdown mapping:
+        - ``table``: selects the dataset path inside the file (equivalent
+          to the ``dataset_path`` option).
+        - ``slice`` / ``row_range``: native HDF5 hyperslab slicing,
+          including the slice step.
+        - ``columns``: for structured datasets, restricts the emitted
+          fields. h5py only supports single-field selection natively, so
+          multi-column projection is applied after the (already pushed)
+          slice; results are identical.
+        - ``predicate``: not supported; raises :exc:`NotImplementedError`
+          so the documented row fallback applies it row-wise.
+        """
+        selection = selection or BatchSelection()
+        if selection.predicate is not None:
+            raise NotImplementedError("HDF5 native batches do not support predicates")
+        dataset = self._select_dataset(selection.table)
+        start, stop, step = resolve_row_window(selection)
+        target = selection.batch_size or DEFAULT_BATCH_SIZE
+        if len(dataset.shape) not in (1, 2):
+            raise FormatNotSupportedError(
+                "hdf5",
+                "HDF5 dataset must be 1D or 2D for iteration",
+            )
+        block = dataset[start:stop:step]
+
+        def rows():
+            if len(dataset.shape) == 1:
+                name = dataset.name.split("/")[-1]
+                for value in block:
+                    yield {name: value}
+            elif hasattr(dataset, "dtype") and dataset.dtype.names:
+                names = list(dataset.dtype.names)
+                for record in block:
+                    row = {name: record[name] for name in names}
+                    if selection.columns is not None:
+                        row = {name: row.get(name) for name in selection.columns}
+                    yield row
+            else:
+                width = dataset.shape[1]
+                for record in block:
+                    row = {f"col_{j}": record[j] for j in range(width)}
+                    if selection.columns is not None:
+                        row = {name: row.get(name) for name in selection.columns}
+                    yield row
+
+        for chunk in chunk_rows(rows(), target):
+            self.pos += len(chunk)
+            yield chunk
+
+    def _select_dataset(self, table: str | None):
+        """Return the dataset for a table (dataset path) selection."""
+        if table is None or table == self.dataset_path:
+            return self.dataset
+        if table in self.h5file:
+            return self.h5file[table]
+        raise FormatNotSupportedError(
+            "hdf5",
+            f"Dataset path '{table}' not found in HDF5 file",
+        )
+
+    def write_batch(self, records: list[Row]) -> None:
+        """Native batch writer hook used by columnar conversion."""
+        self.write_bulk(records)
 
     def write(self, record: Row) -> None:
         """Write single HDF5 record"""

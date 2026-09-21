@@ -14,11 +14,15 @@ except ImportError:
 from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
+from ..convert.batch import BatchSelection, chunk_rows, resolve_row_window
 from ..exceptions import ReadError, WriteNotSupportedError
+
+DEFAULT_BATCH_SIZE = 1024
 
 
 class NetCDFIterable(BaseFileIterable):
     datamode = "binary"
+    supports_native_batch = True
 
     def __init__(
         self,
@@ -229,3 +233,116 @@ class NetCDFIterable(BaseFileIterable):
         row = next(self.iterator)
         self.pos += 1
         return row
+
+    def _resolve_target_dim_name(self, dims) -> str | None:
+        """Resolve the iteration dimension (explicit option, unlimited, first)."""
+        target_dim_name = self.options.get("dimension")
+        if not target_dim_name:
+            for name, dim in dims.items():
+                if dim.isunlimited():
+                    target_dim_name = name
+                    break
+        if not target_dim_name and len(dims) > 0:
+            target_dim_name = list(dims.keys())[0]
+        return target_dim_name
+
+    @staticmethod
+    def _convert_sliced_value(val):
+        """Convert a per-index value exactly like the row iterator does."""
+        if np.ma.is_masked(val):
+            return None
+        if isinstance(val, np.generic):
+            return val.item()
+        if isinstance(val, bytes):
+            return val.decode("utf-8", "ignore")
+        return val
+
+    @staticmethod
+    def _convert_static_value(val):
+        """Convert a non-sliced variable value exactly like the row iterator."""
+        if np.ma.is_masked(val):
+            return None if val.size == 1 else val.tolist()
+        if isinstance(val, np.generic):
+            val = val.item()
+        if hasattr(val, "decode"):
+            val = val.decode("utf-8", "ignore")
+        return val
+
+    def read_batches(self, selection: BatchSelection | None = None):
+        """Yield NetCDF row batches with variable/group/slice pushdown.
+
+        Pushdown mapping:
+        - ``table``: selects a group inside the dataset (variables and
+          dimensions resolve within that group).
+        - ``columns``: restricts the variables read from the file
+          (variable pushdown; unselected variables are never loaded).
+        - ``slice`` / ``row_range``: native strided slicing along the
+          iteration dimension, including the slice step.
+        - ``predicate``: not supported; raises :exc:`NotImplementedError`
+          so the documented row fallback applies it row-wise.
+        """
+        selection = selection or BatchSelection()
+        if selection.predicate is not None:
+            raise NotImplementedError("NetCDF native batches do not support predicates")
+
+        container = self.nc_dataset
+        if selection.table is not None:
+            if selection.table not in self.nc_dataset.groups:
+                raise ValueError(
+                    f"Group '{selection.table}' not found in NetCDF file. "
+                    f"Available: {list(self.nc_dataset.groups.keys())}"
+                )
+            container = self.nc_dataset.groups[selection.table]
+
+        dims = container.dimensions
+        variables = container.variables
+        if selection.columns is not None:
+            wanted = set(selection.columns)
+            variables = {name: var for name, var in variables.items() if name in wanted}
+        target = selection.batch_size or DEFAULT_BATCH_SIZE
+
+        if not dims:
+            # No dimensions: emit one record with the (selected) variables.
+            if variables:
+                yield [{name: self._convert_static_value(var[:]) for name, var in variables.items()}]
+            return
+
+        target_dim_name = self._resolve_target_dim_name(dims)
+        if not target_dim_name:
+            return
+        start, stop, step = resolve_row_window(selection)
+
+        sliced_vars = []
+        other_vars = []
+        for name, var in variables.items():
+            if target_dim_name in var.dimensions:
+                sliced_vars.append((name, var, var.dimensions.index(target_dim_name)))
+            else:
+                other_vars.append((name, var))
+
+        # Push the strided slice down to each variable read (one block read
+        # per variable instead of one read per row).
+        blocks = []
+        for name, var, axis_idx in sliced_vars:
+            slicer = [slice(None)] * var.ndim
+            slicer[axis_idx] = slice(start, stop, step)
+            blocks.append((name, var[tuple(slicer)], axis_idx))
+        static = [(name, self._convert_static_value(var[:])) for name, var in other_vars]
+
+        size = dims[target_dim_name].size
+        indices = list(range(size))[start:stop:step]
+
+        def rows():
+            for k in range(len(indices)):
+                record = {}
+                for name, block, axis_idx in blocks:
+                    slicer = [slice(None)] * block.ndim
+                    slicer[axis_idx] = k
+                    record[name] = self._convert_sliced_value(block[tuple(slicer)])
+                for name, val in static:
+                    record[name] = val
+                yield record
+
+        for chunk in chunk_rows(rows(), target):
+            self.pos += len(chunk)
+            yield chunk

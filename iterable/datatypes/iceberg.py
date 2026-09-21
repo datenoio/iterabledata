@@ -24,6 +24,7 @@ except ImportError:
 from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
+from ..convert.batch import BatchSelection, chunk_rows, normalize_predicate, resolve_row_window, select_rows
 from ..exceptions import ReadError, WriteNotSupportedError
 from ..helpers.lakehouse_write import infer_arrow_schema, records_to_arrow_table
 from ..types import Row
@@ -49,6 +50,44 @@ def _arrow_to_iceberg_schema(arrow_schema: Any) -> Any:
     return IcebergSchema(*fields)
 
 
+def _to_iceberg_filter(predicate: Any) -> Any:
+    """Translate a structured predicate into a PyIceberg row filter.
+
+    Plain strings and PyIceberg boolean expressions pass through unchanged
+    (trusted raw API). Other raw expressions raise
+    :exc:`NotImplementedError` so the documented row fallback applies.
+    """
+    if predicate is None:
+        return None
+    from pyiceberg.expressions import (
+        And,
+        BooleanExpression,
+        EqualTo,
+        GreaterThan,
+        GreaterThanOrEqual,
+        LessThan,
+        LessThanOrEqual,
+        NotEqualTo,
+    )
+
+    if isinstance(predicate, (str, BooleanExpression)):
+        return predicate
+    comparisons = normalize_predicate(predicate)
+    ops = {
+        "==": EqualTo,
+        "!=": NotEqualTo,
+        "<": LessThan,
+        "<=": LessThanOrEqual,
+        ">": GreaterThan,
+        ">=": GreaterThanOrEqual,
+    }
+    expression = None
+    for field, op, value in comparisons or ():
+        term = ops[op](field, value)
+        expression = term if expression is None else And(expression, term)
+    return expression
+
+
 class IcebergIterable(BaseFileIterable):
     """Apache Iceberg table reader/writer.
 
@@ -58,6 +97,7 @@ class IcebergIterable(BaseFileIterable):
     """
 
     datamode = "binary"
+    supports_native_batch = False
 
     def __init__(
         self,
@@ -110,6 +150,9 @@ class IcebergIterable(BaseFileIterable):
         self.scan_result = None
         self.iterator = None
         self._catalog = None
+        # Native batches (scan projection/filter pushdown) are available
+        # whenever the pyiceberg backend is importable.
+        self.supports_native_batch = HAS_PYICEBERG
         self.reset()
 
     def _load_catalog(self):
@@ -218,6 +261,50 @@ class IcebergIterable(BaseFileIterable):
             return row
         except (StopIteration, EOFError, ValueError):
             raise StopIteration from None
+
+    def read_batches(self, selection: BatchSelection | None = None):
+        """Yield Iceberg scan batches with projection/filter pushdown.
+
+        Column projection maps to ``selected_fields`` and structured
+        predicates to PyIceberg row filters (requires ``pyiceberg>=0.5``).
+        A limit is pushed when the window starts at zero with no step;
+        remaining offset/step semantics are applied after the scan,
+        identical to the row fallback.
+        """
+        selection = selection or BatchSelection()
+        if selection.table is not None:
+            raise NotImplementedError("Iceberg native batches do not support table selection")
+        if self.table is None:
+            return
+        start, stop, step = resolve_row_window(selection)
+        target = selection.batch_size or self.batch_size
+        scan_kwargs: dict[str, Any] = {}
+        if selection.columns is not None:
+            scan_kwargs["selected_fields"] = tuple(selection.columns)
+        if selection.predicate is not None:
+            scan_kwargs["row_filter"] = _to_iceberg_filter(selection.predicate)
+        if start == 0 and step == 1 and stop is not None:
+            scan_kwargs["limit"] = stop
+        scan = self.table.scan(**scan_kwargs)
+
+        def rows():
+            if hasattr(scan, "to_arrow_batch_reader"):
+                for batch in scan.to_arrow_batch_reader():
+                    yield from batch.to_pylist()
+            else:
+                yield from scan.to_arrow().to_pylist()
+
+        window = BatchSelection(row_range=(start, stop) if start or stop is not None else None)
+        if step != 1:
+            window = BatchSelection(slice=(start, stop, step))
+
+        for chunk in chunk_rows(select_rows(rows(), window), target):
+            self.pos += len(chunk)
+            yield chunk
+
+    def write_batch(self, records: list[Row]) -> None:
+        """Native batch writer hook used by columnar conversion."""
+        self.write_bulk(records)
 
     def _ensure_table_for_write(self, records: list[Row]) -> None:
         if self.table is not None:

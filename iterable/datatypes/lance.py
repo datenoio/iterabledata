@@ -14,6 +14,7 @@ except ImportError:
 from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
+from ..convert.batch import BatchSelection, chunk_rows, resolve_row_window, select_rows, to_sql_filter
 from ..types import Row
 
 DEFAULT_BATCH_SIZE = 1024
@@ -47,6 +48,7 @@ class LanceIterable(BaseFileIterable):
     """
 
     datamode = "binary"
+    supports_native_batch = False
 
     def __init__(
         self,
@@ -65,6 +67,9 @@ class LanceIterable(BaseFileIterable):
         self.write_mode = write_mode  # 'create', 'overwrite', or 'append'
         self.__buffer = []
         self.is_data_written = False
+        # Native batches (scanner projection/filter pushdown) require the
+        # genuine Lance library; this is always true after _require_lance().
+        self.supports_native_batch = True
         # Lance datasets are directory-based, so we need the directory path
         # If filename ends with .lance, remove it to get directory name
         if filename:
@@ -154,6 +159,53 @@ class LanceIterable(BaseFileIterable):
         row = next(self.iterator)
         self.pos += 1
         return row
+
+    def read_batches(self, selection: BatchSelection | None = None):
+        """Yield Lance scanner batches with projection/filter pushdown.
+
+        Column projection, structured predicates (translated to Lance SQL
+        filters; plain strings pass through as trusted raw filters), and
+        offset/limit windows are pushed to the Lance scanner. Slice steps
+        are applied after the scan with row-fallback-identical semantics.
+        Requires ``pylance>=0.9``.
+        """
+        selection = selection or BatchSelection()
+        if selection.table is not None:
+            raise NotImplementedError("Lance native batches do not support table selection")
+        if self.dataset is None:
+            return
+        start, stop, step = resolve_row_window(selection)
+        scan_kwargs: dict[str, Any] = {"batch_size": selection.batch_size or self.batch_size}
+        if selection.columns is not None:
+            scan_kwargs["columns"] = list(selection.columns)
+        sql_filter = to_sql_filter(selection.predicate)
+        if sql_filter is not None:
+            scan_kwargs["filter"] = sql_filter
+        if step == 1:
+            # Offset/limit are pushed to the scanner; steps are not pushable.
+            if stop is not None:
+                scan_kwargs["limit"] = stop - start
+            if start:
+                scan_kwargs["offset"] = start
+        scanner = self.dataset.scanner(**scan_kwargs)
+        target = selection.batch_size or self.batch_size
+
+        def rows():
+            for batch in scanner.to_batches():
+                yield from batch.to_pylist()
+
+        stream: Any = rows()
+        if step != 1:
+            # Steps cannot be pushed; apply the window after the scan.
+            stream = select_rows(stream, BatchSelection(slice=(start, stop, step)))
+
+        for chunk in chunk_rows(stream, target):
+            self.pos += len(chunk)
+            yield chunk
+
+    def write_batch(self, records: list[Row]) -> None:
+        """Native batch writer hook used by columnar conversion."""
+        self.write_bulk(records)
 
     def write(self, record: Row) -> None:
         """Write single record"""

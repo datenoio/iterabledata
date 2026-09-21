@@ -15,7 +15,7 @@ except ImportError:
 from typing import Any
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
-from ..convert.batch import BatchSelection
+from ..convert.batch import BatchSelection, chunk_rows, resolve_row_window, select_rows
 from ..types import Row
 
 DEFAULT_BATCH_SIZE = 1024
@@ -170,26 +170,21 @@ class ArrowIterable(BaseFileIterable):
         selection = selection or BatchSelection()
         if selection.predicate is not None or selection.table is not None:
             raise NotImplementedError("Arrow native batches support columns and row ranges, not predicates/tables")
+        start, stop, step = resolve_row_window(selection)
         target = selection.batch_size or self.batch_size
-        start, stop = selection.row_range or (0, None)
-        if selection.slice is not None:
-            slice_start, slice_stop, _step = selection.slice
-            start = slice_start
-            stop = slice_stop
-        index = 0
-        for batch in self._batch_iterator:
-            if selection.columns is not None:
-                batch = batch.select(list(selection.columns))
-            rows = batch.to_pylist()
-            selected = []
-            for row in rows:
-                if index >= start and (stop is None or index < stop):
-                    selected.append(row)
-                index += 1
-            while selected:
-                chunk, selected = selected[:target], selected[target:]
-                self.pos += len(chunk)
-                yield chunk
+        window = BatchSelection(row_range=(start, stop) if start or stop is not None else None)
+        if step != 1:
+            window = BatchSelection(slice=(start, stop, step))
+
+        def rows():
+            for batch in self._batch_iterator:
+                if selection.columns is not None:
+                    batch = batch.select(list(selection.columns))
+                yield from batch.to_pylist()
+
+        for chunk in chunk_rows(select_rows(rows(), window), target):
+            self.pos += len(chunk)
+            yield chunk
 
     def write(self, record: Row) -> None:
         """Write single record"""

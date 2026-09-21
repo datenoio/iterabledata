@@ -12,8 +12,11 @@ except ImportError:
 from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
+from ..convert.batch import BatchSelection, chunk_rows, resolve_row_window
 from ..exceptions import FormatNotSupportedError, WriteError
 from ..types import Row
+
+DEFAULT_BATCH_SIZE = 1024
 
 
 class NumPyIterable(BaseFileIterable):
@@ -30,6 +33,7 @@ class NumPyIterable(BaseFileIterable):
     """
 
     datamode = "binary"
+    supports_native_batch = True
 
     def __init__(
         self,
@@ -190,6 +194,80 @@ class NumPyIterable(BaseFileIterable):
         row = next(self.iterator)
         self.pos += 1
         return row
+
+    def read_batches(self, selection: BatchSelection | None = None):
+        """Yield NumPy row batches with array/slice/column pushdown.
+
+        Pushdown mapping:
+        - ``table``: selects the named array inside an ``.npz`` archive
+          (equivalent to the ``array_name`` option).
+        - ``slice`` / ``row_range``: native NumPy row slicing, including
+          the slice step.
+        - ``columns``: for 2D arrays, restricts the emitted ``col_N`` keys
+          (``col_0`` style names); sliced directly on the array.
+        - ``predicate``: not supported; raises :exc:`NotImplementedError`
+          so the documented row fallback applies it row-wise.
+        """
+        selection = selection or BatchSelection()
+        if selection.predicate is not None:
+            raise NotImplementedError("NumPy native batches do not support predicates")
+        array = self._select_array(selection.table)
+        if array is None:
+            return
+        start, stop, step = resolve_row_window(selection)
+        columns = selection.columns
+        target = selection.batch_size or DEFAULT_BATCH_SIZE
+
+        col_indices: list[int] | None = None
+        if columns is not None:
+            if len(array.shape) != 2:
+                raise NotImplementedError("NumPy column selection requires a 2D array")
+            col_indices = [self._column_index(name, array.shape[1]) for name in columns]
+
+        # Native slice pushdown on the underlying array.
+        sliced = array[start:stop:step]
+        if col_indices is not None:
+            sliced = sliced[:, col_indices]
+
+        def rows():
+            if len(array.shape) == 1:
+                for value in sliced:
+                    yield {"value": value.item() if hasattr(value, "item") else value}
+            else:
+                names = [f"col_{j}" for j in (col_indices if col_indices is not None else range(array.shape[1]))]
+                for row in sliced:
+                    yield {
+                        name: (cell.item() if hasattr(cell, "item") else cell)
+                        for name, cell in zip(names, row, strict=True)
+                    }
+
+        for chunk in chunk_rows(rows(), target):
+            self.pos += len(chunk)
+            yield chunk
+
+    def _select_array(self, table: str | None):
+        """Return the array for a table (array name) selection."""
+        if table is None:
+            return self.current_array
+        if not self.is_npz:
+            raise NotImplementedError("NumPy table selection requires a multi-array .npz file")
+        if table not in self.array_keys:
+            raise ValueError(f"Array '{table}' not found in .npz file. Available: {self.array_keys}")
+        return self.npz_data[table]
+
+    @staticmethod
+    def _column_index(name: str, num_cols: int) -> int:
+        """Translate a ``col_N`` name into a column index, validating bounds."""
+        if not name.startswith("col_"):
+            raise ValueError(f"NumPy columns are named 'col_N', got {name!r}")
+        index = int(name[4:])
+        if index < 0 or index >= num_cols:
+            raise ValueError(f"Column {name!r} out of range for {num_cols} columns")
+        return index
+
+    def write_batch(self, records: list[Row]) -> None:
+        """Native batch writer hook used by columnar conversion."""
+        self.write_bulk(records)
 
     def write(self, record: Row) -> None:
         """Write single NumPy array record"""

@@ -18,7 +18,7 @@ except ImportError:
 from ..helpers.detect import is_flat, open_iterable
 from ..helpers.utils import dict_generator, make_flat
 from ..types import BulkConversionResult, ConversionResult, FileConversionResult, IterableArgs
-from .batch import BatchSelection, native_batch_supported
+from .batch import BatchSelection, native_batch_supported, select_rows
 
 DEFAULT_BATCH_SIZE = 50000
 DEFAULT_HEADERS_DETECT_LIMIT = 1000
@@ -444,9 +444,17 @@ def convert(
         it_in = reopen_source()
         is_flat_output = is_flat(tofile)
         native_requested = use_native_batch or selection is not None
+        batch_selection = BatchSelection.from_value(selection)
 
         keys: list[str] = []
         if is_flat_output and not native_requested:
+            it_in, keys = _resolve_schema_keys(it_in, reopen_source, scan_limit, is_flatten, silent)
+        elif is_flat_output and batch_selection.columns is not None:
+            # Projection defines the flat output schema; no row scan needed.
+            keys = list(batch_selection.columns)
+        elif is_flat_output:
+            # Flat destinations cannot use the native path, so the row
+            # fallback always runs: resolve output keys up front.
             it_in, keys = _resolve_schema_keys(it_in, reopen_source, scan_limit, is_flatten, silent)
 
         args = _build_output_args(tofile, actual_tofile, is_flat_output, keys, toiterableargs)
@@ -472,7 +480,7 @@ def convert(
                 _run_native_batch_loop(
                     it_in,
                     it_out,
-                    BatchSelection.from_value(selection),
+                    batch_selection,
                     metrics,
                     progress,
                     use_totals,
@@ -485,6 +493,10 @@ def convert(
                 _safe_reset(it_in)
                 metrics.rows_read = metrics.rows_written = 0
                 it = _wrap_progress_iter(it_in, use_totals, should_show_progress, metrics)
+                if selection is not None:
+                    # Documented fallback: apply the selection row-wise so
+                    # results match the pushed-down path.
+                    it = select_rows(it, batch_selection)
                 _run_write_loop(
                     it,
                     it_out,
@@ -499,6 +511,8 @@ def convert(
                 )
         else:
             it = _wrap_progress_iter(it_in, use_totals, should_show_progress, metrics)
+            if selection is not None:
+                it = select_rows(it, batch_selection)
             _run_write_loop(
                 it,
                 it_out,

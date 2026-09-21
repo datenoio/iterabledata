@@ -8,7 +8,7 @@ import pyarrow
 import pyarrow.parquet
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
-from ..convert.batch import BatchSelection
+from ..convert.batch import BatchSelection, chunk_rows, resolve_row_window, select_rows, to_pyarrow_expression
 from ..exceptions import FormatParseError, WriteError
 from ..helpers.utils import normalize_extended_json
 from ..types import Row
@@ -198,33 +198,63 @@ class ParquetIterable(BaseFileIterable):
         return chunk
 
     def read_batches(self, selection: BatchSelection | None = None):
-        """Yield scanner batches, optionally projecting Parquet columns."""
+        """Yield scanner batches with projection/filter pushdown.
+
+        Column projection is pushed to the Parquet scanner. Structured
+        predicates are pushed through ``pyarrow.dataset`` when the source is
+        a plain file path; otherwise :exc:`NotImplementedError` triggers the
+        documented row fallback (which applies the predicate row-wise).
+        Row windows and slice steps are applied with the shared selection
+        semantics after any pushed operations.
+        """
         selection = selection or BatchSelection()
-        if selection.predicate is not None or selection.table is not None:
-            raise NotImplementedError("Parquet native batches support columns and row ranges, not predicates/tables")
-        if selection.columns is not None and self.pos == 0 and not self._pending_rows:
-            self._batch_iterator = self.reader.iter_batches(
-                batch_size=selection.batch_size or self.batch_size,
-                columns=list(selection.columns),
-            )
+        if selection.table is not None:
+            raise NotImplementedError("Parquet native batches support columns, predicates and row ranges, not tables")
+        start, stop, step = resolve_row_window(selection)
         target = selection.batch_size or self.batch_size
-        start, stop = selection.row_range or (0, None)
-        if selection.slice is not None:
-            slice_start, slice_stop, _step = selection.slice
-            start = slice_start
-            stop = slice_stop
-        index = 0
-        for batch in self._batch_iterator:
-            rows = batch.to_pylist()
-            selected: list[dict[str, Any]] = []
-            for row in rows:
-                if index >= start and (stop is None or index < stop):
-                    selected.append(row)
-                index += 1
-            while selected:
-                chunk, selected = selected[:target], selected[target:]
+        window = BatchSelection(row_range=(start, stop) if start or stop is not None else None)
+        if step != 1:
+            window = BatchSelection(slice=(start, stop, step))
+
+        if selection.predicate is not None:
+            if not self.filename:
+                raise NotImplementedError("Parquet predicate pushdown requires a file path source")
+            import pyarrow.dataset as ds
+
+            dataset = ds.dataset(self.filename, format="parquet")
+            scanner = dataset.scanner(
+                columns=list(selection.columns) if selection.columns is not None else None,
+                filter=to_pyarrow_expression(selection.predicate),
+                batch_size=target,
+                # Deterministic fragment/row-group order keeps results
+                # identical to the sequential row path.
+                use_threads=False,
+            )
+
+            def filtered_rows():
+                for batch in scanner.to_batches():
+                    yield from batch.to_pylist()
+
+            for chunk in chunk_rows(select_rows(filtered_rows(), window), target):
                 self.pos += len(chunk)
                 yield chunk
+            return
+
+        if selection.columns is not None:
+            if self.pos != 0 or self._pending_rows:
+                raise NotImplementedError("Parquet projection pushdown requires a fresh reader")
+            self._batch_iterator = self.reader.iter_batches(
+                batch_size=target,
+                columns=list(selection.columns),
+            )
+
+        def rows():
+            for batch in self._batch_iterator:
+                yield from batch.to_pylist()
+
+        for chunk in chunk_rows(select_rows(rows(), window), target):
+            self.pos += len(chunk)
+            yield chunk
 
     def write(self, record: Row) -> None:
         """Write single record"""
