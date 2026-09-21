@@ -62,6 +62,7 @@ class XLSXIterable(BaseFileIterable):
         # read_only avoids loading the whole workbook into memory.
         self.workbook = load_workbook(self.filename, read_only=True)
         self.sheet = self.workbook[self.workbook.sheetnames[self.page]]
+        self._total_rows = self.sheet.max_row
         self.pos = self.start_line
         # Some workbooks advertise incorrect dimensions (e.g. ref="A1").
         # Unbounded iter_rows() then returns a single cell; reset so openpyxl
@@ -105,9 +106,14 @@ class XLSXIterable(BaseFileIterable):
         """Has totals indicator"""
         return True
 
-    def totals(self):
+    def totals(self) -> int:
         """Returns file totals"""
-        return self.sheet.max_row
+        if getattr(self, "sheet", None) is not None and self.sheet.max_row is not None:
+            return self.sheet.max_row
+        total = getattr(self, "_total_rows", None)
+        if total is not None:
+            return total
+        return 0
 
     @staticmethod
     def id() -> str:

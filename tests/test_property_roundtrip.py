@@ -25,7 +25,7 @@ def test_jsonl_roundtrip_hypothesis(tmp_path):
     )
 
     @hypothesis.given(st.lists(record_strategy, max_size=50))
-    @hypothesis.settings(max_examples=25)
+    @hypothesis.settings(max_examples=25, suppress_health_check=[hypothesis.HealthCheck.too_slow])
     def _roundtrip(records):
         path = tmp_path / "rt.jsonl"
         with open_iterable(str(path), mode="w") as w:
