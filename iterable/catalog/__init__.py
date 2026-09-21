@@ -10,7 +10,7 @@ from ..helpers.format_registry import get_descriptor, iter_descriptors
 
 __all__ = ["CATALOG_SCHEMA_VERSION", "describe_format", "export_catalog", "list_formats"]
 
-CATALOG_SCHEMA_VERSION = "1.1"
+CATALOG_SCHEMA_VERSION = "1.2"
 
 
 def list_formats() -> list[str]:
@@ -46,6 +46,8 @@ def describe_format(format_id: str, *, include_capabilities: bool = True) -> dic
         "write_memory": desc.write_memory,
         "native_bulk_read": desc.native_bulk_read,
         "native_bulk_write": desc.native_bulk_write,
+        "totals": desc.totals,
+        "tables": desc.tables,
         "selection": list(desc.selection),
         "codec_support": list(desc.codec_support),
         "source_constraints": list(desc.source_constraints),

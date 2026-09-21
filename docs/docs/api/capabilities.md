@@ -497,7 +497,7 @@ The following capabilities are tracked for each format:
 
 ## Extended catalog fields
 
-`iterable.catalog.export_catalog()` emits `_schema_version` (`1.1`) and each
+`iterable.catalog.export_catalog()` emits `_schema_version` (`1.2`) and each
 format descriptor includes the following reviewable declarations:
 
 - `native_bulk_read` / `native_bulk_write`: whether the backend has a native

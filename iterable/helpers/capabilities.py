@@ -19,6 +19,28 @@ if TYPE_CHECKING:
 # Capability cache: format_id -> capabilities dict
 _CAPABILITY_CACHE: dict[str, dict[str, Any]] = {}
 
+# Baseline capability dict used when a (plugin) format class cannot be loaded.
+_UNAVAILABLE_CAPABILITIES: dict[str, Any] = {
+    "readable": None,
+    "writable": None,
+    "bulk_read": None,
+    "bulk_write": None,
+    "totals": None,
+    "streaming": None,
+    "flat_only": None,
+    "tables": None,
+    "compression": None,
+    "nested": None,
+    "native_bulk_read": None,
+    "native_bulk_write": None,
+    "read_memory": "unknown",
+    "write_memory": "unknown",
+    "selection": [],
+    "codec_support": [],
+    "source_constraints": [],
+    "maturity": "stable",
+}
+
 
 def _is_read_only(format_id: str) -> bool:
     """Return True when the format is known not to support writing."""
@@ -30,8 +52,51 @@ def _is_read_only(format_id: str) -> bool:
     return fid in build_read_only_formats()
 
 
+def _capabilities_from_descriptor(descriptor: Any) -> dict[str, Any]:
+    """Build the capability dictionary from a declarative format descriptor.
+
+    Static descriptor capabilities remain available even when the format's
+    optional dependency is not installed; only genuinely unknown fields stay
+    ``None``/``unknown`` rather than being inferred optimistically.
+    """
+    streaming: bool | None = None
+    if descriptor.read_memory == "bounded":
+        streaming = True
+    elif descriptor.read_memory == "whole_input":
+        streaming = False
+
+    return {
+        # Every registered format is readable; the base class provides the
+        # read_bulk()/write_bulk() API loops for every format.
+        "readable": True,
+        "writable": descriptor.writable,
+        "bulk_read": True,
+        "bulk_write": True,
+        "totals": descriptor.totals,
+        "streaming": streaming,
+        "flat_only": descriptor.flat,
+        "tables": descriptor.tables,
+        # Codec composition is only reported when declared; None when unknown.
+        "compression": True if descriptor.codec_support else None,
+        "nested": not descriptor.flat,
+        "native_bulk_read": descriptor.native_bulk_read,
+        "native_bulk_write": descriptor.native_bulk_write,
+        "read_memory": descriptor.read_memory,
+        "write_memory": descriptor.write_memory,
+        "selection": list(descriptor.selection),
+        "codec_support": list(descriptor.codec_support),
+        "source_constraints": list(descriptor.source_constraints),
+        "maturity": descriptor.maturity,
+    }
+
+
 def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, Any]:
     """Detect capabilities for a format class by introspection.
+
+    This is the fallback path for plugin formats that have no declarative
+    descriptor. Built-in formats report descriptor values via
+    ``_capabilities_from_descriptor()`` instead; conformance tests (not this
+    runtime path) verify those declarations against the implementation.
 
     Args:
         format_class: The format class to introspect
@@ -334,64 +399,21 @@ def get_format_capabilities(format_id: str) -> dict[str, Any]:
     if format_id_lower in _CAPABILITY_CACHE:
         return _CAPABILITY_CACHE[format_id_lower].copy()
 
-    # Quick check via format descriptor before loading the format class.
-    if _is_read_only(format_id_lower):
-        # Still need to load class for other capabilities, but we know writable=False
-        try:
-            format_class = _get_format_class(format_id_lower)
-            capabilities = _detect_capabilities(format_class)
-            # Ensure writable is False (should already be set by _detect_capabilities, but be explicit)
-            capabilities["writable"] = False
-        except ImportError:
-            # If import fails, return dict with writable=False (we know it's read-only)
-            capabilities = {
-                "readable": None,
-                "writable": False,  # Known to be read-only from registry
-                "bulk_read": None,
-                "bulk_write": None,
-                "totals": None,
-                "streaming": None,
-                "flat_only": None,
-                "tables": None,
-                "compression": None,
-                "nested": None,
-                "native_bulk_read": None,
-                "native_bulk_write": None,
-                "read_memory": "unknown",
-                "write_memory": "unknown",
-                "selection": [],
-                "codec_support": [],
-                "source_constraints": [],
-                "maturity": "stable",
-            }
+    descriptor = get_descriptor(format_id_lower)
+    if descriptor is not None:
+        # Built-in formats report declarative descriptor capabilities; no
+        # class import is attempted, so static capabilities stay available
+        # when an optional dependency is missing.
+        capabilities = _capabilities_from_descriptor(descriptor)
     else:
-        # Get format class and detect capabilities
+        # Plugin formats have no descriptor; fall back to class introspection.
         try:
             format_class = _get_format_class(format_id_lower)
             capabilities = _detect_capabilities(format_class)
         except ImportError:
             # If import fails, return dict with None values
             # This allows graceful handling of missing optional dependencies
-            capabilities = {
-                "readable": None,
-                "writable": None,
-                "bulk_read": None,
-                "bulk_write": None,
-                "totals": None,
-                "streaming": None,
-                "flat_only": None,
-                "tables": None,
-                "compression": None,
-                "nested": None,
-                "native_bulk_read": None,
-                "native_bulk_write": None,
-                "read_memory": "unknown",
-                "write_memory": "unknown",
-                "selection": [],
-                "codec_support": [],
-                "source_constraints": [],
-                "maturity": "stable",
-            }
+            capabilities = dict(_UNAVAILABLE_CAPABILITIES)
 
     # Cache the result
     _CAPABILITY_CACHE[format_id_lower] = capabilities.copy()
@@ -416,49 +438,15 @@ def list_all_capabilities() -> dict[str, dict[str, Any]]:
     """
     # Get unique format classes (multiple extensions may map to same class)
     registry = _get_format_registry()
-    format_classes_seen: set[tuple[str, str]] = set()
     result: dict[str, dict[str, Any]] = {}
 
     for format_id in sorted(registry.keys()):
-        module_path, symbol = registry[format_id]
-        class_key = (module_path, symbol)
-
-        # Only process each unique class once, but include all format IDs
-        if class_key not in format_classes_seen:
-            format_classes_seen.add(class_key)
-            try:
-                result[format_id] = get_format_capabilities(format_id)
-            except (ValueError, ImportError):
-                # Skip formats that can't be loaded
-                # Return empty capabilities dict
-                result[format_id] = {
-                    "readable": None,
-                    "writable": None,
-                    "bulk_read": None,
-                    "bulk_write": None,
-                    "totals": None,
-                    "streaming": None,
-                    "flat_only": None,
-                    "tables": None,
-                    "compression": None,
-                    "nested": None,
-                    "native_bulk_read": None,
-                    "native_bulk_write": None,
-                    "read_memory": "unknown",
-                    "write_memory": "unknown",
-                    "selection": [],
-                    "codec_support": [],
-                    "source_constraints": [],
-                    "maturity": "stable",
-                }
-        else:
-            # Reuse capabilities from the first format ID that uses this class
-            # Find the first format_id that uses this class
-            for first_id in sorted(registry.keys()):
-                first_module, first_symbol = registry[first_id]
-                if (first_module, first_symbol) == class_key:
-                    result[format_id] = result[first_id].copy()
-                    break
+        try:
+            result[format_id] = get_format_capabilities(format_id)
+        except (ValueError, ImportError):
+            # Skip formats that can't be loaded
+            # Return empty capabilities dict
+            result[format_id] = dict(_UNAVAILABLE_CAPABILITIES)
 
     return result
 

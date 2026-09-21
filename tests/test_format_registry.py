@@ -16,12 +16,10 @@ from iterable.helpers.detect import (
     TEXT_DATA_TYPES,
 )
 from iterable.helpers.format_registry import (
-    _BASENAME_INSTALL_EXTRAS,
+    _CODEC_INSTALL_EXTRAS,
     _EXTRA_READ_ONLY,
-    _MODULE_INSTALL_EXTRAS,
-    _READONLY_MEMBERS,
-    _TEXT_ORPHANS,
     FORMAT_DESCRIPTORS,
+    _basename_install_extras,
     build_datatype_registry,
     build_flat_types,
     build_read_only_formats,
@@ -57,12 +55,23 @@ class TestDescriptorConsistency:
             assert get_descriptor(key) is not None
 
     def test_readonly_members_have_writable_false(self):
-        for fmt_id in _READONLY_MEMBERS:
-            if fmt_id in _TEXT_ORPHANS:
+        """Every id in the derived read-only set traces to a writable=False descriptor."""
+        for fmt_id in build_read_only_formats():
+            if fmt_id in _EXTRA_READ_ONLY:
                 continue
             desc = get_descriptor(fmt_id)
             assert desc is not None, fmt_id
             assert desc.writable is False, fmt_id
+
+    def test_readonly_set_covers_all_nonwritable_descriptors(self):
+        """Derived read-only set contains every non-writable descriptor id and alias."""
+        read_only = build_read_only_formats()
+        for desc in iter_descriptors():
+            if desc.writable:
+                continue
+            assert desc.id in read_only, desc.id
+            for alias in desc.aliases:
+                assert alias in read_only, alias
 
     def test_readonly_orphans_allowed(self):
         assert "zipped" in _EXTRA_READ_ONLY
@@ -176,8 +185,8 @@ class TestInstallHints:
         pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
         extras = set(tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["optional-dependencies"])
         hints: set[str] = set()
-        hints.update(_MODULE_INSTALL_EXTRAS.values())
-        hints.update(_BASENAME_INSTALL_EXTRAS.values())
+        hints.update(_CODEC_INSTALL_EXTRAS.values())
+        hints.update(_basename_install_extras().values())
         for desc in iter_descriptors():
             if desc.extra:
                 hints.add(desc.extra)
@@ -186,3 +195,167 @@ class TestInstallHints:
                 hints.add(hint)
         missing = sorted(h for h in hints if h not in extras)
         assert not missing, f"Install hints not in pyproject.toml extras: {missing}"
+
+
+class TestDescriptorConformance:
+    """Declared descriptor metadata must match importable implementations."""
+
+    @staticmethod
+    def _load_class(desc):
+        import importlib
+
+        module = importlib.import_module(desc.module)
+        return getattr(module, desc.cls)
+
+    def test_aliases_unique_and_collision_free(self):
+        canonical_ids = {desc.id for desc in FORMAT_DESCRIPTORS}
+        seen: dict[str, str] = {}
+        for desc in FORMAT_DESCRIPTORS:
+            for alias in desc.aliases:
+                assert alias not in canonical_ids, f"alias {alias!r} collides with a canonical id"
+                assert alias not in seen, f"alias {alias!r} claimed by both {seen[alias]!r} and {desc.id!r}"
+                seen[alias] = desc.id
+
+    def test_alias_magic_targets_own_alias(self):
+        for desc in FORMAT_DESCRIPTORS:
+            for alias, _prefix in desc.alias_magic:
+                assert alias in desc.aliases, f"{desc.id}: alias_magic targets non-alias {alias!r}"
+
+    def test_magic_signatures_trace_to_descriptors(self):
+        from iterable.helpers.format_registry import MAGIC_SIGNATURES
+
+        expected = set()
+        for desc in FORMAT_DESCRIPTORS:
+            for prefix in desc.magic:
+                expected.add((desc.id, prefix))
+            for alias, prefix in desc.alias_magic:
+                expected.add((alias, prefix))
+        actual = {(sig.format_id, sig.prefix) for sig in MAGIC_SIGNATURES}
+        assert actual == expected
+        for sig in MAGIC_SIGNATURES:
+            assert sig.format_id in DATATYPE_REGISTRY, sig.format_id
+
+    def test_vortex_magic_reports_alias(self):
+        assert match_magic_prefix(b"VTXF" + b"\x00" * 10) == ("vortex", 0.99, "magic_number")
+
+    def test_pcapng_magic_reports_alias(self):
+        assert match_magic_prefix(b"\x0a\x0d\x0d\x0a" + b"\x00" * 10) == ("pcapng", 0.99, "magic_number")
+
+    def test_orc_and_arrow_magic(self):
+        assert match_magic_prefix(b"ORC" + b"\x00" * 10) == ("orc", 0.99, "magic_number")
+        assert match_magic_prefix(b"ARROW1" + b"\x00" * 10) == ("arrow", 0.99, "magic_number")
+
+    def test_writable_declarations_have_real_writers(self):
+        """writable=True must not resolve to the base unsupported writer."""
+        import inspect
+
+        import pytest
+
+        from iterable.base import BaseIterable
+        from iterable.helpers.capabilities import get_format_capabilities
+
+        for desc in iter_descriptors():
+            if not desc.writable:
+                continue
+            try:
+                cls = self._load_class(desc)
+            except ImportError:
+                pytest.skip(f"optional dependency missing for {desc.id}")
+            assert cls.write is not BaseIterable.write, f"{desc.id}: writable=True but uses base writer"
+            try:
+                source = inspect.getsource(cls.write)
+            except (OSError, TypeError):
+                continue
+            if "WriteNotSupportedError" in source:
+                lines = [
+                    ln.strip()
+                    for ln in source.split("\n")
+                    if ln.strip()
+                    and not ln.strip().startswith("#")
+                    and not ln.strip().startswith('"""')
+                    and not ln.strip().startswith("'''")
+                ]
+                assert len(lines) > 3, f"{desc.id}: writable=True but write() only raises WriteNotSupportedError"
+            assert get_format_capabilities(desc.id)["writable"] is True
+
+    def test_native_bulk_declarations_have_owned_implementations(self):
+        """Native bulk requires a format-specific bulk path, not the base loop.
+
+        A declaration is satisfied by an owned read_bulk()/write_bulk() below
+        the base classes or by a backend batch path in the class source
+        (e.g. ``to_batches``/scan/fetchmany iteration behind read()).
+        """
+        import inspect
+
+        import pytest
+
+        batch_markers = ("to_batches", ".scan(", "fetchmany", "RecordBatch", "batch_size")
+
+        for desc in iter_descriptors():
+            if not desc.native_bulk_read and not desc.native_bulk_write:
+                continue
+            try:
+                cls = self._load_class(desc)
+            except ImportError:
+                pytest.skip(f"optional dependency missing for {desc.id}")
+
+            def owner(name, cls=cls):  # noqa: B023 - intentional late binding per format
+                for klass in cls.__mro__:
+                    if name in klass.__dict__:
+                        return klass.__name__
+                return None
+
+            try:
+                source = inspect.getsource(cls)
+            except (OSError, TypeError):
+                source = ""
+            has_backend_batch = any(marker in source for marker in batch_markers)
+
+            if desc.native_bulk_read:
+                owned = owner("read_bulk") not in (None, "BaseIterable", "BaseFileIterable")
+                assert owned or has_backend_batch, (
+                    f"{desc.id}: native_bulk_read=True but only the inherited base loop exists"
+                )
+            if desc.native_bulk_write:
+                owned = owner("write_bulk") not in (None, "BaseIterable", "BaseFileIterable")
+                assert owned or has_backend_batch, (
+                    f"{desc.id}: native_bulk_write=True but only the inherited base loop exists"
+                )
+
+    def test_totals_tables_match_implementation(self):
+        """Descriptor totals/tables declarations match has_totals()/has_tables()."""
+        import pytest
+
+        from iterable.helpers.capabilities import get_format_capabilities
+
+        for desc in iter_descriptors():
+            try:
+                cls = self._load_class(desc)
+            except ImportError:
+                pytest.skip(f"optional dependency missing for {desc.id}")
+            assert desc.totals == cls.has_totals(), f"{desc.id}: totals declaration contradicts has_totals()"
+            assert desc.tables == cls.has_tables(), f"{desc.id}: tables declaration contradicts has_tables()"
+            caps = get_format_capabilities(desc.id)
+            assert caps["totals"] == desc.totals, desc.id
+            assert caps["tables"] == desc.tables, desc.id
+
+    def test_capability_dict_matches_descriptor(self):
+        """The capability layer reports descriptor values for every built-in."""
+        from iterable.helpers.capabilities import get_format_capabilities
+
+        for desc in iter_descriptors():
+            caps = get_format_capabilities(desc.id)
+            assert caps["writable"] == desc.writable, desc.id
+            assert caps["flat_only"] == desc.flat, desc.id
+            assert caps["nested"] == (not desc.flat), desc.id
+            assert caps["native_bulk_read"] == desc.native_bulk_read, desc.id
+            assert caps["native_bulk_write"] == desc.native_bulk_write, desc.id
+            assert caps["read_memory"] == desc.read_memory, desc.id
+            assert caps["write_memory"] == desc.write_memory, desc.id
+            assert caps["selection"] == list(desc.selection), desc.id
+            assert caps["codec_support"] == list(desc.codec_support), desc.id
+            assert caps["source_constraints"] == list(desc.source_constraints), desc.id
+            assert caps["maturity"] == desc.maturity, desc.id
+            # Aliases report the same values as the canonical id
+            for alias in desc.aliases:
+                assert get_format_capabilities(alias) == caps, f"{desc.id} vs alias {alias}"
