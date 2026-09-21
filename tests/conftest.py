@@ -25,11 +25,6 @@ PROJECT_ROOT = TESTS_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# Change to tests directory so relative paths work
-# This ensures 'fixtures/...' and legacy 'testdata/...' paths work correctly
-if os.getcwd() != str(TESTS_DIR):
-    os.chdir(TESTS_DIR)
-
 # Legacy fixture path: many tests reference 'testdata/...'. The committed
 # 'tests/testdata' is a symlink to 'tests/fixtures'. On checkouts made with
 # core.symlinks=false (or when copied without symlink preservation) it can
@@ -66,7 +61,44 @@ _RUNTIME_ROOT = Path(tempfile.mkdtemp(prefix="iterabledata-tests-"))
 FIXTURES_DIR = _RUNTIME_ROOT / "fixtures"
 shutil.copytree(CANONICAL_FIXTURES_DIR, FIXTURES_DIR)
 (_RUNTIME_ROOT / "testdata").symlink_to("fixtures")
-os.chdir(_RUNTIME_ROOT)
+
+
+def pytest_configure(config):
+    """Chdir to the disposable fixture root without breaking collection.
+
+    Many tests open ``fixtures/...`` / ``testdata/...`` relative to the
+    current working directory, so the session runs with ``_RUNTIME_ROOT``
+    as cwd. Changing directory at conftest *import* time makes pytest
+    resolve relative path arguments (e.g. ``pytest tests``) against the
+    new cwd — under pytest-xdist workers that yields "0 items collected".
+    Deferring the chdir to ``pytest_configure`` and first rewriting
+    relative collection arguments to absolute paths keeps
+    ``pytest -n auto`` working from the repo root.
+    """
+    invocation_dir = Path(config.invocation_params.dir)
+
+    def _absolutize(arg):
+        candidate = invocation_dir / str(arg)
+        if not os.path.isabs(arg) and candidate.exists():
+            return str(candidate)
+        return arg
+
+    positional = set(config.args)  # original (possibly relative) positional paths
+    config.args[:] = [_absolutize(arg) for arg in config.args]
+    # xdist hands ``invocation_params.args`` — the *full* raw command line,
+    # options included, as an immutable tuple — to its workers. Rewrite only
+    # the tokens pytest itself parsed as positional paths and preserve every
+    # option verbatim: dropping flags here breaks plugins that re-parse the
+    # raw args on the worker (e.g. pytest-cov's --no-cov detection).
+    # ``_replace`` was renamed to ``__replace__`` in Python 3.13, so support
+    # both spellings.
+    rewritten = tuple(_absolutize(arg) if arg in positional else arg for arg in config.invocation_params.args)
+    try:
+        _params_replace = config.invocation_params._replace
+    except AttributeError:
+        _params_replace = config.invocation_params.__replace__
+    config.invocation_params = _params_replace(args=rewritten)
+    os.chdir(_RUNTIME_ROOT)
 
 
 def fixture_path(name: str) -> Path:

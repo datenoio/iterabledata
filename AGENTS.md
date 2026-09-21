@@ -28,7 +28,7 @@ Instructions for AI coding agents working on the IterableData project.
 
 - Install dependencies: `pip install -e ".[dev]"`
 - Run tests: `pytest --verbose` (includes coverage automatically)
-- Run tests with parallel execution: `pytest -n auto`
+- Run tests with parallel execution: `pytest -n auto --no-cov` (coverage is measured in serial runs; per-worker data files are not combined under xdist)
 - Run linter: `ruff check iterable tests`
 - Format code: `ruff format iterable tests`
 - Type check: `mypy iterable`
