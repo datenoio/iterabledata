@@ -72,5 +72,6 @@ Requires `pysam`.
 ## Related Formats
 
 - [BAM](bam.md) — binary alignments
+- [CRAM](cram.md) — reference-compressed alignments
 - [FASTA](fa.md) — sequences
 - [FASTQ](fq.md) — reads with qualities

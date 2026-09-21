@@ -72,6 +72,7 @@ Requires `pysam`.
 ## Related Formats
 
 - [SAM](sam.md) — text alignments
+- [CRAM](cram.md) — reference-compressed alignments
 - [FASTA](fa.md) — reference / contig sequences
 - [FASTQ](fq.md) — reads with quality scores
-- [Genomic intervals](genomic-intervals.md) — BED/GFF/GTF/CRAM
+- [Genomic intervals](genomic-intervals.md) — BED/GFF3/GTF

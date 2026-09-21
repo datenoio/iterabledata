@@ -186,7 +186,7 @@ _LLM_METADATA: dict[str, dict[str, Any]] = {
     },
     "cram": {
         "description": "CRAM binary sequence alignments with explicit reference configuration.",
-        "doc_url": f"{_DOCS_BASE}/genomic-intervals.md",
+        "doc_url": f"{_DOCS_BASE}/cram.md",
         "limitations": ("Requires pysam and, for some files, reference_filename",),
     },
     "bed": {

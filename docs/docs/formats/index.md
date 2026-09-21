@@ -175,7 +175,7 @@ Iterable Data supports a wide variety of data formats, from common formats like 
 | [TAR](/formats/tar) | `.tar`, `.tar.gz`, `.tgz` | Binary | No | ✅ | ❌ | - | [Details](/formats/tar) |
 | [OTLP](/formats/otlp) | `.json` / protobuf | Binary | No | ✅ | ✅ | `otlp` | [Details](/formats/otlp) |
 | [Genomic VCF/BCF](/formats/genomic_vcf) | `.vcf`, `.bcf` | Text/Binary | Yes | ✅ | ❌ | `bio` | [Details](/formats/genomic_vcf) |
-| [CRAM](/formats/genomic-intervals) | `.cram` | Binary | Yes | ✅ | ❌ | `alignment` | [Details](/formats/genomic-intervals) |
+| [CRAM](/formats/cram) | `.cram` | Binary | Yes | ✅ | ❌ | `alignment` | [Details](/formats/cram) |
 | [BED](/formats/genomic-intervals) | `.bed` | Text | Yes | ✅ | ✅ | - | [Details](/formats/genomic-intervals) |
 | [GFF3](/formats/genomic-intervals) | `.gff`, `.gff3` | Text | Yes | ✅ | ✅ | - | [Details](/formats/genomic-intervals) |
 | [GTF](/formats/genomic-intervals) | `.gtf` | Text | Yes | ✅ | ✅ | - | [Details](/formats/genomic-intervals) |

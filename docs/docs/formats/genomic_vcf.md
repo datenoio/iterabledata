@@ -105,6 +105,6 @@ naming the `bio` extra.
 
 ## Related Formats
 
-- [Genomic intervals](genomic-intervals.md) — CRAM, BED, GFF3, GTF
-- [SAM](sam.md) / [BAM](bam.md) — alignments
+- [Genomic intervals](genomic-intervals.md) — BED, GFF3, GTF
+- [SAM](sam.md) / [BAM](bam.md) / [CRAM](cram.md) — alignments
 - [vCard VCF](vcf.md) — contact cards (same `.vcf` extension)

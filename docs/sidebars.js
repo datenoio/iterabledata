@@ -255,6 +255,7 @@ const sidebars = {
             'formats/fq',
             'formats/sam',
             'formats/bam',
+            'formats/cram',
             'formats/genomic-intervals',
             'formats/genomic_vcf',
             'formats/zarr',
