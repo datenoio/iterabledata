@@ -88,11 +88,12 @@ Most items here change CI/tooling behavior → create one OpenSpec change `stren
 
 Ten OpenSpec changes are half-finished. **Decision first:** either schedule completion or explicitly scope-down and archive. Recommended order by user-visible value:
 
-1. **`unify-format-capability-metadata`** (6/14) — populate `extras` (23/145 today) and decide whether `magic` bytes move into the registry (0/145) or stay in `content_detection.py`; derive `codec_support` for the 142 formats lacking it. This is the metadata backbone for catalog/detect quality.
-2. **`add-native-batch-conversion`** (10/17) — ORC/lakehouse/scientific adapters + pushdown; biggest performance lever left.
-3. **`optimize-format-io-hot-paths`** (14/17) + **`add-codec-performance-profiles`** (11/16) — finish conformance tests, baselines, codec benchmark thresholds; small remaining scope.
+1. ~~**`unify-format-capability-metadata`** (6/14)~~ — **DONE 2026-09-21** (`3d3219d`, archived `2026-09-21-…`): all 145 descriptors populated (extras, magic as source of truth, memory profiles, native-bulk, codec/selection/source constraints); stale legacy tables deleted and derived; 18 conformance tests; catalog schema 1.2. Fixed real drift bugs (old tables missed up to 32 ids).
+2. ~~**`add-native-batch-conversion`** (10/17)~~ — **DONE 2026-09-21** (`fffd6b4`, archived `2026-09-21-…`): ORC dual backend, projection/predicate pushdown (Parquet + Delta/Iceberg/Lance), table/variable/slice pushdown (NumPy/HDF5/NetCDF), 46 equivalence tests, benchmarks — native path cuts peak memory 16× (2.6 MB vs 42 MB at 50k rows); write-path flush amortization noted as follow-up for `optimize-format-io-hot-paths`.
+3. **`optimize-format-io-hot-paths`** (14/17) + **`add-codec-performance-profiles`** (11/16) — finish conformance tests, baselines, codec benchmark thresholds; small remaining scope. (Also absorb the batch write-flush amortization finding from item 2.)
 4. **Format hardening batch** — `add-zarr-format`, `add-geoparquet-flatgeobuf-formats`, `extend-bioinformatics-formats`, `add-otlp-format-profiles`: mostly golden fixtures and edge-case tests; promote 26 experimental formats toward stable.
 5. **`harden-release-artifacts`** (15/17) — one clean-checkout build exercise + one approved release run.
+6. **`strengthen-repository-quality-gates`** (12/23) — progressed during P1 (ratchet, radon gate, coverage floors, 3.13 leg checked off); remaining: per-family coverage, per-package mypy burn-down, making advisory gates blocking.
 
 Feature tracks from the June plan (each needs its own OpenSpec proposal when scheduled):
 

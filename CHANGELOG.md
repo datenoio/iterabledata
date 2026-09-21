@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Native batch conversion**: ORC dual backend (pyorc-compatible row path, pyarrow.orc batch
+  path), projection/predicate pushdown for Parquet and lakehouse scanners (Delta, Iceberg,
+  Lance), and table/variable/slice pushdown for NumPy, HDF5, and NetCDF. Structured selections
+  are portable across native and row paths (row fallback now applies selections, including slice
+  steps, instead of silently ignoring them). Native conversion cuts peak memory ~16× versus the
+  row path (2.6 MB vs 42 MB at 50k rows). 46 native-vs-row equivalence tests and
+  throughput/peak-memory benchmarks included.
+- **Complete format capability metadata**: all 145 format descriptors now carry install extras,
+  leading-byte magic signatures (registry is the source of truth; detection behavior unchanged),
+  totals/tables, read/write memory profiles, native-bulk flags, codec composition, selection,
+  and source constraints. Legacy hand-maintained classification tables are derived from
+  descriptors instead of drifting (the old tables missed up to 32 formats). Capability reporting
+  is descriptor-driven with 18 new conformance tests; catalog schema 1.2 adds totals/tables.
+
 ### Fixed
 - **XLSX totals**: `XLSXIterable.totals()` now returns the row count as an int, matching the
   `BaseIterable` contract and the totals conformance test.
