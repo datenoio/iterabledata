@@ -41,7 +41,7 @@ def iterable_to_pandas(row_source: Iterable[Row], chunksize: int | None = None) 
 def iterable_to_polars(row_source: Iterable[Row], chunksize: int | None = None) -> Any:
     """Convert row iterator to Polars DataFrame(s)."""
     try:
-        import polars as pl  # type: ignore[import-not-found]
+        import polars as pl
     except ImportError:
         raise ImportError("polars is required for to_polars(). Install it with: pip install polars") from None
 

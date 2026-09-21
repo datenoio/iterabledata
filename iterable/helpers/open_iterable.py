@@ -164,7 +164,7 @@ def _maybe_open_database_engine(engine: str, filename: str | None, iterableargs:
 def _open_cloud_stream(filename: str, mode: str, storage_options: dict[str, Any]) -> Any:
     """Open a file-like stream for a cloud storage URI via fsspec."""
     try:
-        import fsspec  # type: ignore[import-not-found]
+        import fsspec
     except ImportError:
         raise ImportError("Cloud storage support requires 'fsspec'. Install it with: pip install fsspec") from None
 
