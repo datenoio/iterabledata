@@ -1,4 +1,49 @@
 {
+  "123": {
+    "aliases": [
+      "wk1",
+      "wks"
+    ],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "unknown",
+      "readable": true,
+      "selection": [],
+      "source_constraints": [],
+      "streaming": false,
+      "tables": false,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "Lotus123Iterable",
+    "codec_support": [],
+    "description": "Lotus 1-2-3 / WK1 spreadsheet rows.",
+    "doc_url": "docs/docs/formats/lotus123.md",
+    "example_args": null,
+    "extra": null,
+    "flat": true,
+    "id": "123",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.lotus123",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "unknown",
+    "selection": [],
+    "source_constraints": [],
+    "text": false,
+    "writable": false,
+    "write_memory": "unknown"
+  },
   "_schema_version": "1.1",
   "annotatedcsv": {
     "aliases": [],
@@ -176,6 +221,55 @@
     "writable": true,
     "write_memory": "bounded"
   },
+  "asc": {
+    "aliases": [
+      "ascii-grid",
+      "asciigrid"
+    ],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [
+        "mode"
+      ],
+      "source_constraints": [],
+      "streaming": true,
+      "tables": false,
+      "totals": false,
+      "writable": true,
+      "write_memory": "unknown"
+    },
+    "class": "ASCIIGridIterable",
+    "codec_support": [],
+    "description": "Esri ASCII Grid raster as cell or row records.",
+    "doc_url": "docs/docs/formats/asc.md",
+    "example_args": null,
+    "extra": null,
+    "flat": true,
+    "id": "asc",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.asciigrid",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "bounded",
+    "selection": [
+      "mode"
+    ],
+    "source_constraints": [],
+    "text": true,
+    "writable": true,
+    "write_memory": "unknown"
+  },
   "avro": {
     "aliases": [],
     "capabilities": {
@@ -218,6 +312,58 @@
     "source_constraints": [],
     "text": false,
     "writable": true,
+    "write_memory": "unknown"
+  },
+  "bag": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [
+        "table",
+        "dataset"
+      ],
+      "source_constraints": [
+        "filename"
+      ],
+      "streaming": true,
+      "tables": true,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "BAGIterable",
+    "codec_support": [],
+    "description": "BAG bathymetric HDF5 product as sample/cell records.",
+    "doc_url": "docs/docs/formats/bag.md",
+    "example_args": null,
+    "extra": "hdf5",
+    "flat": false,
+    "id": "bag",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.bag",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "bounded",
+    "selection": [
+      "table",
+      "dataset"
+    ],
+    "source_constraints": [
+      "filename"
+    ],
+    "text": false,
+    "writable": false,
     "write_memory": "unknown"
   },
   "bam": {
@@ -656,6 +802,48 @@
     "writable": true,
     "write_memory": "unknown"
   },
+  "cif": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "unknown",
+      "readable": true,
+      "selection": [],
+      "source_constraints": [],
+      "streaming": true,
+      "tables": false,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "CIFIterable",
+    "codec_support": [],
+    "description": "Crystallographic Information File atom_site loop rows.",
+    "doc_url": "docs/docs/formats/cif.md",
+    "example_args": null,
+    "extra": null,
+    "flat": true,
+    "id": "cif",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.cif",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "unknown",
+    "selection": [],
+    "source_constraints": [],
+    "text": true,
+    "writable": false,
+    "write_memory": "unknown"
+  },
   "ckpt": {
     "aliases": [
       "flink"
@@ -892,6 +1080,48 @@
     "writable": true,
     "write_memory": "unknown"
   },
+  "czml": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": false,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": true,
+      "read_memory": "whole_input",
+      "readable": true,
+      "selection": [],
+      "source_constraints": [],
+      "streaming": true,
+      "tables": false,
+      "totals": false,
+      "writable": true,
+      "write_memory": "unknown"
+    },
+    "class": "CZMLIterable",
+    "codec_support": [],
+    "description": "Cesium CZML JSON document packets.",
+    "doc_url": "docs/docs/formats/czml.md",
+    "example_args": null,
+    "extra": null,
+    "flat": false,
+    "id": "czml",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.czml",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "whole_input",
+    "selection": [],
+    "source_constraints": [],
+    "text": true,
+    "writable": true,
+    "write_memory": "unknown"
+  },
   "db": {
     "aliases": [
       "sqlite"
@@ -939,22 +1169,22 @@
   "dbf": {
     "aliases": [],
     "capabilities": {
-      "bulk_read": true,
-      "bulk_write": true,
+      "bulk_read": null,
+      "bulk_write": null,
       "codec_support": [],
-      "compression": true,
-      "flat_only": true,
+      "compression": null,
+      "flat_only": null,
       "maturity": "stable",
       "native_bulk_read": null,
       "native_bulk_write": null,
-      "nested": false,
+      "nested": null,
       "read_memory": "unknown",
-      "readable": true,
+      "readable": null,
       "selection": [],
       "source_constraints": [],
-      "streaming": true,
-      "tables": false,
-      "totals": true,
+      "streaming": null,
+      "tables": null,
+      "totals": null,
       "writable": false,
       "write_memory": "unknown"
     },
@@ -1030,19 +1260,21 @@
       "codec_support": [],
       "compression": true,
       "flat_only": true,
-      "maturity": "stable",
-      "native_bulk_read": null,
-      "native_bulk_write": null,
+      "maturity": "partial",
+      "native_bulk_read": true,
+      "native_bulk_write": true,
       "nested": false,
-      "read_memory": "unknown",
+      "read_memory": "bounded",
       "readable": true,
       "selection": [],
-      "source_constraints": [],
+      "source_constraints": [
+        "directory"
+      ],
       "streaming": true,
       "tables": false,
       "totals": true,
-      "writable": false,
-      "write_memory": "unknown"
+      "writable": true,
+      "write_memory": "bounded"
     },
     "class": "DeltaIterable",
     "codec_support": [],
@@ -1053,19 +1285,20 @@
     "flat": true,
     "id": "delta",
     "limitations": [
-      "Read-only",
       "Path is table root directory"
     ],
-    "maturity": "stable",
+    "maturity": "partial",
     "module": "iterable.datatypes.delta",
-    "native_bulk_read": null,
-    "native_bulk_write": null,
-    "read_memory": "unknown",
+    "native_bulk_read": true,
+    "native_bulk_write": true,
+    "read_memory": "bounded",
     "selection": [],
-    "source_constraints": [],
+    "source_constraints": [
+      "directory"
+    ],
     "text": false,
-    "writable": false,
-    "write_memory": "unknown"
+    "writable": true,
+    "write_memory": "bounded"
   },
   "der": {
     "aliases": [
@@ -1138,7 +1371,7 @@
     "class": "StataIterable",
     "codec_support": [],
     "description": "Stata binary dataset format for statistical analysis (.dta).",
-    "doc_url": "docs/docs/formats/dta.md",
+    "doc_url": "docs/docs/formats/stata.md",
     "example_args": null,
     "extra": null,
     "flat": true,
@@ -1154,6 +1387,65 @@
     "text": false,
     "writable": false,
     "write_memory": "unknown"
+  },
+  "ducklake": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": true,
+      "native_bulk_write": true,
+      "nested": false,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [
+        "table",
+        "data_path"
+      ],
+      "source_constraints": [
+        "filename"
+      ],
+      "streaming": true,
+      "tables": true,
+      "totals": true,
+      "writable": true,
+      "write_memory": "bounded"
+    },
+    "class": "DuckLakeIterable",
+    "codec_support": [],
+    "description": "DuckLake tables: SQL catalog metadata with Parquet data files.",
+    "doc_url": "docs/docs/formats/ducklake.md",
+    "example_args": {
+      "data_path": "./data",
+      "format": "ducklake",
+      "table": "main.events"
+    },
+    "extra": "ducklake",
+    "flat": true,
+    "id": "ducklake",
+    "limitations": [
+      "Experimental",
+      "Requires explicit format=ducklake; does not hijack .duckdb"
+    ],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.ducklake",
+    "native_bulk_read": true,
+    "native_bulk_write": true,
+    "read_memory": "bounded",
+    "selection": [
+      "table",
+      "data_path"
+    ],
+    "source_constraints": [
+      "filename"
+    ],
+    "text": false,
+    "writable": true,
+    "write_memory": "bounded"
   },
   "dxf": {
     "aliases": [],
@@ -1194,6 +1486,90 @@
     "selection": [],
     "source_constraints": [],
     "text": false,
+    "writable": false,
+    "write_memory": "unknown"
+  },
+  "e00": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [],
+      "source_constraints": [],
+      "streaming": true,
+      "tables": false,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "E00Iterable",
+    "codec_support": [],
+    "description": "ArcInfo Interchange (.e00) experimental coverage/feature export reader.",
+    "doc_url": "docs/docs/formats/e00.md",
+    "example_args": null,
+    "extra": null,
+    "flat": false,
+    "id": "e00",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.e00",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "bounded",
+    "selection": [],
+    "source_constraints": [],
+    "text": true,
+    "writable": false,
+    "write_memory": "unknown"
+  },
+  "edi": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "unknown",
+      "readable": true,
+      "selection": [],
+      "source_constraints": [],
+      "streaming": false,
+      "tables": false,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "EDIIterable",
+    "codec_support": [],
+    "description": "EDI X12/EDIFACT segment streams.",
+    "doc_url": "docs/docs/formats/edi.md",
+    "example_args": null,
+    "extra": null,
+    "flat": false,
+    "id": "edi",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.edi",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "unknown",
+    "selection": [],
+    "source_constraints": [],
+    "text": true,
     "writable": false,
     "write_memory": "unknown"
   },
@@ -1379,6 +1755,60 @@
     "writable": false,
     "write_memory": "unknown"
   },
+  "fgdb": {
+    "aliases": [
+      "gdb"
+    ],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": false,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": true,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [
+        "layer",
+        "table"
+      ],
+      "source_constraints": [
+        "directory"
+      ],
+      "streaming": true,
+      "tables": true,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "FileGDBIterable",
+    "codec_support": [],
+    "description": "ESRI File Geodatabase multi-layer geospatial store read via Fiona OpenFileGDB.",
+    "doc_url": "docs/docs/formats/fgdb.md",
+    "example_args": null,
+    "extra": "geospatial",
+    "flat": false,
+    "id": "fgdb",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.filegdb",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "bounded",
+    "selection": [
+      "layer",
+      "table"
+    ],
+    "source_constraints": [
+      "directory"
+    ],
+    "text": false,
+    "writable": false,
+    "write_memory": "unknown"
+  },
   "flatgeobuf": {
     "aliases": [
       "fgb"
@@ -1410,7 +1840,7 @@
     "class": "FlatGeobufIterable",
     "codec_support": [],
     "description": "Streaming FlatGeobuf geospatial features through Fiona/GDAL.",
-    "doc_url": "docs/docs/formats/geoparquet.md",
+    "doc_url": "docs/docs/formats/flatgeobuf.md",
     "example_args": null,
     "extra": "geospatial",
     "flat": false,
@@ -1520,6 +1950,52 @@
     "selection": [],
     "source_constraints": [],
     "text": true,
+    "writable": false,
+    "write_memory": "unknown"
+  },
+  "fst": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "unknown",
+      "readable": true,
+      "selection": [],
+      "source_constraints": [
+        "filename"
+      ],
+      "streaming": false,
+      "tables": false,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "FSTIterable",
+    "codec_support": [],
+    "description": "R fst columnar on-disk data frames.",
+    "doc_url": "docs/docs/formats/fst.md",
+    "example_args": null,
+    "extra": "fst",
+    "flat": true,
+    "id": "fst",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.fst",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "unknown",
+    "selection": [],
+    "source_constraints": [
+      "filename"
+    ],
+    "text": false,
     "writable": false,
     "write_memory": "unknown"
   },
@@ -2058,6 +2534,54 @@
     "writable": false,
     "write_memory": "unknown"
   },
+  "grib2": {
+    "aliases": [
+      "grib"
+    ],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [],
+      "source_constraints": [
+        "filename"
+      ],
+      "streaming": false,
+      "tables": false,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "GRIB2Iterable",
+    "codec_support": [],
+    "description": "GRIB2 meteorological messages.",
+    "doc_url": "docs/docs/formats/grib2.md",
+    "example_args": null,
+    "extra": "geophysical",
+    "flat": false,
+    "id": "grib2",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.grib2",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "bounded",
+    "selection": [],
+    "source_constraints": [
+      "filename"
+    ],
+    "text": false,
+    "writable": false,
+    "write_memory": "unknown"
+  },
   "gtf": {
     "aliases": [],
     "capabilities": {
@@ -2184,6 +2708,52 @@
     "read_memory": "unknown",
     "selection": [],
     "source_constraints": [],
+    "text": false,
+    "writable": false,
+    "write_memory": "unknown"
+  },
+  "hdt": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "unknown",
+      "readable": true,
+      "selection": [],
+      "source_constraints": [
+        "filename"
+      ],
+      "streaming": true,
+      "tables": false,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "HDTIterable",
+    "codec_support": [],
+    "description": "RDF HDT compact triple stores.",
+    "doc_url": "docs/docs/formats/hdt.md",
+    "example_args": null,
+    "extra": "rdf",
+    "flat": false,
+    "id": "hdt",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.hdt",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "unknown",
+    "selection": [],
+    "source_constraints": [
+      "filename"
+    ],
     "text": false,
     "writable": false,
     "write_memory": "unknown"
@@ -2321,6 +2891,48 @@
     "writable": false,
     "write_memory": "unknown"
   },
+  "iati": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": false,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": true,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [],
+      "source_constraints": [],
+      "streaming": true,
+      "tables": false,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "IATIIterable",
+    "codec_support": [],
+    "description": "IATI aid-transparency activity XML.",
+    "doc_url": "docs/docs/formats/iati.md",
+    "example_args": null,
+    "extra": "xml",
+    "flat": false,
+    "id": "iati",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.iati",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "bounded",
+    "selection": [],
+    "source_constraints": [],
+    "text": true,
+    "writable": false,
+    "write_memory": "unknown"
+  },
   "iceberg": {
     "aliases": [],
     "capabilities": {
@@ -2329,19 +2941,24 @@
       "codec_support": [],
       "compression": true,
       "flat_only": true,
-      "maturity": "stable",
-      "native_bulk_read": null,
-      "native_bulk_write": null,
+      "maturity": "partial",
+      "native_bulk_read": true,
+      "native_bulk_write": true,
       "nested": false,
-      "read_memory": "unknown",
+      "read_memory": "bounded",
       "readable": true,
-      "selection": [],
-      "source_constraints": [],
+      "selection": [
+        "catalog_name",
+        "table_name"
+      ],
+      "source_constraints": [
+        "catalog"
+      ],
       "streaming": true,
       "tables": true,
       "totals": true,
-      "writable": false,
-      "write_memory": "unknown"
+      "writable": true,
+      "write_memory": "bounded"
     },
     "class": "IcebergIterable",
     "codec_support": [],
@@ -2355,19 +2972,23 @@
     "flat": true,
     "id": "iceberg",
     "limitations": [
-      "Read-only",
       "Requires catalog_name and table_name"
     ],
-    "maturity": "stable",
+    "maturity": "partial",
     "module": "iterable.datatypes.iceberg",
-    "native_bulk_read": null,
-    "native_bulk_write": null,
-    "read_memory": "unknown",
-    "selection": [],
-    "source_constraints": [],
+    "native_bulk_read": true,
+    "native_bulk_write": true,
+    "read_memory": "bounded",
+    "selection": [
+      "catalog_name",
+      "table_name"
+    ],
+    "source_constraints": [
+      "catalog"
+    ],
     "text": false,
-    "writable": false,
-    "write_memory": "unknown"
+    "writable": true,
+    "write_memory": "bounded"
   },
   "ics": {
     "aliases": [
@@ -2861,6 +3482,52 @@
     "writable": true,
     "write_memory": "bounded"
   },
+  "las": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [],
+      "source_constraints": [
+        "filename"
+      ],
+      "streaming": true,
+      "tables": false,
+      "totals": true,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "LASIterable",
+    "codec_support": [],
+    "description": "LAS LiDAR point cloud (one record per point).",
+    "doc_url": "docs/docs/formats/las.md",
+    "example_args": null,
+    "extra": "lidar",
+    "flat": false,
+    "id": "las",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.las",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "bounded",
+    "selection": [],
+    "source_constraints": [
+      "filename"
+    ],
+    "text": false,
+    "writable": false,
+    "write_memory": "unknown"
+  },
   "ldif": {
     "aliases": [],
     "capabilities": {
@@ -3032,6 +3699,60 @@
     "writable": true,
     "write_memory": "unknown"
   },
+  "mat": {
+    "aliases": [
+      "matlab"
+    ],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "unknown",
+      "readable": true,
+      "selection": [
+        "table",
+        "variable"
+      ],
+      "source_constraints": [
+        "filename"
+      ],
+      "streaming": true,
+      "tables": true,
+      "totals": true,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "MATIterable",
+    "codec_support": [],
+    "description": "MATLAB .mat variables as array row streams.",
+    "doc_url": "docs/docs/formats/mat.md",
+    "example_args": null,
+    "extra": "mat",
+    "flat": true,
+    "id": "mat",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.mat",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "unknown",
+    "selection": [
+      "table",
+      "variable"
+    ],
+    "source_constraints": [
+      "filename"
+    ],
+    "text": false,
+    "writable": false,
+    "write_memory": "unknown"
+  },
   "mbox": {
     "aliases": [],
     "capabilities": {
@@ -3074,6 +3795,58 @@
     "writable": true,
     "write_memory": "unknown"
   },
+  "mdb": {
+    "aliases": [
+      "accdb"
+    ],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "unknown",
+      "readable": true,
+      "selection": [
+        "table"
+      ],
+      "source_constraints": [
+        "filename"
+      ],
+      "streaming": false,
+      "tables": true,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "AccessMDBIterable",
+    "codec_support": [],
+    "description": "Microsoft Access database tables.",
+    "doc_url": "docs/docs/formats/mdb.md",
+    "example_args": null,
+    "extra": "access",
+    "flat": true,
+    "id": "mdb",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.mdb",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "unknown",
+    "selection": [
+      "table"
+    ],
+    "source_constraints": [
+      "filename"
+    ],
+    "text": false,
+    "writable": false,
+    "write_memory": "unknown"
+  },
   "mht": {
     "aliases": [
       "mhtml"
@@ -3101,7 +3874,7 @@
     "class": "MHTMLIterable",
     "codec_support": [],
     "description": "MHTML web archive bundling HTML and embedded resources in a single file.",
-    "doc_url": "docs/docs/formats/mht.md",
+    "doc_url": "docs/docs/formats/mhtml.md",
     "example_args": null,
     "extra": null,
     "flat": false,
@@ -3116,6 +3889,52 @@
     "source_constraints": [],
     "text": true,
     "writable": true,
+    "write_memory": "unknown"
+  },
+  "mif": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": false,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": true,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [],
+      "source_constraints": [
+        "filename"
+      ],
+      "streaming": true,
+      "tables": false,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "MapInfoIterable",
+    "codec_support": [],
+    "description": "MapInfo Interchange Format (MIF/MID) vector features.",
+    "doc_url": "docs/docs/formats/mif.md",
+    "example_args": null,
+    "extra": "geospatial",
+    "flat": false,
+    "id": "mif",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.mif",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "bounded",
+    "selection": [],
+    "source_constraints": [
+      "filename"
+    ],
+    "text": false,
+    "writable": false,
     "write_memory": "unknown"
   },
   "mp": {
@@ -3160,6 +3979,54 @@
     "source_constraints": [],
     "text": false,
     "writable": true,
+    "write_memory": "unknown"
+  },
+  "mseed": {
+    "aliases": [
+      "miniseed"
+    ],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [],
+      "source_constraints": [
+        "filename"
+      ],
+      "streaming": false,
+      "tables": false,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "MiniSEEDIterable",
+    "codec_support": [],
+    "description": "miniSEED seismological waveform windows.",
+    "doc_url": "docs/docs/formats/mseed.md",
+    "example_args": null,
+    "extra": "geophysical",
+    "flat": false,
+    "id": "mseed",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.mseed",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "bounded",
+    "selection": [],
+    "source_constraints": [
+      "filename"
+    ],
+    "text": false,
+    "writable": false,
     "write_memory": "unknown"
   },
   "mvt": {
@@ -3363,7 +4230,7 @@
     "class": "NQuadsIterable",
     "codec_support": [],
     "description": "N-Quads line-based RDF format with graph context per statement.",
-    "doc_url": "docs/docs/formats/nq.md",
+    "doc_url": "docs/docs/formats/nquads.md",
     "example_args": null,
     "extra": null,
     "flat": true,
@@ -3407,7 +4274,7 @@
     "class": "NTriplesIterable",
     "codec_support": [],
     "description": "N-Triples line-based RDF format with subject-predicate-object triples.",
-    "doc_url": "docs/docs/formats/nt.md",
+    "doc_url": "docs/docs/formats/ntriples.md",
     "example_args": null,
     "extra": null,
     "flat": true,
@@ -3469,23 +4336,23 @@
   "orc": {
     "aliases": [],
     "capabilities": {
-      "bulk_read": true,
-      "bulk_write": true,
+      "bulk_read": null,
+      "bulk_write": null,
       "codec_support": [],
-      "compression": true,
-      "flat_only": true,
+      "compression": null,
+      "flat_only": null,
       "maturity": "stable",
       "native_bulk_read": null,
       "native_bulk_write": null,
-      "nested": false,
+      "nested": null,
       "read_memory": "unknown",
-      "readable": true,
+      "readable": null,
       "selection": [],
       "source_constraints": [],
-      "streaming": true,
-      "tables": false,
-      "totals": true,
-      "writable": true,
+      "streaming": null,
+      "tables": null,
+      "totals": null,
+      "writable": null,
       "write_memory": "unknown"
     },
     "class": "ORCIterable",
@@ -3611,6 +4478,189 @@
     "text": false,
     "writable": true,
     "write_memory": "whole_output"
+  },
+  "paimon": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": true,
+      "native_bulk_write": true,
+      "nested": false,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [
+        "database",
+        "table",
+        "columns"
+      ],
+      "source_constraints": [
+        "directory"
+      ],
+      "streaming": true,
+      "tables": true,
+      "totals": true,
+      "writable": true,
+      "write_memory": "bounded"
+    },
+    "class": "PaimonTableIterable",
+    "codec_support": [],
+    "description": "Apache Paimon catalog tables via pypaimon (distinct from .row/.mosaic files).",
+    "doc_url": "docs/docs/formats/paimon.md",
+    "example_args": {
+      "database": "default",
+      "format": "paimon",
+      "table": "orders"
+    },
+    "extra": "paimon-table",
+    "flat": true,
+    "id": "paimon",
+    "limitations": [
+      "Experimental",
+      "Distinct from paimon_row and paimon_mosaic file formats"
+    ],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.paimon",
+    "native_bulk_read": true,
+    "native_bulk_write": true,
+    "read_memory": "bounded",
+    "selection": [
+      "database",
+      "table",
+      "columns"
+    ],
+    "source_constraints": [
+      "directory"
+    ],
+    "text": false,
+    "writable": true,
+    "write_memory": "bounded"
+  },
+  "paimon_mosaic": {
+    "aliases": [
+      "mosaic"
+    ],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": true,
+      "native_bulk_write": true,
+      "nested": false,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [
+        "columns"
+      ],
+      "source_constraints": [
+        "filename"
+      ],
+      "streaming": true,
+      "tables": false,
+      "totals": true,
+      "writable": true,
+      "write_memory": "bounded"
+    },
+    "class": "PaimonMosaicIterable",
+    "codec_support": [],
+    "description": "Apache Paimon Mosaic is a columnar-bucket hybrid format optimized for wide tables.",
+    "doc_url": "docs/docs/formats/paimon-mosaic.md",
+    "example_args": null,
+    "extra": "paimon-mosaic",
+    "flat": true,
+    "id": "paimon_mosaic",
+    "limitations": [
+      "Experimental",
+      "Requires paimon-mosaic platform wheels"
+    ],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.paimon_mosaic",
+    "native_bulk_read": true,
+    "native_bulk_write": true,
+    "read_memory": "bounded",
+    "selection": [
+      "columns"
+    ],
+    "source_constraints": [
+      "filename"
+    ],
+    "text": false,
+    "writable": true,
+    "write_memory": "bounded"
+  },
+  "paimon_row": {
+    "aliases": [
+      "row"
+    ],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": true,
+      "native_bulk_write": true,
+      "nested": false,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [
+        "schema"
+      ],
+      "source_constraints": [
+        "filename"
+      ],
+      "streaming": true,
+      "tables": false,
+      "totals": true,
+      "writable": true,
+      "write_memory": "bounded"
+    },
+    "class": "PaimonRowIterable",
+    "codec_support": [],
+    "description": "Apache Paimon Row (.row) is a row-oriented format optimized for O(1) access by row number.",
+    "doc_url": "docs/docs/formats/paimon-row.md",
+    "example_args": {
+      "schema": [
+        [
+          "id",
+          "bigint"
+        ],
+        [
+          "name",
+          "string"
+        ]
+      ]
+    },
+    "extra": "paimon-row",
+    "flat": true,
+    "id": "paimon_row",
+    "limitations": [
+      "Experimental",
+      "Schema is not embedded; reads require iterableargs schema",
+      "Nested/VARIANT types not supported in the first cut"
+    ],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.paimon_row",
+    "native_bulk_read": true,
+    "native_bulk_write": true,
+    "read_memory": "bounded",
+    "selection": [
+      "schema"
+    ],
+    "source_constraints": [
+      "filename"
+    ],
+    "text": false,
+    "writable": true,
+    "write_memory": "bounded"
   },
   "parquet": {
     "aliases": [],
@@ -3766,6 +4816,52 @@
     "writable": false,
     "write_memory": "unknown"
   },
+  "pdb": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "stable",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "unknown",
+      "readable": true,
+      "selection": [
+        "model"
+      ],
+      "source_constraints": [],
+      "streaming": true,
+      "tables": false,
+      "totals": false,
+      "writable": true,
+      "write_memory": "unknown"
+    },
+    "class": "PDBIterable",
+    "codec_support": [],
+    "description": "Protein Data Bank ATOM/HETATM structure records.",
+    "doc_url": "docs/docs/formats/pdb.md",
+    "example_args": null,
+    "extra": null,
+    "flat": true,
+    "id": "pdb",
+    "limitations": [],
+    "maturity": "stable",
+    "module": "iterable.datatypes.pdb",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "unknown",
+    "selection": [
+      "model"
+    ],
+    "source_constraints": [],
+    "text": true,
+    "writable": true,
+    "write_memory": "unknown"
+  },
   "pickle": {
     "aliases": [],
     "capabilities": {
@@ -3827,7 +4923,7 @@
       "streaming": true,
       "tables": false,
       "totals": true,
-      "writable": false,
+      "writable": true,
       "write_memory": "unknown"
     },
     "class": "PSVIterable",
@@ -3847,7 +4943,7 @@
     "selection": [],
     "source_constraints": [],
     "text": true,
-    "writable": false,
+    "writable": true,
     "write_memory": "unknown"
   },
   "pulsar": {
@@ -3961,7 +5057,7 @@
     "class": "RDataIterable",
     "codec_support": [],
     "description": "R workspace binary format storing multiple named R objects.",
-    "doc_url": "docs/docs/formats/rda.md",
+    "doc_url": "docs/docs/formats/rdata.md",
     "example_args": null,
     "extra": null,
     "flat": true,
@@ -4266,7 +5362,7 @@
     "class": "SPSSIterable",
     "codec_support": [],
     "description": "SPSS binary dataset format for survey and statistical data.",
-    "doc_url": "docs/docs/formats/sav.md",
+    "doc_url": "docs/docs/formats/spss.md",
     "example_args": null,
     "extra": null,
     "flat": true,
@@ -4279,6 +5375,52 @@
     "read_memory": "unknown",
     "selection": [],
     "source_constraints": [],
+    "text": false,
+    "writable": false,
+    "write_memory": "unknown"
+  },
+  "segy": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [],
+      "source_constraints": [
+        "filename"
+      ],
+      "streaming": true,
+      "tables": false,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "SEGYIterable",
+    "codec_support": [],
+    "description": "SEG-Y seismic traces.",
+    "doc_url": "docs/docs/formats/segy.md",
+    "example_args": null,
+    "extra": "geophysical",
+    "flat": false,
+    "id": "segy",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.segy",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "bounded",
+    "selection": [],
+    "source_constraints": [
+      "filename"
+    ],
     "text": false,
     "writable": false,
     "write_memory": "unknown"
@@ -5007,7 +6149,7 @@
     "class": "VortexIterable",
     "codec_support": [],
     "description": "Vortex columnar file format optimized for analytics workloads.",
-    "doc_url": "docs/docs/formats/vtx.md",
+    "doc_url": "docs/docs/formats/vortex.md",
     "example_args": null,
     "extra": null,
     "flat": true,
@@ -5025,6 +6167,56 @@
     "text": false,
     "writable": true,
     "write_memory": "whole_output"
+  },
+  "webdataset": {
+    "aliases": [
+      "wds"
+    ],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": false,
+      "maturity": "experimental",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": true,
+      "read_memory": "bounded",
+      "readable": true,
+      "selection": [
+        "decode_json",
+        "partial_group"
+      ],
+      "source_constraints": [],
+      "streaming": false,
+      "tables": false,
+      "totals": false,
+      "writable": false,
+      "write_memory": "unknown"
+    },
+    "class": "WebDatasetIterable",
+    "codec_support": [],
+    "description": "WebDataset TAR shards grouped into sample dicts.",
+    "doc_url": "docs/docs/formats/webdataset.md",
+    "example_args": null,
+    "extra": null,
+    "flat": false,
+    "id": "webdataset",
+    "limitations": [],
+    "maturity": "experimental",
+    "module": "iterable.datatypes.webdataset",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "bounded",
+    "selection": [
+      "decode_json",
+      "partial_group"
+    ],
+    "source_constraints": [],
+    "text": false,
+    "writable": false,
+    "write_memory": "unknown"
   },
   "xls": {
     "aliases": [],
@@ -5200,6 +6392,48 @@
     "source_constraints": [],
     "text": true,
     "writable": false,
+    "write_memory": "unknown"
+  },
+  "xyz": {
+    "aliases": [],
+    "capabilities": {
+      "bulk_read": true,
+      "bulk_write": true,
+      "codec_support": [],
+      "compression": true,
+      "flat_only": true,
+      "maturity": "stable",
+      "native_bulk_read": null,
+      "native_bulk_write": null,
+      "nested": false,
+      "read_memory": "unknown",
+      "readable": true,
+      "selection": [],
+      "source_constraints": [],
+      "streaming": true,
+      "tables": false,
+      "totals": false,
+      "writable": true,
+      "write_memory": "unknown"
+    },
+    "class": "XYZIterable",
+    "codec_support": [],
+    "description": "XYZ molecular/point coordinate tables.",
+    "doc_url": "docs/docs/formats/xyz.md",
+    "example_args": null,
+    "extra": null,
+    "flat": true,
+    "id": "xyz",
+    "limitations": [],
+    "maturity": "stable",
+    "module": "iterable.datatypes.xyz",
+    "native_bulk_read": null,
+    "native_bulk_write": null,
+    "read_memory": "unknown",
+    "selection": [],
+    "source_constraints": [],
+    "text": true,
+    "writable": true,
     "write_memory": "unknown"
   },
   "yml": {

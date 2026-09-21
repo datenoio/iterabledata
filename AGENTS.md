@@ -186,7 +186,7 @@ Instructions for AI coding agents working on the IterableData project.
 ## Known issues
 
 - Some formats require optional dependencies (see `pyproject.toml` for optional-dependencies)
-- DuckDB engine only supports certain formats (CSV, JSONL, JSON) and codecs (GZIP, ZStandard)
+- DuckDB engine only supports certain formats (CSV, JSONL, NDJSON, JSON, Parquet) and codecs (GZIP, ZStandard)
 - Large files should use streaming (iterator interface) to avoid memory issues
 - XML parsing requires specifying tag names via `iterableargs={'tagname': 'item'}`
 

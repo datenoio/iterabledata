@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **XLSX totals**: `XLSXIterable.totals()` now returns the row count as an int, matching the
+  `BaseIterable` contract and the totals conformance test.
+- **Parallel test runs**: Pin `pytest<9` and require `pytest-benchmark>=5.3` in the dev extra so
+  `pytest -n auto` collects and runs the suite again (pytest-benchmark 5.2.3 crashed xdist
+  workers; `tests/conftest.py` import-time `os.chdir` also breaks relative-path collection).
+
+### Added
+- **CRAM docs**: Dedicated `docs/docs/formats/cram.md` page with sidebar entry, format index link,
+  and cross-links from BAM/SAM/genomic pages; registry `doc_url` now points to it.
+
+### Changed
+- **Typing gate**: Drop obsolete inline `type: ignore` comments for polars/fsspec (covered by
+  mypy `ignore_missing_imports` overrides), making the blocking mypy core gate pass in
+  environments with optional dependencies installed.
+- **OpenSpec**: Archive 23 completed change proposals; 21 new capability specs published
+  (73 items validate strict). Regenerate `dev/formats.json` (145 formats) and refresh
+  `UNFINISHED_PROPOSALS.md`.
+
 ## [1.0.23] - 2026-08-18
 
 ### Fixed
