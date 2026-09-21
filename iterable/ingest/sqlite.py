@@ -105,11 +105,13 @@ def _insert_batch(
         # SQLite UPSERT (INSERT OR REPLACE)
         if isinstance(upsert_key, str):
             upsert_key = [upsert_key]
+        # Identifiers quoted via quote_table_name()/quote_columns(); row values are bound parameters.
         # Build INSERT OR REPLACE query
-        query = f"INSERT OR REPLACE INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"
+        query = f"INSERT OR REPLACE INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"  # nosec B608
     else:
         # Simple INSERT
-        query = f"INSERT INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"
+        # Identifiers quoted via quote_table_name()/quote_columns(); row values are bound parameters.
+        query = f"INSERT INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"  # nosec B608
 
     values = [[row.get(col) for col in columns] for row in rows]
     cursor.executemany(query, values)

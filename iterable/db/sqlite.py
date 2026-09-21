@@ -122,7 +122,8 @@ class SQLiteDriver(DBDriver):
             filter_clause = self.kwargs.get("filter")
             where_clause = f" WHERE {filter_clause}" if filter_clause else ""
 
-            query = f"SELECT {col_list} FROM {table_ref}{where_clause}"
+            # col_list/table_ref quoted via _quote_identifier(); filter is an explicit raw-SQL pass-through parameter.
+            query = f"SELECT {col_list} FROM {table_ref}{where_clause}"  # nosec B608
 
         return query
 
@@ -297,7 +298,8 @@ class SQLiteDriver(DBDriver):
                         # Quote identifier manually
                         escaped = table_name.replace('"', '""')
                         quoted_name = f'"{escaped}"'
-                        count_cur.execute(f"SELECT COUNT(*) FROM {quoted_name}")
+                        # Identifier escaped and quoted just above (embedded " doubled).
+                        count_cur.execute(f"SELECT COUNT(*) FROM {quoted_name}")  # nosec B608
                         row_count = count_cur.fetchone()[0]
                         count_cur.close()
                     except Exception:

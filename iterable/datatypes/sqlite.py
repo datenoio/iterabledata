@@ -112,8 +112,9 @@ class SQLiteIterable(BaseFileIterable):
                 self.cursor = self.connection.execute(self.query)
             elif self.table:
                 # Query specific table
+                # Identifier quoted via _quote_ident() before interpolation.
                 quoted = self._quote_ident(self.table)
-                self.cursor = self.connection.execute(f"SELECT * FROM {quoted}")
+                self.cursor = self.connection.execute(f"SELECT * FROM {quoted}")  # nosec B608
             else:
                 # Get first table
                 cursor = self.connection.execute(
@@ -127,8 +128,9 @@ class SQLiteIterable(BaseFileIterable):
                     self.keys = []
                     return
                 self.table = first_table[0]
+                # Table name comes from the database catalog; quote via _quote_ident() before interpolation.
                 quoted = self._quote_ident(self.table)
-                self.cursor = self.connection.execute(f"SELECT * FROM {quoted}")
+                self.cursor = self.connection.execute(f"SELECT * FROM {quoted}")  # nosec B608
 
             # Get column names from cursor description
             if self.cursor.description:
@@ -146,10 +148,13 @@ class SQLiteIterable(BaseFileIterable):
         """Returns file totals"""
         if self.query:
             # For custom queries, we need to count manually
-            count_cursor = self.connection.execute(f"SELECT COUNT(*) as count FROM ({self.query})")
+            # self.query is an explicit raw-SQL pass-through parameter (user-provided SQL by design).
+            count_cursor = self.connection.execute(f"SELECT COUNT(*) as count FROM ({self.query})")  # nosec B608
             return count_cursor.fetchone()[0]
         elif self.table:
-            count_cursor = self.connection.execute(f"SELECT COUNT(*) FROM {self.table}")
+            # Identifier quoted via _quote_ident() before interpolation.
+            count_sql = f"SELECT COUNT(*) FROM {self._quote_ident(self.table)}"  # nosec B608
+            count_cursor = self.connection.execute(count_sql)
             return count_cursor.fetchone()[0]
         return 0
 
@@ -246,17 +251,19 @@ class SQLiteIterable(BaseFileIterable):
         if not hasattr(self, "keys") or self.keys is None:
             self.keys = list(record.keys())
             # Create table if it doesn't exist
-            columns_def = ", ".join([f"{key} TEXT" for key in self.keys])
-            create_query = f"CREATE TABLE IF NOT EXISTS {self.table} ({columns_def})"
+            columns_def = ", ".join([f"{self._quote_ident(key)} TEXT" for key in self.keys])
+            # Identifiers quoted via _quote_ident(); row values use bound parameters.
+            create_query = f"CREATE TABLE IF NOT EXISTS {self._quote_ident(self.table)} ({columns_def})"  # nosec B608
             self.connection.execute(create_query)
             self.connection.commit()
 
         # Build INSERT statement
-        columns = ", ".join(self.keys)
+        columns = ", ".join(self._quote_ident(key) for key in self.keys)
         placeholders = ", ".join(["?" for _ in self.keys])
         values = [record.get(key) for key in self.keys]
 
-        insert_query = f"INSERT INTO {self.table} ({columns}) VALUES ({placeholders})"
+        # Identifiers quoted via _quote_ident(); row values are bound parameters.
+        insert_query = f"INSERT INTO {self._quote_ident(self.table)} ({columns}) VALUES ({placeholders})"  # nosec B608
         self.connection.execute(insert_query, values)
         self.connection.commit()
         self.pos += 1
@@ -293,15 +300,17 @@ class SQLiteIterable(BaseFileIterable):
         if not hasattr(self, "keys") or self.keys is None:
             self.keys = list(records[0].keys())
             # Create table if it doesn't exist
-            columns_def = ", ".join([f"{key} TEXT" for key in self.keys])
-            create_query = f"CREATE TABLE IF NOT EXISTS {self.table} ({columns_def})"
+            columns_def = ", ".join([f"{self._quote_ident(key)} TEXT" for key in self.keys])
+            # Identifiers quoted via _quote_ident(); row values use bound parameters.
+            create_query = f"CREATE TABLE IF NOT EXISTS {self._quote_ident(self.table)} ({columns_def})"  # nosec B608
             self.connection.execute(create_query)
             self.connection.commit()
 
         # Build INSERT statement
-        columns = ", ".join(self.keys)
+        columns = ", ".join(self._quote_ident(key) for key in self.keys)
         placeholders = ", ".join(["?" for _ in self.keys])
-        insert_query = f"INSERT INTO {self.table} ({columns}) VALUES ({placeholders})"
+        # Identifiers quoted via _quote_ident(); row values are bound parameters.
+        insert_query = f"INSERT INTO {self._quote_ident(self.table)} ({columns}) VALUES ({placeholders})"  # nosec B608
 
         # Prepare all values
         all_values = [[record.get(key) for key in self.keys] for record in records]

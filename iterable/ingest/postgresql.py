@@ -123,12 +123,14 @@ def _insert_batch(
             ]
         )
         conflict_clause = ", ".join(quote_columns(list(upsert_key)))
+        # Identifiers quoted via quote_table_name()/quote_columns(); row values are bound parameters.
         query = f"""INSERT INTO {quoted_table} ({columns_str}) 
                     VALUES ({placeholders})
                     ON CONFLICT ({conflict_clause}) 
-                    DO UPDATE SET {update_clause}"""
+                    DO UPDATE SET {update_clause}"""  # nosec B608
     else:
-        query = f"INSERT INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"
+        # Identifiers quoted via quote_table_name()/quote_columns(); row values are bound parameters.
+        query = f"INSERT INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"  # nosec B608
 
     values = [[row.get(col) for col in columns] for row in rows]
     conn.executemany(query, values)

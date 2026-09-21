@@ -187,7 +187,9 @@ class MySQLDumpIterable(BaseFileIterable):
         if self.current_table != table:
             if self.current_table is not None:
                 self.fobj.write(";\n")
-            self.fobj.write(f"INSERT INTO `{table}` VALUES\n")
+            # Backtick-quote the identifier; escape embedded backticks by doubling (MySQL rule).
+            escaped_table = table.replace("`", "``")
+            self.fobj.write(f"INSERT INTO `{escaped_table}` VALUES\n")  # nosec B608
             self.current_table = table
             self.first_row = True
         else:

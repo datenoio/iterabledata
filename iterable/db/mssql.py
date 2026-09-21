@@ -163,7 +163,8 @@ class MSSQLDriver(DBDriver):
             filter_clause = self.kwargs.get("filter")
             where_clause = f" WHERE {filter_clause}" if filter_clause else ""
 
-            query = f"SELECT {col_list} FROM {table_ref}{where_clause}"
+            # col_list/table_ref quoted via _quote_identifier(); filter is an explicit raw-SQL pass-through parameter.
+            query = f"SELECT {col_list} FROM {table_ref}{where_clause}"  # nosec B608
 
         return query
 

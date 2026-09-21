@@ -132,11 +132,13 @@ def _insert_batch(
                 if col not in upsert_key
             ]
         )
+        # Identifiers quoted via quote_table_name()/quote_columns(); row values are bound parameters.
         query = f"""INSERT INTO {quoted_table} ({columns_str}) 
                     VALUES ({placeholders})
-                    ON DUPLICATE KEY UPDATE {update_clause}"""
+                    ON DUPLICATE KEY UPDATE {update_clause}"""  # nosec B608
     else:
-        query = f"INSERT INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"
+        # Identifiers quoted via quote_table_name()/quote_columns(); row values are bound parameters.
+        query = f"INSERT INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"  # nosec B608
 
     values = [[row.get(col) for col in columns] for row in rows]
     cursor.executemany(query, values)

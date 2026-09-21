@@ -33,6 +33,11 @@ def _default_table_name(filename: str | None) -> str:
 class DuckDBDatabaseIterable(BaseFileIterable):
     datamode = "binary"
 
+    @staticmethod
+    def _quote_ident(name: str) -> str:
+        """Quote a SQL identifier (table/column), escaping embedded quotes by doubling."""
+        return '"' + name.replace('"', '""') + '"'
+
     def __init__(
         self,
         filename: str | None = None,
@@ -91,7 +96,9 @@ class DuckDBDatabaseIterable(BaseFileIterable):
             elif self.table:
                 # Query specific table
                 self._no_tables = False
-                self.cursor = self.connection.execute(f"SELECT * FROM {self.table}")
+                # Identifier quoted via _quote_ident() before interpolation.
+                quoted = self._quote_ident(self.table)
+                self.cursor = self.connection.execute(f"SELECT * FROM {quoted}")  # nosec B608
             else:
                 # Get first table - DuckDB supports SHOW TABLES
                 try:
@@ -111,7 +118,9 @@ class DuckDBDatabaseIterable(BaseFileIterable):
                     return
                 self._no_tables = False
                 self.table = tables[0][0]
-                self.cursor = self.connection.execute(f"SELECT * FROM {self.table}")
+                # Table name comes from the database catalog; quote via _quote_ident() before interpolation.
+                quoted = self._quote_ident(self.table)
+                self.cursor = self.connection.execute(f"SELECT * FROM {quoted}")  # nosec B608
 
             # Get column names from cursor description
             if self.cursor.description:
@@ -129,10 +138,14 @@ class DuckDBDatabaseIterable(BaseFileIterable):
         """Returns file totals"""
         if self.query:
             # For custom queries, we need to count manually
-            count_result = self.connection.execute(f"SELECT COUNT(*) as count FROM ({self.query})").fetchone()
+            # self.query is an explicit raw-SQL pass-through parameter (user-provided SQL by design).
+            count_sql = f"SELECT COUNT(*) as count FROM ({self.query})"  # nosec B608
+            count_result = self.connection.execute(count_sql).fetchone()
             return count_result[0] if count_result else 0
         elif self.table:
-            count_result = self.connection.execute(f"SELECT COUNT(*) FROM {self.table}").fetchone()
+            # Identifier quoted via _quote_ident() before interpolation.
+            count_sql = f"SELECT COUNT(*) FROM {self._quote_ident(self.table)}"  # nosec B608
+            count_result = self.connection.execute(count_sql).fetchone()
             return count_result[0] if count_result else 0
         return 0
 
@@ -224,19 +237,23 @@ class DuckDBDatabaseIterable(BaseFileIterable):
                     return "DOUBLE"
                 return "VARCHAR"
 
-            columns_def = ", ".join([f"{key} {_duckdb_type_from_value(record.get(key))}" for key in self.keys])
-            create_query = f"CREATE TABLE IF NOT EXISTS {self.table} ({columns_def})"
+            columns_def = ", ".join(
+                [f"{self._quote_ident(key)} {_duckdb_type_from_value(record.get(key))}" for key in self.keys]
+            )
+            # Identifiers quoted via _quote_ident(); row values use bound parameters.
+            create_query = f"CREATE TABLE IF NOT EXISTS {self._quote_ident(self.table)} ({columns_def})"  # nosec B608
             self.connection.execute(create_query)
             # DuckDB auto-commits, but commit() may exist for compatibility
             if hasattr(self.connection, "commit"):
                 self.connection.commit()
 
         # Build INSERT statement
-        columns = ", ".join(self.keys)
+        columns = ", ".join(self._quote_ident(key) for key in self.keys)
         placeholders = ", ".join(["?" for _ in self.keys])
         values = [record.get(key) for key in self.keys]
 
-        insert_query = f"INSERT INTO {self.table} ({columns}) VALUES ({placeholders})"
+        # Identifiers quoted via _quote_ident(); row values are bound parameters.
+        insert_query = f"INSERT INTO {self._quote_ident(self.table)} ({columns}) VALUES ({placeholders})"  # nosec B608
         self.connection.execute(insert_query, values)
         # DuckDB auto-commits, but commit() may exist for compatibility
         if hasattr(self.connection, "commit"):
@@ -272,17 +289,21 @@ class DuckDBDatabaseIterable(BaseFileIterable):
                 return "VARCHAR"
 
             first = records[0]
-            columns_def = ", ".join([f"{key} {_duckdb_type_from_value(first.get(key))}" for key in self.keys])
-            create_query = f"CREATE TABLE IF NOT EXISTS {self.table} ({columns_def})"
+            columns_def = ", ".join(
+                [f"{self._quote_ident(key)} {_duckdb_type_from_value(first.get(key))}" for key in self.keys]
+            )
+            # Identifiers quoted via _quote_ident(); row values use bound parameters.
+            create_query = f"CREATE TABLE IF NOT EXISTS {self._quote_ident(self.table)} ({columns_def})"  # nosec B608
             self.connection.execute(create_query)
             # DuckDB auto-commits, but commit() may exist for compatibility
             if hasattr(self.connection, "commit"):
                 self.connection.commit()
 
         # Build INSERT statement
-        columns = ", ".join(self.keys)
+        columns = ", ".join(self._quote_ident(key) for key in self.keys)
         placeholders = ", ".join(["?" for _ in self.keys])
-        insert_query = f"INSERT INTO {self.table} ({columns}) VALUES ({placeholders})"
+        # Identifiers quoted via _quote_ident(); row values are bound parameters.
+        insert_query = f"INSERT INTO {self._quote_ident(self.table)} ({columns}) VALUES ({placeholders})"  # nosec B608
 
         # Prepare all values
         all_values = [[record.get(key) for key in self.keys] for record in records]

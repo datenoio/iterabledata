@@ -143,9 +143,11 @@ def _insert_batch(
         # DuckDB UPSERT (INSERT OR REPLACE)
         if isinstance(upsert_key, str):
             upsert_key = [upsert_key]
-        query = f"INSERT OR REPLACE INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"
+        # Identifiers quoted via quote_table_name()/quote_columns(); row values are bound parameters.
+        query = f"INSERT OR REPLACE INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"  # nosec B608
     else:
-        query = f"INSERT INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"
+        # Identifiers quoted via quote_table_name()/quote_columns(); row values are bound parameters.
+        query = f"INSERT INTO {quoted_table} ({columns_str}) VALUES ({placeholders})"  # nosec B608
 
     values = [[row.get(col) for col in columns] for row in rows]
     conn.executemany(query, values)

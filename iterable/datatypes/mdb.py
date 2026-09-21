@@ -187,8 +187,10 @@ class AccessMDBIterable(BaseFileIterable):
         conn = pyodbc.connect(self._odbc_conn_str(path))
         try:
             cursor = conn.cursor()
-            # Bracket table name for Access SQL safety on reserved words.
-            cursor.execute(f"SELECT * FROM [{table}]")
+            # Bracket table name for Access SQL safety on reserved words;
+            # escape embedded closing brackets by doubling (Access/SQL Server rule).
+            escaped_table = table.replace("]", "]]")
+            cursor.execute(f"SELECT * FROM [{escaped_table}]")  # nosec B608
             columns = [col[0] for col in cursor.description]
             return [dict(zip(columns, row, strict=False)) for row in cursor.fetchall()]
         finally:

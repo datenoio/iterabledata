@@ -358,7 +358,9 @@ class DuckDBEngineIterable(BaseFileIterable):
         try:
             # Query to get column names (LIMIT 0 to avoid reading data)
             # Using parameterized query for consistency (LIMIT 0 is safe but follows pattern)
-            test_query = f"SELECT * FROM {self._duckdb_function}('{safe_filename}') LIMIT ?"
+            # Table function is an internal constant; filename is escaped via _escape_filename();
+            # LIMIT is a bound parameter.
+            test_query = f"SELECT * FROM {self._duckdb_function}('{safe_filename}') LIMIT ?"  # nosec B608
             result = self._connection.execute(test_query, [0])
             available_columns = {desc[0].lower() for desc in result.description} if result.description else set()
         except (duckdb.Error, duckdb.ProgrammingError, duckdb.OperationalError):
@@ -488,7 +490,8 @@ class DuckDBEngineIterable(BaseFileIterable):
         if self._query:
             self._validate_query(self._query)
             # Wrap query in a subquery to count (no parameters needed for COUNT)
-            count_query = f"SELECT COUNT(*) FROM ({self._query})"
+            # self._query is an explicit raw-SQL pass-through parameter, validated read-only by _validate_query().
+            count_query = f"SELECT COUNT(*) FROM ({self._query})"  # nosec B608
             try:
                 result = self._connection.execute(count_query).fetchone()
                 return result[0] if result else 0
@@ -508,7 +511,8 @@ class DuckDBEngineIterable(BaseFileIterable):
             where_clause = f"WHERE {self._filter}"
 
         # COUNT query doesn't need LIMIT/OFFSET, so no parameters needed
-        count_query = f"SELECT COUNT(*) FROM {self._duckdb_function}('{safe_filename}')"
+        # Table function is an internal constant; filename is escaped via _escape_filename().
+        count_query = f"SELECT COUNT(*) FROM {self._duckdb_function}('{safe_filename}')"  # nosec B608
         if where_clause:
             count_query += f" {where_clause}"
 
@@ -525,7 +529,8 @@ class DuckDBEngineIterable(BaseFileIterable):
         # If filter is a callable, we need to count in Python (fallback)
         if self._filter and callable(self._filter):
             # Count all rows and filter in Python
-            all_query = f"SELECT * FROM {self._duckdb_function}('{safe_filename}')"
+            # Table function is an internal constant; filename is escaped via _escape_filename().
+            all_query = f"SELECT * FROM {self._duckdb_function}('{safe_filename}')"  # nosec B608
             try:
                 result = self._connection.execute(all_query)
                 all_dicts = self._result_to_dicts(result)

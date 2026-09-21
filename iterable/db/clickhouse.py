@@ -163,7 +163,8 @@ class ClickHouseDriver(DBDriver):
             filter_clause = self.kwargs.get("filter")
             where_clause = f" WHERE {filter_clause}" if filter_clause else ""
 
-            query = f"SELECT {col_list} FROM {table_ref}{where_clause}"
+            # col_list/table_ref quoted via _quote_identifier(); filter is an explicit raw-SQL pass-through parameter.
+            query = f"SELECT {col_list} FROM {table_ref}{where_clause}"  # nosec B608
 
         return query
 
@@ -312,8 +313,9 @@ class ClickHouseDriver(DBDriver):
             # Query system.tables to get table list
             # ClickHouse uses string interpolation for parameters, but we'll use proper escaping
             if database:
-                # Escape database name for safety
-                db_escaped = database.replace("'", "''")
+                # Escape database name for use inside a ClickHouse string literal: backslashes
+                # first (ClickHouse processes backslash escapes in strings), then single quotes.
+                db_escaped = database.replace("\\", "\\\\").replace("'", "''")
                 query = f"""
                     SELECT 
                         database,
@@ -322,7 +324,7 @@ class ClickHouseDriver(DBDriver):
                     FROM system.tables
                     WHERE database = '{db_escaped}'
                     ORDER BY database, name
-                """
+                """  # nosec B608
             else:
                 query = """
                     SELECT 
