@@ -1,0 +1,5 @@
+# Full-package mypy error-count baseline for dev/scripts/mypy_ratchet.py.
+# Regenerate with: python dev/scripts/mypy_ratchet.py --update
+# Counts are environment-sensitive (optional deps); CI is the reference env.
+# Updated: 2026-09-21
+1359

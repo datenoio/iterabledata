@@ -54,6 +54,13 @@ jobs:
     - name: Mypy full package (advisory)
       run: mypy iterable || true
 
+    # Ratchets the full-package mypy error count against dev/mypy_baseline.txt.
+    # Advisory (`|| true`) until the baseline proves stable in CI — mypy counts
+    # are environment-sensitive (optional deps) and CI is the reference env.
+    # Becomes blocking by dropping `|| true`.
+    - name: Mypy error-count ratchet (advisory)
+      run: python dev/scripts/mypy_ratchet.py || true
+
     - name: Pydocstyle (advisory)
       run: pydocstyle iterable || true
 
@@ -62,6 +69,18 @@ jobs:
 
     - name: Code complexity with Radon (advisory)
       run: radon cc iterable --min B || true
+
+    # Complexity gate: no D-or-worse graded functions. Advisory (`|| true`) while
+    # the remaining D-or-worse functions are being refactored; becomes blocking by
+    # dropping the final `|| true`. `radon cc` always exits 0, so the gate is
+    # enforced by grepping its output for D/E/F rank lines.
+    - name: Complexity gate, no D-or-worse functions (advisory)
+      run: |
+        OUTPUT=$(radon cc iterable --min D)
+        echo "$OUTPUT"
+        COUNT=$(echo "$OUTPUT" | grep -cE " - [DEF]$" || true)
+        echo "COMPLEXITY GATE: $COUNT D-or-worse function(s) remain (advisory until refactors land)"
+        ! echo "$OUTPUT" | grep -qE " - [DEF]$" || true
 
   docs:
     runs-on: ubuntu-latest
@@ -89,7 +108,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
     - uses: actions/checkout@v4
@@ -108,6 +127,15 @@ jobs:
     - name: Run tests with coverage
       run: |
         pytest --verbose --cov=iterable --cov-report=xml --cov-report=term
+
+    # The fail_under=50 floor (pyproject [tool.coverage.report]) is enforced by
+    # pytest-cov during the test step above; this step makes the result explicit.
+    # The base-env picture (lower, advisory) is printed by the test-base-env job.
+    - name: Coverage floor check (full dev env)
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+      run: |
+        echo "COVERAGE FLOOR CHECK (full dev env): fail_under=50 enforced by pytest-cov in the test step above."
+        coverage report --fail-under=0 | tail -n 1
 
     - name: Assert committed fixtures were not modified
       run: git diff --exit-code -- tests/fixtures
@@ -143,8 +171,18 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[dev]"
 
+    # Also prints the base-env coverage picture. Advisory: --cov-fail-under=0
+    # overrides the configured floor because optional extras are absent here, so
+    # their modules import-skip and count as uncovered (floor enforced on the
+    # full dev-env matrix legs instead).
     - name: Run suite without extras (zero collection errors required)
-      run: pytest --verbose --no-cov
+      run: pytest --verbose --cov=iterable --cov-report=term:skip-covered --cov-fail-under=0
+
+    - name: Coverage floor check (base env, advisory)
+      run: |
+        echo "COVERAGE FLOOR CHECK (base env): dev tooling only, no optional format extras."
+        echo "fail_under=50 is NOT enforced here (--cov-fail-under=0); compare with the matrix-leg floor check."
+        coverage report --fail-under=0 | tail -n 1
 
     - name: Assert committed fixtures were not modified
       run: git diff --exit-code -- tests/fixtures
