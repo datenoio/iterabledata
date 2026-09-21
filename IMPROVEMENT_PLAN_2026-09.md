@@ -64,25 +64,25 @@ Worst complexity offenders (grade D): `paimon_row.normalize_schema` (29), `gml.g
 
 Bug fixes and housekeeping; per OpenSpec rules these are done directly.
 
-- [ ] **4.1 Fix `XLSXIterable.totals()` shape** — `tests/test_totals.py::test_totals_match_record_count[...xlsx...]` fails: `totals()` returns a dict where the contract expects an int. Align return shape or fix normalization.
-- [ ] **4.2 Repair pytest-xdist** — pin pytest <9 or upgrade xdist; test *execution* under `-n` currently runs 0 items ("no tests ran" in 0.35 s) even though `--collect-only` collects 2,899 tests, silently defeating the documented parallel workflow in `AGENTS.md`.
-- [ ] **4.3 Archive 23 completed OpenSpec changes** — run `openspec archive <id> --yes` for each completed change; this also creates the missing capability specs for Zarr, GeoParquet, OTLP, Paimon, DuckLake, and the open-data pack.
-- [ ] **4.4 Refresh stale status artifacts** — regenerate `dev/formats.json` from the registry (145 ids), update or delete `UNFINISHED_PROPOSALS.md`, correct the `AGENTS.md` DuckDB note (parquet is supported), untrack `.DS_Store`.
-- [ ] **4.5 Refresh dev venv** — upgrade pip, authlib, pyarrow, requests, urllib3, setuptools, wheel, pytest (131 known vulns; all dev-side; re-audit once PyPI is reachable).
+- [x] **4.1 Fix `XLSXIterable.totals()` shape** — DONE 2026-09-21 (`c709473`): `totals()` returns int with `_total_rows` fallback; totals + xlsx suites green.
+- [x] **4.2 Repair pytest-xdist** — DONE 2026-09-21 (`c7b0269` + conftest follow-up): root causes were pytest-benchmark 5.2.3 crashing workers (now `>=5.3`, pytest pinned `<9`) AND `tests/conftest.py` import-time `os.chdir` (moved to `pytest_configure` with absolute-path rewrite for controller and workers). `pytest -n auto --no-cov` runs the full suite green from a relative path; coverage stays serial (63.72%, floor passes).
+- [x] **4.3 Archive 23 completed OpenSpec changes** — DONE 2026-09-21 (`04e122a`): all archived with spec updates; 21 new capability specs; `openspec validate --all --strict` 73/73; 10 incomplete changes remain.
+- [x] **4.4 Refresh stale status artifacts** — DONE 2026-09-21 (`d8055a9`): `dev/formats.json` regenerated (145), `UNFINISHED_PROPOSALS.md` rewritten, AGENTS.md DuckDB note fixed, `.DS_Store` untracked.
+- [x] **4.5 Refresh dev venv** — DONE 2026-09-21: pip/setuptools/wheel/requests/urllib3/authlib/pygments upgraded; pyarrow 19→25 kept with zero test regressions (`pip check` flags formal pypaimon/pyducklake pins); pip-audit 133→97 rows (remaining: anyio, click, cryptography, idna, jaraco-context, lxml, msgpack, nltk, pytest).
 
-*(A previous draft item "add cram docs page" was withdrawn on re-verification: all 145 registry `doc_url` targets resolve on disk — cram points to the shared `genomic-intervals.md`, which exists and covers CRAM.)*
+*(A previous draft item "add cram docs page" was withdrawn on re-verification: all 145 registry `doc_url` targets resolve on disk — cram points to the shared `genomic-intervals.md`, which exists and covers CRAM.) **Postscript 2026-09-21:** a dedicated `docs/docs/formats/cram.md` was nonetheless added (`9ee98c8`) with sidebar/index/cross-links and the registry `doc_url` retargeted; the Docusaurus production build verifies all links. Revert `9ee98c8` if the shared-page approach is preferred.*
 
 ## 5. P1 — Quality gates that tell the truth (weeks 2–4)
 
 Most items here change CI/tooling behavior → create one OpenSpec change `strengthen-quality-gates-2` (or fold into the existing open `strengthen-repository-quality-gates`, 7/20 tasks).
 
-- [ ] **5.1 Fix mypy core gate environment sensitivity** — gate currently passes in CI (`pip install .[dev]`) but fails in dev envs where polars/fsspec exist (unused `type: ignore` at `dataframe_adapters.py:44`, `open_iterable.py:167`). Make the gate hermetic: pin the check environment or use per-module overrides.
-- [ ] **5.2 mypy ratchet** — adopt the ratchet task already scoped in `strengthen-repository-quality-gates`: baseline current error count, forbid growth, burn down per package.
-- [ ] **5.3 Coverage clarity** — publish two numbers: base-env floor (keep `fail_under = 50` honest) and full-extras coverage in CI/codecov; current committed `coverage.xml` (23.56%) is stale and misleading.
-- [ ] **5.4 Triage B608 ×31** — spread across 14 files: 6 each in `datatypes/sqlite.py` and `datatypes/duckdb.py`, 4 in `engines/duckdb.py`, remainder in `db/*` (7) and `ingest/*` (6). All are f-string SQL with quoted identifiers. Either switch to the `identifiers.py` helper everywhere or annotate verified-safe lines with `nosec` + justification.
-- [ ] **5.5 Complexity budget** — refactor the 9 grade-D functions listed in §3 (geospatial/calendar writers + `BaseFileIterable.reset`); add a radon gate at grade D to prevent regression.
-- [ ] **5.6 Governance files** — add `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CODEOWNERS` (July review finding, still open).
-- [ ] **5.7 Python 3.13 CI leg** — dev env already runs 3.13.7 green; add it to the matrix (and watch 3.14).
+- [x] **5.1 Fix mypy core gate environment sensitivity** — DONE 2026-09-21 (`c7b0269`): polars/fsspec added to `ignore_missing_imports`, obsolete inline `type: ignore` comments dropped; the exact CI core-gate command passes with optional deps installed.
+- [x] **5.2 mypy ratchet** — DONE 2026-09-21 (scaffolding): `dev/scripts/mypy_ratchet.py` + committed baseline (1,359 errors); advisory CI step; becomes blocking once the baseline proves stable in CI. Per-package burn-down remains open.
+- [x] **5.3 Coverage clarity** — DONE 2026-09-21: CI now prints explicit base-env (advisory) and full-dev-env coverage floor checks; full-extras serial coverage measured at 63.72% (floor 50 passes). Stale `coverage.xml` refreshed by new runs.
+- [x] **5.4 Triage B608 ×31** — DONE 2026-09-21 with a better outcome than planned: 5 REAL injection gaps fixed (DuckDB/SQLite datatype identifier quoting incl. file-catalog table names, MDB `]` escaping, mysqldump backticks, ClickHouse backslash literals); remaining sites verified safe and annotated; package-wide bandit 0 medium/high.
+- [x] **5.5 Complexity budget** — DONE 2026-09-21: all 9 grade-D functions refactored to ≤C (behavior-preserving, full suite green). Advisory radon gate added in CI. Note: ~45 further D/E/F functions exist outside the §3 list (e.g. `annotatedcsv`, `ilp`, `helpers/detect`, `dxf`) — gate can go blocking once those are addressed.
+- [x] **5.6 Governance files** — DONE 2026-09-21: `SECURITY.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `.github/CODEOWNERS`.
+- [x] **5.7 Python 3.13 CI leg** — DONE 2026-09-21: matrix is now 3.10–3.13.
 
 ## 6. P2 — Finish what's started (next 1–2 releases)
 

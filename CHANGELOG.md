@@ -13,16 +13,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `BaseIterable` contract and the totals conformance test.
 - **Parallel test runs**: Pin `pytest<9` and require `pytest-benchmark>=5.3` in the dev extra so
   `pytest -n auto` collects and runs the suite again (pytest-benchmark 5.2.3 crashed xdist
-  workers; `tests/conftest.py` import-time `os.chdir` also breaks relative-path collection).
+  workers). `tests/conftest.py` no longer changes directory at import time: the fixture-root
+  chdir moved to `pytest_configure`, which first rewrites relative collection paths to absolute
+  ones (for the controller and for xdist workers), fixing "0 items collected" with a relative
+  `tests` argument and the pytest-cov `--no-cov` worker crash. Use `pytest -n auto --no-cov`
+  for parallel runs; coverage is measured in serial runs.
+- **SQL injection hardening**: Fix five real injection gaps found by a full bandit B608 triage:
+  unquoted table/column identifiers in the DuckDB datatype read/write paths (read-mode table
+  names can come from the file's own catalog), unquoted identifiers in the SQLite datatype
+  `totals()`/write paths, unescaped `]` in MDB bracket quoting, unescaped backticks in mysqldump
+  output, and insufficient string-literal escaping for ClickHouse database names. All identifiers
+  now go through quoting helpers; verified against an injection string (`x"; DROP TABLE t; --`).
+  The remaining B608 findings (verified safe: quoted identifiers, bound parameters, or explicit
+  raw-SQL pass-through API parameters) are annotated with `# nosec B608` justifications — zero
+  bandit medium/high findings remain across the package.
 
 ### Added
 - **CRAM docs**: Dedicated `docs/docs/formats/cram.md` page with sidebar entry, format index link,
   and cross-links from BAM/SAM/genomic pages; registry `doc_url` now points to it.
+- **Quality gates**: mypy error-count ratchet (`dev/scripts/mypy_ratchet.py` with a committed
+  baseline, advisory in CI), an advisory radon complexity gate (no grade-D-or-worse functions),
+  explicit base-env and full-dev-env coverage floor checks in CI, and a Python 3.13 CI leg.
+- **Governance**: `SECURITY.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), and
+  `.github/CODEOWNERS`.
 
 ### Changed
 - **Typing gate**: Drop obsolete inline `type: ignore` comments for polars/fsspec (covered by
   mypy `ignore_missing_imports` overrides), making the blocking mypy core gate pass in
   environments with optional dependencies installed.
+- **Complexity**: Refactor the nine grade-D functions (`paimon_row.normalize_schema`,
+  `gml.gml_to_geojson`, `ical.write`/`write_bulk`, `shapefile.write`, `kml.write`, `gml.write`,
+  `cef._parse_cef`, `BaseFileIterable.reset`) into smaller helpers; all are grade C or better
+  with no behavior changes.
 - **OpenSpec**: Archive 23 completed change proposals; 21 new capability specs published
   (73 items validate strict). Regenerate `dev/formats.json` (145 formats) and refresh
   `UNFINISHED_PROPOSALS.md`.
