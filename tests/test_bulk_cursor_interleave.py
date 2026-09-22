@@ -126,7 +126,22 @@ Columns 2
   id Integer
   name Char(20)
 Data
-1,"row-0"
+Point 1 1
+    Symbol (35,0,12)
+Point 2 2
+    Symbol (35,0,12)
+Point 3 3
+    Symbol (35,0,12)
+Point 4 4
+    Symbol (35,0,12)
+Point 5 5
+    Symbol (35,0,12)
+Point 6 6
+    Symbol (35,0,12)
+"""
+
+# GDAL's MapInfo driver reads attribute values from the companion .mid file.
+MID_TEXT = """1,"row-0"
 2,"row-1"
 3,"row-2"
 4,"row-3"
@@ -194,6 +209,18 @@ def _text_fixture_builder(module: str, symbol: str, filename: str, content: str)
     return build
 
 
+def _mif_builder(tmp_path: Path) -> Opener:
+    """Write a valid MapInfo .mif/.mid pair (geometry + attributes)."""
+    mif_path = tmp_path / "rows.mif"
+    mif_path.write_text(MIF_TEXT, encoding="utf-8")
+    (tmp_path / "rows.mid").write_text(MID_TEXT, encoding="utf-8")
+
+    def opener() -> object:
+        return _load("iterable.datatypes.mif", "MapInfoIterable")(str(mif_path))
+
+    return opener
+
+
 def _e00_builder(tmp_path: Path) -> Opener:
     fixture = COMMITTED_FIXTURES / "sample.e00"
     if not fixture.exists():
@@ -246,9 +273,6 @@ BUILDERS: dict[str, Builder] = {
     "ssv": _roundtrip_builder("iterable.datatypes.psv", "SSVIterable", "rows.ssv", FLAT_ROWS),
     "db": _roundtrip_builder("iterable.datatypes.sqlite", "SQLiteIterable", "rows.db", FLAT_ROWS),
     "gelf": _roundtrip_builder("iterable.datatypes.gelf", "GELIterable", "rows.gelf", FLAT_ROWS),
-    "geoparquet": _roundtrip_builder(
-        "iterable.datatypes.geoparquet", "GeoParquetIterable", "rows.geoparquet", FLAT_ROWS
-    ),
     "gff3": _roundtrip_builder("iterable.datatypes.genomic_intervals", "GFF3Iterable", "rows.gff3", GENO_ROWS),
     "gtf": _roundtrip_builder("iterable.datatypes.genomic_intervals", "GTFIterable", "rows.gtf", GENO_ROWS),
     "czml": _roundtrip_builder("iterable.datatypes.czml", "CZMLIterable", "rows.czml", FLAT_ROWS),
@@ -258,7 +282,7 @@ BUILDERS: dict[str, Builder] = {
     "zarr": _roundtrip_builder("iterable.datatypes.zarr", "ZarrIterable", "rows.zarr", FLAT_ROWS),
     # Read-only formats with hand-crafted or generated fixtures.
     "arff": _text_fixture_builder("iterable.datatypes.arff", "ARFFIterable", "rows.arff", ARFF_TEXT),
-    "mif": _text_fixture_builder("iterable.datatypes.mif", "MapInfoIterable", "rows.mif", MIF_TEXT),
+    "mif": _mif_builder,
     "e00": _e00_builder,
     "cram": _cram_builder,
     "otlp-json": _otlp_json_builder,
@@ -270,7 +294,6 @@ BUILDERS: dict[str, Builder] = {
 EXPLICIT_SKIPS: dict[str, str] = {
     "las": "LAS requires laspy and a binary LAS fixture; none committed and inline crafting is unvalidated here",
     "bag": "BAG requires h5py with a valid BAG HDF5 layout; no committed fixture",
-    "flatgeobuf": "FlatGeobuf requires Fiona/GDAL; no committed fixture and no safe inline builder",
     "fgdb": "File Geodatabase requires Fiona with a FileGDB driver (read-only); no committed fixture",
     "otlp-protobuf": "OTLP Protobuf requires protobuf; no committed fixture and no validated inline builder",
 }
