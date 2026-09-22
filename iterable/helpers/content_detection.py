@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import IO, BinaryIO
 
 from .format_registry import match_magic_prefix
@@ -46,6 +47,38 @@ def _detect_paimon_footer_magic(fileobj: BinaryIO | IO[bytes]) -> tuple[str, flo
                 fileobj.seek(original_pos)
             except Exception:
                 pass
+    return None
+
+
+_OTLP_ROOT_KEYS = ("resourceSpans", "resourceLogs", "resourceMetrics")
+# Anchored at the document start: the OTLP root key must be the *first* key of
+# the top-level object, so nested lookalikes never match.
+_OTLP_PREFIX_RE = re.compile(r'^\{\s*"(?:resourceSpans|resourceLogs|resourceMetrics)"\s*:\s*\[')
+
+
+def _detect_otlp_json(text: str) -> tuple[str, float, str] | None:
+    """Conservative, high-confidence OTLP JSON detection.
+
+    Only matches when a fully parsed document has a recognized top-level OTLP
+    export key (``resourceSpans`` / ``resourceLogs`` / ``resourceMetrics``) with
+    an array value, or when a truncated document *starts* with such a key.
+    Generic JSON with similarly named nested fields is deliberately left to the
+    plain JSON heuristics.
+    """
+    stripped = text.lstrip("\ufeff \t\r\n")
+    if not stripped.startswith("{"):
+        return None
+    try:
+        document = json.loads(stripped)
+    except ValueError:
+        document = None
+    if document is not None:
+        if isinstance(document, dict) and any(isinstance(document.get(key), list) for key in _OTLP_ROOT_KEYS):
+            return ("otlp-json", 0.95, "heuristic")
+        return None
+    # Peek truncated mid-document: accept only an anchored top-level key.
+    if _OTLP_PREFIX_RE.match(stripped):
+        return ("otlp-json", 0.90, "heuristic")
     return None
 
 
@@ -145,6 +178,14 @@ def detect_file_type_from_content(
             geojsonseq = _detect_geojsonseq(text)
             if geojsonseq is not None:
                 return geojsonseq
+
+            # OTLP JSON export envelopes: checked before generic JSON so
+            # recognized OTLP documents route to the OTLP profile, while
+            # ordinary JSON keeps routing to plain JSON (see _detect_otlp_json
+            # for the conservative matching rules).
+            otlp_json = _detect_otlp_json(text)
+            if otlp_json is not None:
+                return otlp_json
 
             if text_stripped.startswith("{") or text_stripped.startswith("["):
                 try:

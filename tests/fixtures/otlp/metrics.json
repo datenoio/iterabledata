@@ -1,0 +1,119 @@
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [{"key": "service.name", "value": {"stringValue": "checkout"}}]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {"name": "app.meter", "version": "3.1.0"},
+          "metrics": [
+            {
+              "name": "system.cpu.utilization",
+              "description": "CPU utilization ratio",
+              "unit": "1",
+              "gauge": {
+                "dataPoints": [
+                  {
+                    "startTimeUnixNano": "1544712660000000000",
+                    "timeUnixNano": "1544712661000000000",
+                    "asDouble": 0.42,
+                    "attributes": [{"key": "core", "value": {"intValue": "0"}}],
+                    "exemplars": [
+                      {
+                        "timeUnixNano": "1544712661000000000",
+                        "asDouble": 0.5,
+                        "traceId": "5b8aa5a2d2c872e8321cf37308d69df2",
+                        "spanId": "051581bf3cb55c13"
+                      }
+                    ]
+                  },
+                  {
+                    "startTimeUnixNano": "1544712660000000000",
+                    "timeUnixNano": "1544712661000000000",
+                    "asInt": "7",
+                    "attributes": [{"key": "core", "value": {"intValue": "1"}}]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "http.server.requests",
+              "description": "Total HTTP requests",
+              "unit": "{request}",
+              "sum": {
+                "aggregationTemporality": 2,
+                "isMonotonic": true,
+                "dataPoints": [
+                  {
+                    "startTimeUnixNano": "1544712660000000000",
+                    "timeUnixNano": "1544712661000000000",
+                    "asInt": "9007199254740993"
+                  }
+                ]
+              }
+            },
+            {
+              "name": "http.server.duration",
+              "unit": "ms",
+              "histogram": {
+                "aggregationTemporality": 1,
+                "dataPoints": [
+                  {
+                    "startTimeUnixNano": "1544712660000000000",
+                    "timeUnixNano": "1544712661000000000",
+                    "count": "3",
+                    "sum": 460.5,
+                    "bucketCounts": ["2", "1"],
+                    "explicitBounds": [100.0],
+                    "min": 10.5,
+                    "max": 250.0
+                  }
+                ]
+              }
+            },
+            {
+              "name": "rpc.server.latency",
+              "unit": "ms",
+              "exponentialHistogram": {
+                "aggregationTemporality": 2,
+                "dataPoints": [
+                  {
+                    "startTimeUnixNano": "1544712660000000000",
+                    "timeUnixNano": "1544712661000000000",
+                    "count": "5",
+                    "sum": 12.0,
+                    "scale": 1,
+                    "zeroCount": "1",
+                    "positive": {"bucketCounts": ["2", "1"]},
+                    "negative": {"offset": -1, "bucketCounts": ["1"]},
+                    "min": 1.5,
+                    "max": 8.0
+                  }
+                ]
+              }
+            },
+            {
+              "name": "rpc.client.duration",
+              "unit": "ms",
+              "summary": {
+                "dataPoints": [
+                  {
+                    "startTimeUnixNano": "1544712660000000000",
+                    "timeUnixNano": "1544712661000000000",
+                    "count": "10",
+                    "sum": 123.4,
+                    "quantileValues": [
+                      {"quantile": 0.5, "value": 11.1},
+                      {"quantile": 0.99, "value": 42.0}
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

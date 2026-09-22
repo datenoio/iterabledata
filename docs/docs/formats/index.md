@@ -170,7 +170,7 @@ Iterable Data supports a wide variety of data formats, from common formats like 
 | [Zarr](/formats/zarr) | directory store | Binary | Yes | ✅ | ✅ | `zarr` | [Details](/formats/zarr) |
 | [GeoParquet](/formats/geoparquet) | `.parquet` | Binary | Yes | ✅ | ✅ | `pyarrow` | [Details](/formats/geoparquet) |
 | [GeoJSONSeq](/formats/geojsonseq) | `.geojsonl`, `.geojsons` | Text | No | ✅ | ✅ | - | [Details](/formats/geojsonseq) |
-| [FlatGeobuf](/formats/flatgeobuf) | `.fgb` | Binary | No | ✅ | ❌ | `geospatial` | [Details](/formats/flatgeobuf) |
+| [FlatGeobuf](/formats/flatgeobuf) | `.fgb` | Binary | No | ✅ | ✅ | `geospatial` | [Details](/formats/flatgeobuf) |
 | [HTML](/formats/html) | `.html`, `.htm` | Text | Yes | ✅ | ❌ | `html` | [Details](/formats/html) |
 | [TAR](/formats/tar) | `.tar`, `.tar.gz`, `.tgz` | Binary | No | ✅ | ❌ | - | [Details](/formats/tar) |
 | [OTLP](/formats/otlp) | `.json` / protobuf | Binary | No | ✅ | ✅ | `otlp` | [Details](/formats/otlp) |

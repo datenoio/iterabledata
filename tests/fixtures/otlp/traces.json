@@ -1,0 +1,84 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {"key": "service.name", "value": {"stringValue": "checkout"}},
+          {"key": "service.version", "value": {"stringValue": "1.4.2"}},
+          {"key": "host.cpu.count", "value": {"intValue": "16"}}
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {"name": "shopping.cart", "version": "2.0.0"},
+          "spans": [
+            {
+              "traceId": "5b8aa5a2d2c872e8321cf37308d69df2",
+              "spanId": "051581bf3cb55c13",
+              "name": "POST /cart/checkout",
+              "kind": 2,
+              "startTimeUnixNano": "1544712660000000000",
+              "endTimeUnixNano": "1544712661000000000",
+              "attributes": [
+                {"key": "http.status_code", "value": {"intValue": "200"}},
+                {"key": "http.route", "value": {"stringValue": "/cart/checkout"}},
+                {"key": "sample.rate", "value": {"doubleValue": 0.75}},
+                {"key": "cache.hit", "value": {"boolValue": true}},
+                {"key": "tags", "value": {"arrayValue": {"values": [{"stringValue": "a"}, {"stringValue": "b"}]}}}
+              ],
+              "events": [
+                {
+                  "timeUnixNano": "1544712660500000000",
+                  "name": "queue.dequeued",
+                  "attributes": [{"key": "queue.depth", "value": {"intValue": "3"}}]
+                }
+              ],
+              "droppedEventsCount": 1,
+              "links": [
+                {
+                  "traceId": "7c8b16219a73ccaea8bc75ca1f849a3e",
+                  "spanId": "ea27f4c6e3ab9d22",
+                  "attributes": [{"key": "link.kind", "value": {"stringValue": "fan-out"}}]
+                }
+              ],
+              "droppedLinksCount": 2,
+              "status": {"code": 1},
+              "flags": 1
+            },
+            {
+              "traceId": "5b8aa5a2d2c872e8321cf37308d69df2",
+              "spanId": "a1e944f4990bae63",
+              "parentSpanId": "051581bf3cb55c13",
+              "name": "inventory.reserve",
+              "kind": 1,
+              "startTimeUnixNano": "1544712660200000000",
+              "endTimeUnixNano": "1544712660800000000",
+              "status": {"code": 2, "message": "insufficient stock"},
+              "flags": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [{"key": "service.name", "value": {"stringValue": "billing"}}]
+      },
+      "scopeSpans": [
+        {
+          "scope": {"name": "billing.worker"},
+          "spans": [
+            {
+              "traceId": "0af7651916cd43dd8448eb211c80319c",
+              "spanId": "b7ad6b7169203331",
+              "name": "charge",
+              "kind": 3,
+              "startTimeUnixNano": "1544712660300000000",
+              "endTimeUnixNano": "1544712660310000000"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "resourceLogs": [
+    {
+      "resource": {
+        "attributes": [
+          {"key": "service.name", "value": {"stringValue": "checkout"}},
+          {"key": "service.instance.id", "value": {"stringValue": "i-0deadbeef"}}
+        ]
+      },
+      "scopeLogs": [
+        {
+          "scope": {"name": "app.logger", "version": "0.1.0"},
+          "logRecords": [
+            {
+              "timeUnixNano": "1544712660300000000",
+              "observedTimeUnixNano": "1544712660300000100",
+              "severityNumber": 9,
+              "severityText": "INFO",
+              "body": {"stringValue": "checkout started"},
+              "attributes": [
+                {"key": "cart.items", "value": {"intValue": "4"}},
+                {"key": "request.bytes", "value": {"bytesValue": "AAEC"}}
+              ],
+              "droppedAttributesCount": 1,
+              "traceId": "5b8aa5a2d2c872e8321cf37308d69df2",
+              "spanId": "051581bf3cb55c13"
+            },
+            {
+              "timeUnixNano": "1544712660900000000",
+              "severityNumber": 17,
+              "severityText": "ERROR",
+              "body": {"stringValue": "charge failed"},
+              "attributes": [{"key": "retry", "value": {"boolValue": false}}],
+              "flags": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
