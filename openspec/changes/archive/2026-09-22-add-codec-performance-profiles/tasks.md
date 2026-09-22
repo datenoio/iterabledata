@@ -15,13 +15,13 @@
 
 ## 3. Performance and memory coverage
 
-- [ ] 3.1 Add compressible and low-compressibility fixtures.
-- [ ] 3.2 Benchmark read/write throughput, ratio, peak memory, and reset cost for primary codecs/profiles.
-- [ ] 3.3 Add normalized/paired regression thresholds and preserve advisory platform results.
-- [ ] 3.4 Test explicit-level overrides and round-trip compatibility.
+- [x] 3.1 Add compressible and low-compressibility fixtures.
+- [x] 3.2 Benchmark read/write throughput, ratio, peak memory, and reset cost for primary codecs/profiles.
+- [x] 3.3 Add normalized/paired regression thresholds and preserve advisory platform results.
+- [x] 3.4 Test explicit-level overrides and round-trip compatibility.
 
 ## 4. Documentation and verification
 
 - [x] 4.1 Publish a profile/codec matrix with effective parameters and trade-offs.
 - [x] 4.2 Document legacy full-buffer paths and interoperability boundaries.
-- [ ] 4.3 Run codec tests, memory tests, performance gate, full suite, and strict OpenSpec validation.
+- [x] 4.3 Run codec tests, memory tests, performance gate, full suite, and strict OpenSpec validation.
