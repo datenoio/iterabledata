@@ -1,0 +1,9 @@
+##gff-version 3
+##sequence-region chr1 1 2000
+# committed fixture for extend-bioinformatics-formats
+chr1	src	gene	100	400	.	+	.	ID=gene1;Name=GeneOne
+chr1	src	mRNA	100	400	.	+	.	ID=tx1;Parent=gene1
+chr1	src	exon	100	200	.	+	.	ID=ex1;Parent=tx1
+chr1	src	exon	300	400	.	+	.	ID=ex2;Parent=tx1
+chr1	src	CDS	150	200	0.5	+	0	ID=cds1;Parent=tx1
+chr1	src	gene	900	1200	.	-	.	ID=gene2;Name=GeneTwo;Note=stress%20induced

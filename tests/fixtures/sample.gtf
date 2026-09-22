@@ -1,0 +1,7 @@
+# committed fixture for extend-bioinformatics-formats
+chr1	src	gene	100	400	.	+	.	gene_id "g1"; gene_name "GeneOne";
+chr1	src	transcript	100	400	.	+	.	gene_id "g1"; transcript_id "t1"; gene_name "GeneOne";
+chr1	src	exon	100	200	.	+	.	gene_id "g1"; transcript_id "t1"; exon_number "1";
+chr1	src	exon	300	400	.	+	.	gene_id "g1"; transcript_id "t1"; exon_number "2";
+chr1	src	CDS	150	200	.	+	0	gene_id "g1"; transcript_id "t1";
+chr1	src	gene	900	1200	.	-	.	gene_id "g2"; gene_name "GeneTwo";

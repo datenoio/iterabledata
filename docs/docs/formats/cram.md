@@ -77,7 +77,8 @@ Requires `pysam`.
 - **ImportError**: missing `pysam` — install `iterabledata[alignment]` or `[bio]`
 - **ValueError**: no filename provided (streams are not supported)
 - **ValueError**: unable to open CRAM — provide `reference_filename` when required
-- **I/O / pysam errors**: corrupt CRAM or missing reference scenarios as raised by pysam
+- **ValueError**: unable to decode CRAM records at read time — the file may be truncated/corrupt or require a reference; htslib's opaque decode errors are wrapped with this guidance
+- **I/O / pysam errors**: other corrupt CRAM or missing reference scenarios as raised by pysam
 - Format is registered **writable=False**
 
 ## Related Formats

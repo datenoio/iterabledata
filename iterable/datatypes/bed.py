@@ -53,6 +53,7 @@ class BEDIterable(BaseFileIterable):
         super().reset()
         self.pos = 0
         self._line_number = 0
+        self._headers_written = False
 
     @staticmethod
     def _parse_values(values: list[str]) -> Row:
@@ -90,7 +91,11 @@ class BEDIterable(BaseFileIterable):
             if stripped.startswith(("#", "track", "browser")):
                 self.headers.append(stripped)
                 continue
-            row = self._parse_values(stripped.split("\t"))
+            try:
+                row = self._parse_values(stripped.split("\t"))
+            except ValueError as exc:
+                location = f"{self.filename}:" if self.filename else ""
+                raise ValueError(f"{location}line {self._line_number}: {exc}") from exc
             self.pos += 1
             return row
 
@@ -115,8 +120,17 @@ class BEDIterable(BaseFileIterable):
         self.write_bulk([record])
 
     def write_bulk(self, records: list[Row]) -> None:
+        if not self._headers_written:
+            # Declared/collected track/browser/comment lines lead the output so
+            # supported headers round-trip through a write/read cycle.
+            self._headers_written = True
+            for header in self.headers:
+                self.fobj.write(header + "\n")
         for record in records:
             values = [self._format_value(key, record.get(key)) for key in BED_FIELDS if key in record]
             if len(values) < 3:
                 raise ValueError("BED writes require chrom, start, and end")
+            extra = record.get("extra")
+            if extra:
+                values.extend(str(item) for item in extra)
             self.fobj.write("\t".join(values) + "\n")

@@ -62,6 +62,15 @@ class CRAMIterable(BaseFileIterable):
             row = _segment_to_dict(next(self._iterator))
         except (StopIteration, EOFError, ValueError):
             raise StopIteration from None
+        except OSError as exc:
+            # htslib surfaces failed reference fetches and truncated/corrupt
+            # containers alike as opaque OSError("truncated file") at decode
+            # time; wrap with actionable guidance instead of leaking it.
+            raise ValueError(
+                "Unable to decode CRAM records; the file may be truncated/corrupt or require a "
+                "reference — pass reference_filename pointing to a local FASTA "
+                f"(references are never downloaded automatically): {exc}"
+            ) from exc
         self.pos += 1
         return row
 

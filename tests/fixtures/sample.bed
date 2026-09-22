@@ -1,0 +1,9 @@
+browser position chr1:1-2000
+track name=sample description="Sample BED fixture" visibility=full
+# committed fixture for extend-bioinformatics-formats
+chr1	0	150
+chr1	200	360	feature-1
+chr1	400	560	feature-2	42	+
+chr1	600	760	feature-3	10	-	600	760	255,0,0
+chr1	800	960	feature-4	99	+	800	960	0	2	100,60,	0,100,
+chr1	1000	1160	feature-5	7	+	1000	1160	0	1	160,	0,	extra-a	extra-b

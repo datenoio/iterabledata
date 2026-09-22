@@ -35,6 +35,8 @@ Invalid coordinates (`end < start`, mismatched block counts) raise `ValueError`.
 
 GFF3 and GTF are tab-separated annotations with **1-based, closed** coordinates. Directives and comments are collected on `metadata`. Attributes are parsed into an ordered map; set `attribute_mode="lossless"` to also keep the raw attribute string.
 
+**FASTA tail policy:** a `##FASTA` directive ends feature reading — the directive is kept in `metadata` (or yielded as a directive record with `include_comments=True`) and iteration stops; sequence lines after it are never parsed as feature rows and are never loaded eagerly.
+
 ```python
 from iterable import open_iterable
 
@@ -57,6 +59,8 @@ with open_iterable("genes.gtf", iterableargs={"include_comments": True}) as sour
 GFF3 and GTF support writing. **Install:** no extra for BED/GFF3/GTF (plain text).
 
 ## Error Handling
+
+Format errors identify the file and line: `filename.bed:line 4: ...` (or `line 4: ...` for streams).
 
 - **ValueError** (BED): Fewer than three columns, `end < start`, or `block_count` mismatch
 - **ValueError** (GFF3/GTF): Wrong column count, invalid coordinates, bad `attribute_mode`, or malformed GFF3 attributes

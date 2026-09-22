@@ -1,0 +1,7 @@
+##gff-version 3
+chr1	src	gene	100	400	.	+	.	ID=gene1
+chr1	src	gene	900	1200	.	-	.	ID=gene2
+##FASTA
+>chr1
+ACGTACGTACGT
+ACGT

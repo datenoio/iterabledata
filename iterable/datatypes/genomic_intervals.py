@@ -46,6 +46,14 @@ class _GenomicIntervalIterable(BaseFileIterable):
         super().reset()
         self.pos = 0
         self.metadata = []
+        self._line_number = 0
+        self._fasta_tail = False
+
+    def _location(self) -> str:
+        """Filename/line context for format errors, when available."""
+        if self.filename:
+            return f"{self.filename}:line {self._line_number}"
+        return f"line {self._line_number}"
 
     def _parse_attributes(self, raw: str) -> OrderedDict[str, str]:
         attributes: OrderedDict[str, str] = OrderedDict()
@@ -66,27 +74,38 @@ class _GenomicIntervalIterable(BaseFileIterable):
 
     def read(self, skip_empty: bool = True) -> Row:
         while True:
+            # Stop policy for the GFF3 ##FASTA directive: sequence lines after
+            # it are never parsed as feature rows (and never loaded eagerly).
+            if self._fasta_tail:
+                raise StopIteration
             line = self.fobj.readline()
             if not line:
                 raise StopIteration
+            self._line_number += 1
             stripped = line.rstrip("\r\n")
             if not stripped:
                 continue
             if stripped.startswith("#"):
                 self.metadata.append(stripped)
+                if stripped.startswith("##FASTA"):
+                    self._fasta_tail = True
                 if self.include_comments:
                     return {"record_type": "directive", "value": stripped}
                 continue
-            fields = stripped.split("\t")
-            if len(fields) != 9:
-                raise ValueError(f"{self.format_name.upper()} records require nine tab-separated columns")
             try:
-                start, end = int(fields[3]), int(fields[4])
+                fields = stripped.split("\t")
+                if len(fields) != 9:
+                    raise ValueError(f"{self.format_name.upper()} records require nine tab-separated columns")
+                try:
+                    start, end = int(fields[3]), int(fields[4])
+                except ValueError as exc:
+                    raise ValueError(f"Invalid {self.format_name.upper()} coordinates") from exc
+                if start < 1 or end < start:
+                    raise ValueError(f"{self.format_name.upper()} coordinates are {self.coordinate_convention}")
+                attributes_raw = fields[8]
+                attributes = self._parse_attributes(attributes_raw)
             except ValueError as exc:
-                raise ValueError(f"Invalid {self.format_name.upper()} coordinates") from exc
-            if start < 1 or end < start:
-                raise ValueError(f"{self.format_name.upper()} coordinates are {self.coordinate_convention}")
-            attributes_raw = fields[8]
+                raise ValueError(f"{self._location()}: {exc}") from exc
             row: Row = {
                 "seqid": fields[0],
                 "source": fields[1],
@@ -96,7 +115,7 @@ class _GenomicIntervalIterable(BaseFileIterable):
                 "score": None if fields[5] == "." else fields[5],
                 "strand": fields[6],
                 "phase": None if fields[7] == "." else fields[7],
-                "attributes": self._parse_attributes(attributes_raw),
+                "attributes": attributes,
             }
             if self.attribute_mode == "lossless":
                 row["attributes_raw"] = attributes_raw
