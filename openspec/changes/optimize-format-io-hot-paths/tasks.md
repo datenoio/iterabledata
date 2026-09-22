@@ -2,7 +2,7 @@
 
 - [x] 1.1 Add a shared row/bulk cursor helper or equivalent internal state using deque/indexed remainders.
 - [x] 1.2 Migrate Parquet and Arrow to the shared consumption state.
-- [ ] 1.3 Add interleaved `read()`/`read_bulk()`/reset conformance tests for all custom bulk readers.
+- [x] 1.3 Add interleaved `read()`/`read_bulk()`/reset conformance tests for all custom bulk readers.
 
 ## 2. Repair write buffering
 
@@ -24,5 +24,5 @@
 - [x] 4.1 Add paired CSV/JSONL/Parquet/Arrow row-versus-bulk workloads at representative sizes.
 - [x] 4.2 Add peak-memory and physical-layout assertions for bounded writers.
 - [x] 4.3 Update format/performance documentation with batch and row-group tuning guidance.
-- [ ] 4.4 Run Ruff, focused tests, the full suite, and the performance regression gate.
-- [ ] 4.5 Regenerate committed baselines only when the reviewed implementation intentionally changes them.
+- [x] 4.4 Run Ruff, focused tests, the full suite, and the performance regression gate.
+- [x] 4.5 Regenerate committed baselines only when the reviewed implementation intentionally changes them.
