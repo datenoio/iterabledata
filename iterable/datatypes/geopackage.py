@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import typing
 
 try:
@@ -157,7 +158,10 @@ class GeoPackageIterable(BaseFileIterable):
             driver = "GPKG"
             crs = "EPSG:4326"  # Default to WGS84
 
-            # Open writer
+            # Open writer. GDAL's GPKG driver refuses to create over an
+            # existing file; mode="w" means overwrite, matching other writers.
+            if self.filename and os.path.exists(self.filename):
+                os.remove(self.filename)
             if self.layer:
                 self.writer = fiona.open(self.filename, "w", driver=driver, layer=self.layer, schema=schema, crs=crs)
             else:
