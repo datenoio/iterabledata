@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Codec performance coverage**: deterministic compressible/random fixtures plus a codec ×
+  profile benchmark suite (write/read throughput, ratio, peak memory, reset cost for gzip, bz2,
+  xz, zstd, lz4, brotli) and default-suite tests for explicit-level override precedence,
+  cross-profile round-trips, ratio ordering/floors, and normalized reset/memory bounds.
+- **Bulk cursor conformance**: 75 interleaved `read()`/`read_bulk()`/`reset()` tests covering all
+  37 formats with custom bulk readers, with a guard test that fails if a future custom bulk
+  reader lands without coverage.
 - **Native batch conversion**: ORC dual backend (pyorc-compatible row path, pyarrow.orc batch
   path), projection/predicate pushdown for Parquet and lakehouse scanners (Delta, Iceberg,
   Lance), and table/variable/slice pushdown for NumPy, HDF5, and NetCDF. Structured selections
