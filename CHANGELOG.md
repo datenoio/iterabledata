@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Format hardening batch**: Zarr gains zarr 3.x compatibility, axis/slice/field selection with
+  chunk-bounded streaming, and write-time mismatch guards; GeoParquet gains CRS/encoding/bbox
+  metadata reads with a feature row mode; FlatGeobuf gains magic-byte detection and bounded
+  writes (bbox selection now drives the packed spatial index — ~7× faster on 20k features);
+  OTLP gains incremental ijson streaming for large documents, write-time metric validation,
+  conservative content detection, and JSON↔Protobuf equivalence. Bioinformatics formats gain
+  hardened CRAM/BED/GFF3/GTF behavior with golden fixtures. ~200 new tests across the batch.
 - **Codec performance coverage**: deterministic compressible/random fixtures plus a codec ×
   profile benchmark suite (write/read throughput, ratio, peak memory, reset cost for gzip, bz2,
   xz, zstd, lz4, brotli) and default-suite tests for explicit-level override precedence,
@@ -31,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is descriptor-driven with 18 new conformance tests; catalog schema 1.2 adds totals/tables.
 
 ### Fixed
+- **GeoPackage writes**: mode="w" now overwrites an existing file (GDAL's GPKG driver refuses to
+  create over one), matching every other writer's truncate semantics.
+- **Bioinformatics robustness**: opaque htslib errors for missing references/truncated CRAM now
+  wrap as actionable ValueErrors (never auto-download); a `##FASTA` tail no longer crashes GFF3
+  parsing; malformed BED/GFF errors carry filename:line identification; the BED writer preserves
+  track/browser headers and extra columns so round-trips hold.
 - **XLSX totals**: `XLSXIterable.totals()` now returns the row count as an int, matching the
   `BaseIterable` contract and the totals conformance test.
 - **Parallel test runs**: Pin `pytest<9` and require `pytest-benchmark>=5.3` in the dev extra so
