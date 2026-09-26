@@ -124,6 +124,99 @@ class MongoDriver(DBDriver):
         self._database = self.conn[database]
         self._collection = self._database[collection_name]
 
+    @staticmethod
+    def _prepare_pipeline(pipeline: Any, limit: Any, skip: Any) -> Any:
+        """Add $limit/$skip stages to the pipeline unless already present."""
+        # Add $limit to pipeline if limit is specified
+        if limit is not None:
+            # Check if $limit already exists in pipeline
+            has_limit = any(stage.get("$limit") is not None for stage in pipeline if isinstance(stage, dict))
+            if not has_limit:
+                pipeline = list(pipeline) + [{"$limit": limit}]
+
+        # Add $skip to pipeline if skip is specified
+        if skip is not None:
+            # Check if $skip already exists in pipeline
+            has_skip = any(stage.get("$skip") is not None for stage in pipeline if isinstance(stage, dict))
+            if not has_skip:
+                pipeline = [{"$skip": skip}] + list(pipeline)
+        return pipeline
+
+    @staticmethod
+    def _normalize_sort(sort: Any) -> list:
+        """Normalize sort to list of tuples."""
+        if isinstance(sort, dict):
+            # Convert dict to list of tuples
+            return list(sort.items())
+        if isinstance(sort, list):
+            # Already a list, but may contain dicts - convert to tuples
+            sort_list = []
+            for item in sort:
+                if isinstance(item, dict):
+                    sort_list.extend(item.items())
+                elif isinstance(item, (list, tuple)) and len(item) == 2:
+                    sort_list.append(tuple(item))
+                else:
+                    raise ValueError(f"Invalid sort item: {item}")
+            return sort_list
+        raise ValueError(f"Invalid sort format: {sort}. Expected dict, list of tuples, or list of dicts")
+
+    def _build_find_kwargs(self, filter_dict: Any, projection: Any, sort: Any, skip: Any, limit: Any) -> dict[str, Any]:
+        find_kwargs: dict[str, Any] = {}
+
+        if filter_dict is not None:
+            find_kwargs["filter"] = filter_dict
+
+        if projection is not None:
+            find_kwargs["projection"] = projection
+
+        if sort is not None:
+            find_kwargs["sort"] = self._normalize_sort(sort)
+
+        if skip is not None:
+            find_kwargs["skip"] = skip
+
+        if limit is not None:
+            find_kwargs["limit"] = limit
+        return find_kwargs
+
+    def _open_cursor(
+        self, batch_size: Any, filter_dict: Any, projection: Any, sort: Any, skip: Any, limit: Any, pipeline: Any
+    ) -> None:
+        if pipeline:
+            # Use aggregation pipeline
+            self._cursor = self._collection.aggregate(
+                self._prepare_pipeline(pipeline, limit, skip), batchSize=batch_size
+            )
+        else:
+            # Use find() with filter, projection, sort, skip, limit
+            find_kwargs = self._build_find_kwargs(filter_dict, projection, sort, skip, limit)
+
+            # Execute find() with batch size
+            self._cursor = self._collection.find(**find_kwargs).batch_size(batch_size)
+
+    def _iter_cursor_docs(self) -> Iterator[Row]:
+        """Iterate over cursor results, converting BSON types to native Python types."""
+        for doc in self._cursor:
+            # Convert ObjectId and other BSON types to native Python types
+            # This ensures compatibility with JSON serialization and other formats
+            if isinstance(doc, dict):
+                doc_dict = self._convert_bson_types(doc)
+                yield doc_dict
+            else:
+                yield doc
+
+            self._update_metrics(rows_read=1)
+
+    def _cleanup_cursor(self) -> None:
+        """Clean up cursor."""
+        if self._cursor is not None:
+            try:
+                self._cursor.close()
+            except Exception:
+                pass
+            self._cursor = None
+
     def iterate(self) -> Iterator[Row]:
         """Return iterator of dict documents from MongoDB collection.
 
@@ -149,77 +242,9 @@ class MongoDriver(DBDriver):
         self._start_metrics()
 
         try:
-            if pipeline:
-                # Use aggregation pipeline
-                # Add $limit to pipeline if limit is specified
-                if limit is not None:
-                    # Check if $limit already exists in pipeline
-                    has_limit = any(stage.get("$limit") is not None for stage in pipeline if isinstance(stage, dict))
-                    if not has_limit:
-                        pipeline = list(pipeline) + [{"$limit": limit}]
+            self._open_cursor(batch_size, filter_dict, projection, sort, skip, limit, pipeline)
 
-                # Add $skip to pipeline if skip is specified
-                if skip is not None:
-                    # Check if $skip already exists in pipeline
-                    has_skip = any(stage.get("$skip") is not None for stage in pipeline if isinstance(stage, dict))
-                    if not has_skip:
-                        pipeline = [{"$skip": skip}] + list(pipeline)
-
-                # Execute aggregation pipeline
-                self._cursor = self._collection.aggregate(pipeline, batchSize=batch_size)
-
-            else:
-                # Use find() with filter, projection, sort, skip, limit
-                find_kwargs: dict[str, Any] = {}
-
-                if filter_dict is not None:
-                    find_kwargs["filter"] = filter_dict
-
-                if projection is not None:
-                    find_kwargs["projection"] = projection
-
-                if sort is not None:
-                    # Normalize sort to list of tuples
-                    if isinstance(sort, dict):
-                        # Convert dict to list of tuples
-                        sort_list = list(sort.items())
-                    elif isinstance(sort, list):
-                        # Already a list, but may contain dicts - convert to tuples
-                        sort_list = []
-                        for item in sort:
-                            if isinstance(item, dict):
-                                sort_list.extend(item.items())
-                            elif isinstance(item, (list, tuple)) and len(item) == 2:
-                                sort_list.append(tuple(item))
-                            else:
-                                raise ValueError(f"Invalid sort item: {item}")
-                    else:
-                        raise ValueError(
-                            f"Invalid sort format: {sort}. Expected dict, list of tuples, or list of dicts"
-                        )
-
-                    find_kwargs["sort"] = sort_list
-
-                if skip is not None:
-                    find_kwargs["skip"] = skip
-
-                if limit is not None:
-                    find_kwargs["limit"] = limit
-
-                # Execute find() with batch size
-                self._cursor = self._collection.find(**find_kwargs).batch_size(batch_size)
-
-            # Iterate over cursor results
-            for doc in self._cursor:
-                # Convert ObjectId and other BSON types to native Python types
-                # This ensures compatibility with JSON serialization and other formats
-                if isinstance(doc, dict):
-                    doc_dict = self._convert_bson_types(doc)
-                    yield doc_dict
-                else:
-                    yield doc
-
-                self._update_metrics(rows_read=1)
+            yield from self._iter_cursor_docs()
 
         except Exception as e:
             self._handle_error(e, "iterating documents")
@@ -229,13 +254,7 @@ class MongoDriver(DBDriver):
             return
 
         finally:
-            # Clean up cursor
-            if self._cursor is not None:
-                try:
-                    self._cursor.close()
-                except Exception:
-                    pass
-                self._cursor = None
+            self._cleanup_cursor()
 
     def _convert_bson_types(self, obj: Any) -> Any:
         """Convert BSON types (ObjectId, etc.) to native Python types.

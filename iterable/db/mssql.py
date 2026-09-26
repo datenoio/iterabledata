@@ -20,6 +20,59 @@ except ImportError:  # pragma: no cover - exercised when dependency is absent
     pyodbc = None
 
 
+# Connection-string keys derived from the URL (not overridable via connect_args).
+_RESERVED_CONN_KEYS = ["UID", "PWD", "SERVER", "PORT", "DATABASE", "DRIVER"]
+
+
+def _build_connection_string(source: str, connect_args: dict[str, Any]) -> str:
+    """Build a pyodbc connection string from a URL/DSN source and extra args."""
+    if source.startswith(("mssql://", "mssql+pyodbc://", "odbc://")):
+        # Parse URL format: mssql://user:pass@host:port/database?driver=ODBC+Driver+17+for+SQL+Server
+        from urllib.parse import parse_qs, urlparse
+
+        parsed = urlparse(source)
+        conn_str_parts = []
+
+        if parsed.username:
+            conn_str_parts.append(f"UID={parsed.username}")
+        if parsed.password:
+            conn_str_parts.append(f"PWD={parsed.password}")
+        if parsed.hostname:
+            conn_str_parts.append(f"SERVER={parsed.hostname}")
+        if parsed.port:
+            conn_str_parts.append(f"PORT={parsed.port}")
+        if parsed.path:
+            db_name = parsed.path.lstrip("/")
+            if db_name:
+                conn_str_parts.append(f"DATABASE={db_name}")
+
+        # Parse query parameters
+        query_params = parse_qs(parsed.query)
+        if "driver" in query_params:
+            driver = query_params["driver"][0]
+            conn_str_parts.append(f"DRIVER={{{driver}}}")
+        elif "DRIVER" not in str(connect_args):
+            # Default driver if not specified
+            conn_str_parts.append("DRIVER={ODBC Driver 17 for SQL Server}")
+
+        # Add any additional connection args
+        for key, value in connect_args.items():
+            if key.upper() not in _RESERVED_CONN_KEYS:
+                conn_str_parts.append(f"{key}={value}")
+
+        return ";".join(conn_str_parts)
+
+    # Assume it's a DSN or full connection string
+    # Use as-is, or merge with connect_args
+    if connect_args:
+        # If connect_args provided, merge with connection string
+        conn_str_parts = [source]
+        for key, value in connect_args.items():
+            conn_str_parts.append(f"{key}={value}")
+        return ";".join(conn_str_parts)
+    return source
+
+
 class MSSQLDriver(DBDriver):
     """Microsoft SQL Server database driver.
 
@@ -70,60 +123,8 @@ class MSSQLDriver(DBDriver):
         connect_args = self.kwargs.get("connect_args", {})
 
         try:
-            # Parse connection string if it's a URL
-            if (
-                self.source.startswith("mssql://")
-                or self.source.startswith("mssql+pyodbc://")
-                or self.source.startswith("odbc://")
-            ):
-                # Parse URL format: mssql://user:pass@host:port/database?driver=ODBC+Driver+17+for+SQL+Server
-                from urllib.parse import parse_qs, urlparse
-
-                parsed = urlparse(self.source)
-                conn_str_parts = []
-
-                if parsed.username:
-                    conn_str_parts.append(f"UID={parsed.username}")
-                if parsed.password:
-                    conn_str_parts.append(f"PWD={parsed.password}")
-                if parsed.hostname:
-                    conn_str_parts.append(f"SERVER={parsed.hostname}")
-                if parsed.port:
-                    conn_str_parts.append(f"PORT={parsed.port}")
-                if parsed.path:
-                    db_name = parsed.path.lstrip("/")
-                    if db_name:
-                        conn_str_parts.append(f"DATABASE={db_name}")
-
-                # Parse query parameters
-                query_params = parse_qs(parsed.query)
-                if "driver" in query_params:
-                    driver = query_params["driver"][0]
-                    conn_str_parts.append(f"DRIVER={{{driver}}}")
-                elif "DRIVER" not in str(connect_args):
-                    # Default driver if not specified
-                    conn_str_parts.append("DRIVER={ODBC Driver 17 for SQL Server}")
-
-                # Add any additional connection args
-                for key, value in connect_args.items():
-                    if key.upper() not in ["UID", "PWD", "SERVER", "PORT", "DATABASE", "DRIVER"]:
-                        conn_str_parts.append(f"{key}={value}")
-
-                connection_string = ";".join(conn_str_parts)
-                self.conn = pyodbc.connect(connection_string)
-            else:
-                # Assume it's a DSN or full connection string
-                # Use as-is, or merge with connect_args
-                if connect_args:
-                    # If connect_args provided, merge with connection string
-                    conn_str_parts = [self.source]
-                    for key, value in connect_args.items():
-                        conn_str_parts.append(f"{key}={value}")
-                    connection_string = ";".join(conn_str_parts)
-                    self.conn = pyodbc.connect(connection_string)
-                else:
-                    self.conn = pyodbc.connect(self.source)
-
+            connection_string = _build_connection_string(self.source, connect_args)
+            self.conn = pyodbc.connect(connection_string)
             self._connected = True
 
         except Exception as e:
@@ -302,51 +303,7 @@ class MSSQLDriver(DBDriver):
 
         try:
             # Parse connection string similar to connect()
-            if (
-                connection_string.startswith("mssql://")
-                or connection_string.startswith("mssql+pyodbc://")
-                or connection_string.startswith("odbc://")
-            ):
-                from urllib.parse import parse_qs, urlparse
-
-                parsed = urlparse(connection_string)
-                conn_str_parts = []
-
-                if parsed.username:
-                    conn_str_parts.append(f"UID={parsed.username}")
-                if parsed.password:
-                    conn_str_parts.append(f"PWD={parsed.password}")
-                if parsed.hostname:
-                    conn_str_parts.append(f"SERVER={parsed.hostname}")
-                if parsed.port:
-                    conn_str_parts.append(f"PORT={parsed.port}")
-                if parsed.path:
-                    db_name = parsed.path.lstrip("/")
-                    if db_name:
-                        conn_str_parts.append(f"DATABASE={db_name}")
-
-                query_params = parse_qs(parsed.query)
-                if "driver" in query_params:
-                    driver = query_params["driver"][0]
-                    conn_str_parts.append(f"DRIVER={{{driver}}}")
-                elif "DRIVER" not in str(connect_args):
-                    conn_str_parts.append("DRIVER={ODBC Driver 17 for SQL Server}")
-
-                for key, value in connect_args.items():
-                    if key.upper() not in ["UID", "PWD", "SERVER", "PORT", "DATABASE", "DRIVER"]:
-                        conn_str_parts.append(f"{key}={value}")
-
-                connection_string = ";".join(conn_str_parts)
-                conn = pyodbc.connect(connection_string)
-            else:
-                if connect_args:
-                    conn_str_parts = [connection_string]
-                    for key, value in connect_args.items():
-                        conn_str_parts.append(f"{key}={value}")
-                    connection_string = ";".join(conn_str_parts)
-                    conn = pyodbc.connect(connection_string)
-                else:
-                    conn = pyodbc.connect(connection_string)
+            conn = pyodbc.connect(_build_connection_string(connection_string, connect_args))
 
             with conn.cursor() as cur:
                 # Query system catalogs

@@ -10,6 +10,20 @@ from ..exceptions import FormatParseError
 from ..types import Row
 
 
+def _decode_pulsar_payload(data: bytes) -> Any:
+    """Decode a key/payload value: JSON when possible, else text, else base64."""
+    try:
+        text = data.decode("utf-8")
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return text
+    except UnicodeDecodeError:
+        import base64
+
+        return base64.b64encode(data).decode("utf-8")
+
+
 class PulsarIterable(BaseFileIterable):
     """
     Apache Pulsar message format reader/writer.
@@ -70,102 +84,64 @@ class PulsarIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return False
 
+    def _read_exact(self, nbytes: int) -> bytes:
+        """Read exactly ``nbytes`` from the stream; a short read ends iteration."""
+        data = self.fobj.read(nbytes)
+        if len(data) < nbytes:
+            raise StopIteration
+        return data
+
+    def _read_optional_payload(self) -> bytes | None:
+        """Read a length-prefixed payload (int32 big-endian; -1 means null)."""
+        length = struct.unpack(">i", self._read_exact(4))[0]
+        if length < 0:
+            return None
+        return self._read_exact(length)
+
+    def _read_properties(self) -> dict:
+        """Read the properties block (count int32, then key/value pairs)."""
+        props_count = struct.unpack(">I", self._read_exact(4))[0]
+        properties = {}
+        for _ in range(props_count):
+            # Read property key length (2 bytes, int16, big-endian)
+            pkey_len = struct.unpack(">h", self._read_exact(2))[0]
+
+            # Read property key
+            pkey = self.fobj.read(pkey_len).decode("utf-8")
+
+            # Read property value length (2 bytes, int16, big-endian)
+            pval_len = struct.unpack(">h", self._read_exact(2))[0]
+
+            # Read property value
+            pval = self.fobj.read(pval_len).decode("utf-8")
+            properties[pkey] = pval
+        return properties
+
     def read(self, skip_empty: bool = True) -> dict:
         """Read single Pulsar message"""
         try:
             # Read message ID length (4 bytes, int32, big-endian)
-            msgid_len_bytes = self.fobj.read(4)
-            if len(msgid_len_bytes) < 4:
-                raise StopIteration
-            msgid_len = struct.unpack(">I", msgid_len_bytes)[0]
+            msgid_len = struct.unpack(">I", self._read_exact(4))[0]
 
             # Read message ID
             message_id = self.fobj.read(msgid_len).decode("utf-8")
 
             # Read publish time (8 bytes, int64, big-endian)
-            publish_time_bytes = self.fobj.read(8)
-            if len(publish_time_bytes) < 8:
-                raise StopIteration
-            publish_time = struct.unpack(">q", publish_time_bytes)[0]
+            publish_time = struct.unpack(">q", self._read_exact(8))[0]
 
-            # Read key length (4 bytes, int32, big-endian, -1 means null)
-            key_len_bytes = self.fobj.read(4)
-            if len(key_len_bytes) < 4:
-                raise StopIteration
-            key_len = struct.unpack(">i", key_len_bytes)[0]
-
-            # Read key
-            key_data = None
-            if key_len >= 0:
-                key_data = self.fobj.read(key_len)
-                if len(key_data) < key_len:
-                    raise StopIteration
-
-            # Read properties count (4 bytes, int32, big-endian)
-            props_count_bytes = self.fobj.read(4)
-            if len(props_count_bytes) < 4:
-                raise StopIteration
-            props_count = struct.unpack(">I", props_count_bytes)[0]
+            # Read key (length-prefixed, -1 means null)
+            key_data = self._read_optional_payload()
 
             # Read properties
-            properties = {}
-            for _ in range(props_count):
-                # Read property key length (2 bytes, int16, big-endian)
-                pkey_len_bytes = self.fobj.read(2)
-                if len(pkey_len_bytes) < 2:
-                    raise StopIteration
-                pkey_len = struct.unpack(">h", pkey_len_bytes)[0]
+            properties = self._read_properties()
 
-                # Read property key
-                pkey = self.fobj.read(pkey_len).decode("utf-8")
-
-                # Read property value length (2 bytes, int16, big-endian)
-                pval_len_bytes = self.fobj.read(2)
-                if len(pval_len_bytes) < 2:
-                    raise StopIteration
-                pval_len = struct.unpack(">h", pval_len_bytes)[0]
-
-                # Read property value
-                pval = self.fobj.read(pval_len).decode("utf-8")
-                properties[pkey] = pval
-
-            # Read payload length (4 bytes, int32, big-endian)
-            payload_len_bytes = self.fobj.read(4)
-            if len(payload_len_bytes) < 4:
-                raise StopIteration
-            payload_len = struct.unpack(">I", payload_len_bytes)[0]
-
-            # Read payload
-            payload_data = self.fobj.read(payload_len)
-            if len(payload_data) < payload_len:
-                raise StopIteration
+            # Read payload length (4 bytes, int32, big-endian) and payload
+            payload_len = struct.unpack(">I", self._read_exact(4))[0]
+            payload_data = self._read_exact(payload_len)
 
             # Parse key and payload
-            key_obj = None
-            if key_data:
-                try:
-                    key_str = key_data.decode("utf-8")
-                    try:
-                        key_obj = json.loads(key_str)
-                    except json.JSONDecodeError:
-                        key_obj = key_str
-                except UnicodeDecodeError:
-                    import base64
-
-                    key_obj = base64.b64encode(key_data).decode("utf-8")
-
-            value_obj = None
-            if payload_data:
-                try:
-                    value_str = payload_data.decode("utf-8")
-                    try:
-                        value_obj = json.loads(value_str)
-                    except json.JSONDecodeError:
-                        value_obj = value_str
-                except UnicodeDecodeError:
-                    import base64
-
-                    value_obj = base64.b64encode(payload_data).decode("utf-8")
+            key_obj = _decode_pulsar_payload(key_data) if key_data else None
+            value_obj = _decode_pulsar_payload(payload_data) if payload_data else None
 
             result = {}
             if self.include_metadata:

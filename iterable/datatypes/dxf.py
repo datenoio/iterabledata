@@ -15,6 +15,69 @@ from ..base import BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError, ReadError, WriteNotSupportedError
 
 
+def _dxf_line(entity, entity_dict):
+    entity_dict["start"] = tuple(entity.dxf.start) if hasattr(entity.dxf, "start") else None
+    entity_dict["end"] = tuple(entity.dxf.end) if hasattr(entity.dxf, "end") else None
+
+
+def _dxf_circle(entity, entity_dict):
+    entity_dict["center"] = tuple(entity.dxf.center) if hasattr(entity.dxf, "center") else None
+    entity_dict["radius"] = entity.dxf.radius if hasattr(entity.dxf, "radius") else None
+
+
+def _dxf_arc(entity, entity_dict):
+    entity_dict["center"] = tuple(entity.dxf.center) if hasattr(entity.dxf, "center") else None
+    entity_dict["radius"] = entity.dxf.radius if hasattr(entity.dxf, "radius") else None
+    entity_dict["start_angle"] = entity.dxf.start_angle if hasattr(entity.dxf, "start_angle") else None
+    entity_dict["end_angle"] = entity.dxf.end_angle if hasattr(entity.dxf, "end_angle") else None
+
+
+def _dxf_point(entity, entity_dict):
+    entity_dict["location"] = tuple(entity.dxf.location) if hasattr(entity.dxf, "location") else None
+
+
+def _dxf_text(entity, entity_dict):
+    entity_dict["text"] = entity.dxf.text if hasattr(entity.dxf, "text") else None
+    entity_dict["insert"] = tuple(entity.dxf.insert) if hasattr(entity.dxf, "insert") else None
+    entity_dict["height"] = entity.dxf.height if hasattr(entity.dxf, "height") else None
+
+
+def _dxf_lwpolyline(entity, entity_dict):
+    # Lightweight polyline
+    try:
+        entity_dict["points"] = [tuple(p) for p in entity.get_points("xy")]
+        entity_dict["closed"] = entity.closed
+    except Exception:
+        entity_dict["points"] = None
+
+
+def _dxf_polyline(entity, entity_dict):
+    try:
+        entity_dict["points"] = [tuple(v.dxf.location) for v in entity.vertices]
+        entity_dict["closed"] = entity.is_closed
+    except Exception:
+        entity_dict["points"] = None
+
+
+def _dxf_extract_geometry(entity, entity_dict):
+    """Extract geometry attributes based on the DXF entity type."""
+    dxftype = entity.dxftype()
+    if dxftype == "LINE":
+        _dxf_line(entity, entity_dict)
+    elif dxftype == "CIRCLE":
+        _dxf_circle(entity, entity_dict)
+    elif dxftype == "ARC":
+        _dxf_arc(entity, entity_dict)
+    elif dxftype == "POINT":
+        _dxf_point(entity, entity_dict)
+    elif dxftype == "TEXT":
+        _dxf_text(entity, entity_dict)
+    elif dxftype == "LWPOLYLINE":
+        _dxf_lwpolyline(entity, entity_dict)
+    elif dxftype == "POLYLINE":
+        _dxf_polyline(entity, entity_dict)
+
+
 class DXFIterable(BaseFileIterable):
     datamode = "binary"
 
@@ -85,37 +148,7 @@ class DXFIterable(BaseFileIterable):
                 "color": entity.dxf.color if hasattr(entity.dxf, "color") else None,
             }
 
-            # Extract geometry based on entity type
-            if entity.dxftype() == "LINE":
-                entity_dict["start"] = tuple(entity.dxf.start) if hasattr(entity.dxf, "start") else None
-                entity_dict["end"] = tuple(entity.dxf.end) if hasattr(entity.dxf, "end") else None
-            elif entity.dxftype() == "CIRCLE":
-                entity_dict["center"] = tuple(entity.dxf.center) if hasattr(entity.dxf, "center") else None
-                entity_dict["radius"] = entity.dxf.radius if hasattr(entity.dxf, "radius") else None
-            elif entity.dxftype() == "ARC":
-                entity_dict["center"] = tuple(entity.dxf.center) if hasattr(entity.dxf, "center") else None
-                entity_dict["radius"] = entity.dxf.radius if hasattr(entity.dxf, "radius") else None
-                entity_dict["start_angle"] = entity.dxf.start_angle if hasattr(entity.dxf, "start_angle") else None
-                entity_dict["end_angle"] = entity.dxf.end_angle if hasattr(entity.dxf, "end_angle") else None
-            elif entity.dxftype() == "POINT":
-                entity_dict["location"] = tuple(entity.dxf.location) if hasattr(entity.dxf, "location") else None
-            elif entity.dxftype() == "TEXT":
-                entity_dict["text"] = entity.dxf.text if hasattr(entity.dxf, "text") else None
-                entity_dict["insert"] = tuple(entity.dxf.insert) if hasattr(entity.dxf, "insert") else None
-                entity_dict["height"] = entity.dxf.height if hasattr(entity.dxf, "height") else None
-            elif entity.dxftype() == "LWPOLYLINE":
-                # Lightweight polyline
-                try:
-                    entity_dict["points"] = [tuple(p) for p in entity.get_points("xy")]
-                    entity_dict["closed"] = entity.closed
-                except Exception:
-                    entity_dict["points"] = None
-            elif entity.dxftype() == "POLYLINE":
-                try:
-                    entity_dict["points"] = [tuple(v.dxf.location) for v in entity.vertices]
-                    entity_dict["closed"] = entity.is_closed
-                except Exception:
-                    entity_dict["points"] = None
+            _dxf_extract_geometry(entity, entity_dict)
 
             # Add handle for reference
             if hasattr(entity.dxf, "handle"):

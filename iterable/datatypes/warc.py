@@ -112,6 +112,95 @@ class WARCIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return False  # WARC records can contain nested structures
 
+    @staticmethod
+    def _extract_warc_headers(record, result: dict) -> None:
+        """Add common headers as top-level fields for convenience."""
+        if "WARC-Target-URI" in record.rec_headers:
+            result["target_uri"] = record.rec_headers.get_header("WARC-Target-URI")
+        if "WARC-Date" in record.rec_headers:
+            result["date"] = record.rec_headers.get_header("WARC-Date")
+        if "WARC-Record-ID" in record.rec_headers:
+            result["record_id"] = record.rec_headers.get_header("WARC-Record-ID")
+        if "WARC-Type" in record.rec_headers:
+            result["warc_type"] = record.rec_headers.get_header("WARC-Type")
+
+    @staticmethod
+    def _extract_response_status(record, result: dict) -> None:
+        """For response records, extract status code and status line."""
+        try:
+            status_code = record.http_headers.get_statuscode()
+            if status_code:
+                result["http_status_code"] = status_code
+        except (AttributeError, ValueError):
+            pass
+
+        try:
+            status_line = record.http_headers.get_statusline()
+            if status_line:
+                result["http_status_line"] = status_line
+        except (AttributeError, ValueError):
+            pass
+
+    @staticmethod
+    def _extract_request_line(record, result: dict) -> None:
+        """For request records, extract request line and parse method/path/protocol."""
+        try:
+            request_line = record.http_headers.get_requestline()
+            if request_line:
+                result["http_request_line"] = request_line
+                # Parse request line: "METHOD PATH PROTOCOL"
+                parts = request_line.split(" ", 2)
+                if len(parts) >= 1:
+                    result["http_method"] = parts[0]
+                if len(parts) >= 2:
+                    result["http_path"] = parts[1]
+                if len(parts) >= 3:
+                    result["http_protocol"] = parts[2]
+        except (AttributeError, ValueError):
+            pass
+
+    @classmethod
+    def _extract_http_metadata(cls, record, result: dict) -> None:
+        """Extract HTTP headers and metadata if available.
+
+        warcio provides http_headers for records containing HTTP data.
+        Always include http_headers field (even if None) to ensure Parquet
+        schema includes it.
+        """
+        if hasattr(record, "http_headers") and record.http_headers is not None:
+            # Extract HTTP headers as dictionary
+            result["http_headers"] = dict(record.http_headers.headers)
+
+            if record.rec_type == "response":
+                cls._extract_response_status(record, result)
+            elif record.rec_type == "request":
+                cls._extract_request_line(record, result)
+        else:
+            # Always include http_headers field (even if None) to ensure Parquet schema includes it
+            result["http_headers"] = None
+
+    @staticmethod
+    def _read_payload_content(record, result: dict) -> None:
+        """Read payload content if it's a response or resource record."""
+        if record.rec_type in ["response", "resource"]:
+            try:
+                content = record.content_stream().read()
+                # Try to decode as text if it's text content
+                if record.content_type and "text" in record.content_type.lower():
+                    try:
+                        result["content"] = content.decode("utf-8", errors="replace")
+                    except Exception:
+                        result["content"] = content
+                else:
+                    result["content"] = content
+                result["content_length"] = len(content)
+            except Exception:
+                result["content"] = None
+                result["content_length"] = 0
+        else:
+            result["content"] = None
+            result["content_length"] = 0
+
     def read(self, skip_empty: bool = True) -> dict:
         """Read single WARC record"""
         if self.archive_iterator is None:
@@ -131,78 +220,9 @@ class WARCIterable(BaseFileIterable):
             "length": record.length,
         }
 
-        # Add common headers as top-level fields for convenience
-        if "WARC-Target-URI" in record.rec_headers:
-            result["target_uri"] = record.rec_headers.get_header("WARC-Target-URI")
-        if "WARC-Date" in record.rec_headers:
-            result["date"] = record.rec_headers.get_header("WARC-Date")
-        if "WARC-Record-ID" in record.rec_headers:
-            result["record_id"] = record.rec_headers.get_header("WARC-Record-ID")
-        if "WARC-Type" in record.rec_headers:
-            result["warc_type"] = record.rec_headers.get_header("WARC-Type")
-
-        # Extract HTTP headers and metadata if available
-        # warcio provides http_headers for records containing HTTP data
-        # Always include http_headers field (even if None) to ensure Parquet schema includes it
-        if hasattr(record, "http_headers") and record.http_headers is not None:
-            # Extract HTTP headers as dictionary
-            result["http_headers"] = dict(record.http_headers.headers)
-
-            # For response records, extract status code and status line
-            if record.rec_type == "response":
-                try:
-                    status_code = record.http_headers.get_statuscode()
-                    if status_code:
-                        result["http_status_code"] = status_code
-                except (AttributeError, ValueError):
-                    pass
-
-                try:
-                    status_line = record.http_headers.get_statusline()
-                    if status_line:
-                        result["http_status_line"] = status_line
-                except (AttributeError, ValueError):
-                    pass
-
-            # For request records, extract request line and parse method/path/protocol
-            elif record.rec_type == "request":
-                try:
-                    request_line = record.http_headers.get_requestline()
-                    if request_line:
-                        result["http_request_line"] = request_line
-                        # Parse request line: "METHOD PATH PROTOCOL"
-                        parts = request_line.split(" ", 2)
-                        if len(parts) >= 1:
-                            result["http_method"] = parts[0]
-                        if len(parts) >= 2:
-                            result["http_path"] = parts[1]
-                        if len(parts) >= 3:
-                            result["http_protocol"] = parts[2]
-                except (AttributeError, ValueError):
-                    pass
-        else:
-            # Always include http_headers field (even if None) to ensure Parquet schema includes it
-            result["http_headers"] = None
-
-        # Read payload content if it's a response or resource record
-        if record.rec_type in ["response", "resource"]:
-            try:
-                content = record.content_stream().read()
-                # Try to decode as text if it's text content
-                if record.content_type and "text" in record.content_type.lower():
-                    try:
-                        result["content"] = content.decode("utf-8", errors="replace")
-                    except Exception:
-                        result["content"] = content
-                else:
-                    result["content"] = content
-                result["content_length"] = len(content)
-            except Exception:
-                result["content"] = None
-                result["content_length"] = 0
-        else:
-            result["content"] = None
-            result["content_length"] = 0
+        self._extract_warc_headers(record, result)
+        self._extract_http_metadata(record, result)
+        self._read_payload_content(record, result)
 
         self.pos += 1
         return result

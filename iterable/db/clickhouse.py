@@ -182,6 +182,70 @@ class ClickHouseDriver(DBDriver):
         escaped = identifier.replace("`", "``")
         return f"`{escaped}`"
 
+    def _validated_query(self) -> str | None:
+        """Build and validate the query; None when the error policy skips."""
+        # Build query
+        try:
+            query = self._build_query()
+        except Exception as e:
+            self._handle_error(e, "building query")
+            if self._on_error == "raise":
+                raise
+            return None
+
+        # Validate read-only if enabled
+        try:
+            self._validate_read_only(query)
+        except Exception as e:
+            self._handle_error(e, "validating query")
+            if self._on_error == "raise":
+                raise
+            return None
+        return query
+
+    def _iterate_json_each_row(self, query: str, settings: dict, database: Any) -> Iterator[Row]:
+        """Use JSONEachRow format for text-based results."""
+        query_with_format = f"{query} FORMAT JSONEachRow"
+        result = self.conn.query(query_with_format, settings=settings, database=database)
+
+        # Get column names
+        if result.column_names:
+            self._column_names = result.column_names
+        else:
+            self._column_names = []
+
+        # For JSONEachRow, result.result_rows may contain dicts or tuples
+        # Handle both cases
+        for row in result.result_rows:
+            if isinstance(row, dict):
+                yield row
+            elif self._column_names:
+                yield dict(zip(self._column_names, row, strict=False))
+            else:
+                yield {str(i): val for i, val in enumerate(row)}
+            self._update_metrics(rows_read=1)
+
+    def _iterate_native(self, query: str, settings: dict, database: Any) -> Iterator[Row]:
+        """Use native format (default, more efficient)."""
+        result = self.conn.query(query, settings=settings, database=database)
+
+        # Get column names from result
+        if result.column_names:
+            self._column_names = result.column_names
+        else:
+            self._column_names = []
+
+        # Iterate over result rows
+        # clickhouse-connect returns rows as tuples
+        for row in result.result_rows:
+            if self._column_names:
+                yield dict(zip(self._column_names, row, strict=False))
+            else:
+                # No column names - return as dict with numeric keys
+                yield {str(i): val for i, val in enumerate(row)}
+
+            self._update_metrics(rows_read=1)
+
     def iterate(self) -> Iterator[Row]:
         """Return iterator of dict rows from ClickHouse query.
 
@@ -194,22 +258,8 @@ class ClickHouseDriver(DBDriver):
         if not self._connected or self.conn is None:
             raise RuntimeError("Not connected to database. Call connect() first.")
 
-        # Build query
-        try:
-            query = self._build_query()
-        except Exception as e:
-            self._handle_error(e, "building query")
-            if self._on_error == "raise":
-                raise
-            return
-
-        # Validate read-only if enabled
-        try:
-            self._validate_read_only(query)
-        except Exception as e:
-            self._handle_error(e, "validating query")
-            if self._on_error == "raise":
-                raise
+        query = self._validated_query()
+        if query is None:
             return
 
         # Get parameters
@@ -231,46 +281,9 @@ class ClickHouseDriver(DBDriver):
             # clickhouse-connect's query() method handles streaming internally via max_block_size
             # For very large datasets, consider using query_row_block_stream() in future
             if result_format == "JSONEachRow":
-                # Use JSONEachRow format for text-based results
-                query_with_format = f"{query} FORMAT JSONEachRow"
-                result = self.conn.query(query_with_format, settings=settings, database=database)
-
-                # Get column names
-                if result.column_names:
-                    self._column_names = result.column_names
-                else:
-                    self._column_names = []
-
-                # For JSONEachRow, result.result_rows may contain dicts or tuples
-                # Handle both cases
-                for row in result.result_rows:
-                    if isinstance(row, dict):
-                        yield row
-                    elif self._column_names:
-                        yield dict(zip(self._column_names, row, strict=False))
-                    else:
-                        yield {str(i): val for i, val in enumerate(row)}
-                    self._update_metrics(rows_read=1)
+                yield from self._iterate_json_each_row(query, settings, database)
             else:
-                # Use native format (default, more efficient)
-                result = self.conn.query(query, settings=settings, database=database)
-
-                # Get column names from result
-                if result.column_names:
-                    self._column_names = result.column_names
-                else:
-                    self._column_names = []
-
-                # Iterate over result rows
-                # clickhouse-connect returns rows as tuples
-                for row in result.result_rows:
-                    if self._column_names:
-                        yield dict(zip(self._column_names, row, strict=False))
-                    else:
-                        # No column names - return as dict with numeric keys
-                        yield {str(i): val for i, val in enumerate(row)}
-
-                    self._update_metrics(rows_read=1)
+                yield from self._iterate_native(query, settings, database)
 
         except Exception as e:
             self._handle_error(e, f"executing query: {query[:100]}")

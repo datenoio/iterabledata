@@ -757,12 +757,7 @@ def join(
         on = [on]
 
     # Materialize right side for lookup (hashable key so list/dict join keys work)
-    right_dict: dict[str, list[Row]] = {}
-    for row in right:
-        key = hashable_repr(tuple(row.get(f) for f in on))
-        if key not in right_dict:
-            right_dict[key] = []
-        right_dict[key].append(row)
+    right_dict = _build_right_index(right, on)
 
     # Process left side
     left_keys_seen: set[str] = set()
@@ -774,34 +769,63 @@ def join(
         if left_key in right_dict:
             # Match found
             for right_row in right_dict[left_key]:
-                # Merge rows
-                merged = left_row.copy()
-                # Add right row fields with prefix to avoid conflicts
-                for k, v in right_row.items():
-                    if k not in on:  # Don't duplicate join keys
-                        merged[f"right_{k}"] = v
-                yield merged
+                yield _merge_matched_rows(left_row, right_row, on)
         elif join_type in ("left", "outer"):
             # No match, but include left row
-            merged = left_row.copy()
-            first_right = next(iter(right_dict.values()), [{}])[0] if right_dict else {}
-            for k in first_right.keys():
-                if k not in on:
-                    merged[f"right_{k}"] = None
-            yield merged
+            yield _left_row_without_match(left_row, right_dict, on)
 
     # Handle right-only rows for outer join
     if join_type == "outer":
-        for right_key, right_rows in right_dict.items():
-            if right_key not in left_keys_seen:
-                for right_row in right_rows:
-                    merged: Row = {}
-                    for k in on:
-                        merged[k] = right_row.get(k)
-                    for k, v in right_row.items():
-                        if k not in on:
-                            merged[f"right_{k}"] = v
-                    yield merged
+        yield from _iter_right_only_rows(right_dict, left_keys_seen, on)
+
+
+def _build_right_index(right: collections.abc.Iterable[Row], on: list[str]) -> dict[str, list[Row]]:
+    """Materialize the right iterable into a lookup keyed by join-key tuple."""
+    right_dict: dict[str, list[Row]] = {}
+    for row in right:
+        key = hashable_repr(tuple(row.get(f) for f in on))
+        if key not in right_dict:
+            right_dict[key] = []
+        right_dict[key].append(row)
+    return right_dict
+
+
+def _merge_matched_rows(left_row: Row, right_row: Row, on: list[str]) -> Row:
+    """Merge a matched left/right pair, prefixing right fields to avoid conflicts."""
+    merged = left_row.copy()
+    # Add right row fields with prefix to avoid conflicts
+    for k, v in right_row.items():
+        if k not in on:  # Don't duplicate join keys
+            merged[f"right_{k}"] = v
+    return merged
+
+
+def _left_row_without_match(left_row: Row, right_dict: dict[str, list[Row]], on: list[str]) -> Row:
+    """Emit an unmatched left row with null right-side fields."""
+    merged = left_row.copy()
+    first_right = next(iter(right_dict.values()), [{}])[0] if right_dict else {}
+    for k in first_right.keys():
+        if k not in on:
+            merged[f"right_{k}"] = None
+    return merged
+
+
+def _iter_right_only_rows(
+    right_dict: dict[str, list[Row]],
+    left_keys_seen: set[str],
+    on: list[str],
+) -> Iterator[Row]:
+    """Yield right-side rows whose keys never appeared on the left (outer join)."""
+    for right_key, right_rows in right_dict.items():
+        if right_key not in left_keys_seen:
+            for right_row in right_rows:
+                merged: Row = {}
+                for k in on:
+                    merged[k] = right_row.get(k)
+                for k, v in right_row.items():
+                    if k not in on:
+                        merged[f"right_{k}"] = v
+                yield merged
 
 
 def diff(

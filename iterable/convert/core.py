@@ -314,6 +314,135 @@ def _resolve_schema_keys(
     return it_in, sorted(key_set)
 
 
+def _resolve_output_keys(
+    it_in: Any,
+    reopen_source: Callable[[], Any],
+    is_flat_output: bool,
+    native_requested: bool,
+    batch_selection: BatchSelection,
+    scan_limit: int,
+    is_flatten: bool,
+    silent: bool,
+) -> tuple[Any, list[str]]:
+    """Resolve the flat-output schema keys, reopening the source if the scan consumed it."""
+    keys: list[str] = []
+    if is_flat_output and not native_requested:
+        it_in, keys = _resolve_schema_keys(it_in, reopen_source, scan_limit, is_flatten, silent)
+    elif is_flat_output and batch_selection.columns is not None:
+        # Projection defines the flat output schema; no row scan needed.
+        keys = list(batch_selection.columns)
+    elif is_flat_output:
+        # Flat destinations cannot use the native path, so the row
+        # fallback always runs: resolve output keys up front.
+        it_in, keys = _resolve_schema_keys(it_in, reopen_source, scan_limit, is_flatten, silent)
+    return it_in, keys
+
+
+def _check_native_eligibility(
+    it_in: Any,
+    it_out: Any,
+    native_requested: bool,
+    is_flatten: bool,
+    strict_native: bool,
+) -> bool:
+    """Decide whether the native batch path applies; enforce strict_native failures."""
+    native_eligible = (
+        native_requested
+        and not is_flatten
+        and not getattr(it_in, "_validation_hooks", None)
+        and not getattr(it_out, "_validation_hooks", None)
+        and native_batch_supported(it_in, it_out)
+    )
+    if native_requested and not native_eligible:
+        message = "Native batch conversion is unsupported for the selected endpoints or row transforms"
+        if strict_native:
+            raise ValueError(message)
+        logging.debug("%s; using row/bulk fallback", message)
+    return native_eligible
+
+
+def _run_row_conversion(
+    it_in: Any,
+    it_out: Any,
+    keys: list[str],
+    batch_selection: BatchSelection,
+    selection: BatchSelection | dict[str, Any] | None,
+    metrics: _ConvertMetrics,
+    progress: Callable[[dict[str, Any]], None] | None,
+    use_totals: bool,
+    progress_interval: int,
+    should_show_progress: bool,
+    is_flatten: bool,
+    batch_size: int,
+) -> None:
+    """Run the row/bulk write loop, applying a row-wise selection when requested."""
+    it = _wrap_progress_iter(it_in, use_totals, should_show_progress, metrics)
+    if selection is not None:
+        # Documented fallback: apply the selection row-wise so
+        # results match the pushed-down path.
+        it = select_rows(it, batch_selection)
+    _run_write_loop(
+        it,
+        it_out,
+        keys,
+        is_flatten=is_flatten,
+        batch_size=batch_size,
+        progress_interval=progress_interval,
+        metrics=metrics,
+        it_in=it_in,
+        use_totals=use_totals,
+        progress=progress,
+    )
+
+
+def _run_native_with_row_fallback(
+    it_in: Any,
+    it_out: Any,
+    keys: list[str],
+    batch_selection: BatchSelection,
+    selection: BatchSelection | dict[str, Any] | None,
+    metrics: _ConvertMetrics,
+    progress: Callable[[dict[str, Any]], None] | None,
+    use_totals: bool,
+    progress_interval: int,
+    should_show_progress: bool,
+    is_flatten: bool,
+    batch_size: int,
+    strict_native: bool,
+) -> None:
+    """Run the native batch loop, falling back to the row path when unsupported."""
+    try:
+        _run_native_batch_loop(
+            it_in,
+            it_out,
+            batch_selection,
+            metrics,
+            progress,
+            use_totals,
+            progress_interval,
+        )
+    except NotImplementedError:
+        if strict_native:
+            raise
+        logging.debug("Native selection was not supported; restarting with row/bulk fallback")
+        _safe_reset(it_in)
+        metrics.rows_read = metrics.rows_written = 0
+        _run_row_conversion(
+            it_in,
+            it_out,
+            keys,
+            batch_selection,
+            selection,
+            metrics,
+            progress,
+            use_totals,
+            progress_interval,
+            should_show_progress,
+            is_flatten,
+            batch_size,
+        )
+
+
 def _finalize_atomic_write(tofile: str, temp_file: str | None, metrics: _ConvertMetrics) -> None:
     """Atomically move the temp file into place (no-op when not atomic)."""
     if temp_file is None or not os.path.exists(temp_file):
@@ -446,84 +575,54 @@ def convert(
         native_requested = use_native_batch or selection is not None
         batch_selection = BatchSelection.from_value(selection)
 
-        keys: list[str] = []
-        if is_flat_output and not native_requested:
-            it_in, keys = _resolve_schema_keys(it_in, reopen_source, scan_limit, is_flatten, silent)
-        elif is_flat_output and batch_selection.columns is not None:
-            # Projection defines the flat output schema; no row scan needed.
-            keys = list(batch_selection.columns)
-        elif is_flat_output:
-            # Flat destinations cannot use the native path, so the row
-            # fallback always runs: resolve output keys up front.
-            it_in, keys = _resolve_schema_keys(it_in, reopen_source, scan_limit, is_flatten, silent)
+        it_in, keys = _resolve_output_keys(
+            it_in,
+            reopen_source,
+            is_flat_output,
+            native_requested,
+            batch_selection,
+            scan_limit,
+            is_flatten,
+            silent,
+        )
 
         args = _build_output_args(tofile, actual_tofile, is_flat_output, keys, toiterableargs)
         it_out = open_iterable(actual_tofile, mode="w", iterableargs=args)
 
         logging.debug("Converting data")
-        native_eligible = (
-            native_requested
-            and not is_flatten
-            and not getattr(it_in, "_validation_hooks", None)
-            and not getattr(it_out, "_validation_hooks", None)
-            and native_batch_supported(it_in, it_out)
-        )
-        if native_requested and not native_eligible:
-            message = "Native batch conversion is unsupported for the selected endpoints or row transforms"
-            if strict_native:
-                raise ValueError(message)
-            logging.debug("%s; using row/bulk fallback", message)
+        native_eligible = _check_native_eligibility(it_in, it_out, native_requested, is_flatten, strict_native)
 
         if native_eligible:
             logging.debug("Using native batch conversion path")
-            try:
-                _run_native_batch_loop(
-                    it_in,
-                    it_out,
-                    batch_selection,
-                    metrics,
-                    progress,
-                    use_totals,
-                    progress_interval,
-                )
-            except NotImplementedError:
-                if strict_native:
-                    raise
-                logging.debug("Native selection was not supported; restarting with row/bulk fallback")
-                _safe_reset(it_in)
-                metrics.rows_read = metrics.rows_written = 0
-                it = _wrap_progress_iter(it_in, use_totals, should_show_progress, metrics)
-                if selection is not None:
-                    # Documented fallback: apply the selection row-wise so
-                    # results match the pushed-down path.
-                    it = select_rows(it, batch_selection)
-                _run_write_loop(
-                    it,
-                    it_out,
-                    keys,
-                    is_flatten=is_flatten,
-                    batch_size=batch_size,
-                    progress_interval=progress_interval,
-                    metrics=metrics,
-                    it_in=it_in,
-                    use_totals=use_totals,
-                    progress=progress,
-                )
-        else:
-            it = _wrap_progress_iter(it_in, use_totals, should_show_progress, metrics)
-            if selection is not None:
-                it = select_rows(it, batch_selection)
-            _run_write_loop(
-                it,
+            _run_native_with_row_fallback(
+                it_in,
                 it_out,
                 keys,
-                is_flatten=is_flatten,
-                batch_size=batch_size,
-                progress_interval=progress_interval,
-                metrics=metrics,
-                it_in=it_in,
-                use_totals=use_totals,
-                progress=progress,
+                batch_selection,
+                selection,
+                metrics,
+                progress,
+                use_totals,
+                progress_interval,
+                should_show_progress,
+                is_flatten,
+                batch_size,
+                strict_native,
+            )
+        else:
+            _run_row_conversion(
+                it_in,
+                it_out,
+                keys,
+                batch_selection,
+                selection,
+                metrics,
+                progress,
+                use_totals,
+                progress_interval,
+                should_show_progress,
+                is_flatten,
+                batch_size,
             )
 
         _report_progress(progress, metrics, it_in, use_totals)

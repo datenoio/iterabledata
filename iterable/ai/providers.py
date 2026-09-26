@@ -974,6 +974,27 @@ def resolve_default_provider() -> str:
     return (os.environ.get("LLM_PROVIDER") or "openai").lower()
 
 
+def _openai_compatible_provider(api_key: str | None, base_url: str | None, env_base: str | None) -> LLMProvider:
+    return OpenAICompatibleProvider(api_key=api_key, base_url=base_url or env_base)
+
+
+def _openai_provider(
+    api_key: str | None, base_url: str | None, env_key: str | None, env_base: str | None
+) -> LLMProvider:
+    return OpenAIProvider(
+        api_key=api_key or env_key or _env_api_key("OPENAI_API_KEY"),
+        base_url=base_url or env_base,
+    )
+
+
+def _ollama_provider(base_url: str | None, env_base: str | None) -> LLMProvider:
+    return OllamaProvider(base_url=base_url or env_base or "http://localhost:11434")
+
+
+def _lmstudio_provider(base_url: str | None, env_base: str | None) -> LLMProvider:
+    return LMStudioProvider(base_url=base_url or env_base or "http://localhost:1234/v1")
+
+
 def get_provider(
     provider: str | None = None,
     api_key: str | None = None,
@@ -1001,12 +1022,9 @@ def get_provider(
     env_base = os.environ.get("LLM_BASE_URL")
 
     if provider in ("openai-compatible", "compatible", "generic"):
-        return OpenAICompatibleProvider(api_key=api_key, base_url=base_url or env_base)
+        return _openai_compatible_provider(api_key, base_url, env_base)
     elif provider == "openai":
-        return OpenAIProvider(
-            api_key=api_key or env_key or _env_api_key("OPENAI_API_KEY"),
-            base_url=base_url or env_base,
-        )
+        return _openai_provider(api_key, base_url, env_key, env_base)
     elif provider == "anthropic":
         return AnthropicProvider(api_key=api_key or env_key)
     elif provider in ("gemini", "google"):
@@ -1016,9 +1034,9 @@ def get_provider(
     elif provider == "openrouter":
         return OpenRouterProvider(api_key=api_key or env_key or _env_api_key("OPENROUTER_API_KEY"))
     elif provider == "ollama":
-        return OllamaProvider(base_url=base_url or env_base or "http://localhost:11434")
+        return _ollama_provider(base_url, env_base)
     elif provider == "lmstudio":
-        return LMStudioProvider(base_url=base_url or env_base or "http://localhost:1234/v1")
+        return _lmstudio_provider(base_url, env_base)
     elif provider == "perplexity":
         return PerplexityProvider(api_key=api_key or env_key or _env_api_key("PERPLEXITY_API_KEY"))
     else:

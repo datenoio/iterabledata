@@ -223,6 +223,32 @@ class IcebergIterable(BaseFileIterable):
     def has_tables() -> bool:
         return True
 
+    def _load_catalog_for_listing(self, catalog_name: str, filename: str | None = None):
+        """Resolve the pyiceberg catalog from filename/catalog properties."""
+        if filename and os.path.exists(filename) and not self.catalog_props:
+            return load_catalog(catalog_name, **{"properties": filename})
+        if self.catalog_props:
+            return load_catalog(catalog_name, **self.catalog_props)
+        if hasattr(self, "filename") and self.filename and os.path.exists(self.filename):
+            return load_catalog(catalog_name, **{"properties": self.filename})
+        return load_catalog(catalog_name)
+
+    @staticmethod
+    def _list_catalog_tables(catalog) -> list[str]:
+        if hasattr(catalog, "list_tables") and hasattr(catalog, "list_namespaces"):
+            all_tables = []
+            for ns in catalog.list_namespaces():
+                try:
+                    tables = catalog.list_tables(ns)
+                    all_tables.extend([str(t) for t in tables])
+                except Exception:
+                    continue
+            return sorted(all_tables) if all_tables else []
+        if hasattr(catalog, "list_tables"):
+            tables = catalog.list_tables()
+            return [str(t) for t in tables] if tables else []
+        return []
+
     def list_tables(self, filename: str | None = None) -> list[str] | None:
         if not HAS_PYICEBERG:
             return None
@@ -230,27 +256,8 @@ class IcebergIterable(BaseFileIterable):
         if catalog_name is None:
             return None
         try:
-            if filename and os.path.exists(filename) and not self.catalog_props:
-                catalog = load_catalog(catalog_name, **{"properties": filename})
-            elif self.catalog_props:
-                catalog = load_catalog(catalog_name, **self.catalog_props)
-            elif hasattr(self, "filename") and self.filename and os.path.exists(self.filename):
-                catalog = load_catalog(catalog_name, **{"properties": self.filename})
-            else:
-                catalog = load_catalog(catalog_name)
-            if hasattr(catalog, "list_tables") and hasattr(catalog, "list_namespaces"):
-                all_tables = []
-                for ns in catalog.list_namespaces():
-                    try:
-                        tables = catalog.list_tables(ns)
-                        all_tables.extend([str(t) for t in tables])
-                    except Exception:
-                        continue
-                return sorted(all_tables) if all_tables else []
-            if hasattr(catalog, "list_tables"):
-                tables = catalog.list_tables()
-                return [str(t) for t in tables] if tables else []
-            return []
+            catalog = self._load_catalog_for_listing(catalog_name, filename)
+            return self._list_catalog_tables(catalog)
         except Exception:
             return None
 

@@ -20,6 +20,61 @@ from ..exceptions import ReadError, WriteNotSupportedError
 DEFAULT_BATCH_SIZE = 1024
 
 
+def _resolve_target_dim_name(dims) -> str | None:
+    """Pick the iteration dimension: unlimited dimension first, else the first."""
+    for name, dim in dims.items():
+        if dim.isunlimited():
+            return name
+    # If no unlimited, just pick the first one (often time or similar)
+    if len(dims) > 0:
+        return list(dims.keys())[0]
+    return None
+
+
+def _partition_variables(variables, target_dim_name: str):
+    """Separate variables into those sliced by the target dimension and others."""
+    sliced_vars = []
+    other_vars = []
+    for name, var in variables.items():
+        if target_dim_name in var.dimensions:
+            # We need to find WHICH axis corresponds to target_dim
+            axis_idx = var.dimensions.index(target_dim_name)
+            sliced_vars.append((name, var, axis_idx))
+        else:
+            other_vars.append((name, var))
+    return sliced_vars, other_vars
+
+
+def _normalize_sliced_value(val):
+    """Convert a sliced numpy value to a python native value."""
+    # Convert numpy types to python native types if it's a scalar result
+    # masked arrays need handling
+    if np.ma.is_masked(val):
+        return None
+    if isinstance(val, np.generic):
+        return val.item()
+    if isinstance(val, bytes):
+        # decode chars/strings
+        return val.decode("utf-8", "ignore")
+    return val
+
+
+def _normalize_static_value(val):
+    """Convert a non-sliced variable value (repeated on every record)."""
+    if np.ma.is_masked(val):
+        if val.size == 1:
+            val = None
+        else:
+            val = val.tolist()
+    elif isinstance(val, np.generic):
+        val = val.item()
+
+    # Optimization: if it's a byte string (char array), decode
+    if hasattr(val, "decode"):
+        val = val.decode("utf-8", "ignore")
+    return val
+
+
 class NetCDFIterable(BaseFileIterable):
     datamode = "binary"
     supports_native_batch = True
@@ -86,15 +141,7 @@ class NetCDFIterable(BaseFileIterable):
 
         target_dim_name = self.options.get("dimension")
         if not target_dim_name:
-            # Try to find unlimited dimension
-            for name, dim in dims.items():
-                if dim.isunlimited():
-                    target_dim_name = name
-                    break
-
-            # If no unlimited, just pick the first one (often time or similar)
-            if not target_dim_name and len(dims) > 0:
-                target_dim_name = list(dims.keys())[0]
+            target_dim_name = _resolve_target_dim_name(dims)
 
         if not target_dim_name:
             # Should be covered by "if not dims" check but safety first
@@ -110,16 +157,7 @@ class NetCDFIterable(BaseFileIterable):
 
         variables = self.nc_dataset.variables
         # Optim optimization: separate variables into "sliced" and "scalar/other"
-        sliced_vars = []
-        other_vars = []
-
-        for name, var in variables.items():
-            if target_dim_name in var.dimensions:
-                # We need to find WHICH axis corresponds to target_dim
-                axis_idx = var.dimensions.index(target_dim_name)
-                sliced_vars.append((name, var, axis_idx))
-            else:
-                other_vars.append((name, var))
+        sliced_vars, other_vars = _partition_variables(variables, target_dim_name)
 
         for i in range(size):
             record = {}
@@ -129,39 +167,14 @@ class NetCDFIterable(BaseFileIterable):
                 # dynamic slicing construction
                 slicer = [slice(None)] * var.ndim
                 slicer[axis_idx] = i
-                val = var[tuple(slicer)]
-
-                # Convert numpy types to python native types if it's a scalar result
-                # masked arrays need handling
-                if np.ma.is_masked(val):
-                    val = None
-                elif isinstance(val, np.generic):
-                    val = val.item()
-                elif isinstance(val, bytes):
-                    # decode chars/strings
-                    val = val.decode("utf-8", "ignore")
-
-                record[name] = val
+                record[name] = _normalize_sliced_value(var[tuple(slicer)])
 
             # Add other vars (repeated)
             # CAUTION: This might be heavy if there are large static arrays.
             # But standard CSV/JSONL logic implies full record.
             # Maybe we should only include scalars for 'other_vars'
             for name, var in other_vars:
-                val = var[:]
-                if np.ma.is_masked(val):
-                    if val.size == 1:
-                        val = None
-                    else:
-                        val = val.tolist()
-                elif isinstance(val, np.generic):
-                    val = val.item()
-
-                # Optimization: if it's a byte string (char array), decode
-                if hasattr(val, "decode"):
-                    val = val.decode("utf-8", "ignore")
-
-                record[name] = val
+                record[name] = _normalize_static_value(var[:])
 
             yield record
 

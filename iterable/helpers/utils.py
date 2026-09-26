@@ -315,6 +315,48 @@ def get_dict_value_path(adict: dict[str, Any], key: str, prefix: list[str] | Non
     return get_dict_value_path(adict[prefix[0]], key, prefix=prefix[1:])
 
 
+def _deep_lookup_single_dict(adict: dict[str, Any], key0: str, as_array: bool) -> Any:
+    if key0 not in adict.keys():
+        return None
+    if as_array:
+        return [
+            adict[key0],
+        ]
+    return adict[key0]
+
+
+def _deep_lookup_single_list(adict: list[Any], key0: str, as_array: bool) -> Any:
+    if as_array:
+        result: list[Any] = []
+        for v in adict:
+            if isinstance(v, dict) and key0 in v.keys():
+                result.append(v[key0])
+        return result
+    if len(adict) > 0 and isinstance(adict[0], dict) and key0 in adict[0].keys():
+        return adict[0][key0]
+    return None
+
+
+def _deep_lookup_nested_dict(adict: dict[str, Any], key: str, prefix: list[str], as_array: bool) -> Any:
+    if prefix[0] in adict.keys():
+        return get_dict_value_deep(adict[prefix[0]], key, prefix=prefix[1:], as_array=as_array)
+    return None
+
+
+def _deep_lookup_nested_list(adict: list[Any], key: str, prefix: list[str], as_array: bool) -> Any:
+    if as_array:
+        result: list[Any] = []
+        for v in adict:
+            if isinstance(v, dict) and prefix[0] in v.keys():
+                res = get_dict_value_deep(v[prefix[0]], key, prefix=prefix[1:], as_array=as_array)
+                if res:
+                    result.extend(res if isinstance(res, list) else [res])
+        return result
+    if len(adict) > 0 and isinstance(adict[0], dict) and prefix[0] in adict[0].keys():
+        return get_dict_value_deep(adict[0][prefix[0]], key, prefix=prefix[1:], as_array=as_array)
+    return None
+
+
 def get_dict_value_deep(
     adict: dict[str, Any] | list[Any],
     key: str,
@@ -327,41 +369,15 @@ def get_dict_value_deep(
         prefix = key.split(splitter)
     if len(prefix) == 1:
         if isinstance(adict, dict):
-            if prefix[0] not in adict.keys():
-                return None
-            if as_array:
-                return [
-                    adict[prefix[0]],
-                ]
-            return adict[prefix[0]]
-        elif isinstance(adict, list):
-            if as_array:
-                result: list[Any] = []
-                for v in adict:
-                    if isinstance(v, dict) and prefix[0] in v.keys():
-                        result.append(v[prefix[0]])
-                return result
-            else:
-                if len(adict) > 0 and isinstance(adict[0], dict) and prefix[0] in adict[0].keys():
-                    return adict[0][prefix[0]]
-        return None
-    else:
-        if isinstance(adict, dict):
-            if prefix[0] in adict.keys():
-                return get_dict_value_deep(adict[prefix[0]], key, prefix=prefix[1:], as_array=as_array)
-        elif isinstance(adict, list):
-            if as_array:
-                result = []
-                for v in adict:
-                    if isinstance(v, dict) and prefix[0] in v.keys():
-                        res = get_dict_value_deep(v[prefix[0]], key, prefix=prefix[1:], as_array=as_array)
-                        if res:
-                            result.extend(res if isinstance(res, list) else [res])
-                return result
-            else:
-                if len(adict) > 0 and isinstance(adict[0], dict) and prefix[0] in adict[0].keys():
-                    return get_dict_value_deep(adict[0][prefix[0]], key, prefix=prefix[1:], as_array=as_array)
-        return None
+            return _deep_lookup_single_dict(adict, prefix[0], as_array)
+        if isinstance(adict, list):
+            return _deep_lookup_single_list(adict, prefix[0], as_array)
+        return None  # type: ignore[unreachable]
+    if isinstance(adict, dict):
+        return _deep_lookup_nested_dict(adict, key, prefix, as_array)
+    if isinstance(adict, list):
+        return _deep_lookup_nested_list(adict, key, prefix, as_array)
+    return None  # type: ignore[unreachable]
 
 
 def make_flat(item: dict[str, Any]) -> dict[str, Any]:
@@ -392,6 +408,35 @@ _EXTENDED_JSON_SCALAR_KEYS = frozenset(
 )
 
 
+def _normalize_extended_json_wrapper(key: str, inner: Any) -> Any:
+    """Unwrap a single-key MongoDB extended JSON ``$`` wrapper."""
+    if key == "$numberLong":
+        return int(inner)
+    if key == "$numberInt":
+        return int(inner)
+    if key in ("$numberDouble", "$numberDecimal"):
+        return float(inner)
+    if key == "$oid":
+        return str(inner)
+    if key == "$date":
+        if isinstance(inner, dict):
+            return normalize_extended_json(inner)
+        return inner
+    if key == "$timestamp":
+        if isinstance(inner, dict) and "$numberLong" in inner:
+            return int(inner["$numberLong"])
+        return inner
+    if key == "$binary":
+        if isinstance(inner, dict) and "base64" in inner:
+            return inner["base64"]
+        return inner
+    if key == "$regex":
+        if isinstance(inner, dict):
+            return inner.get("pattern", inner)
+        return inner
+    return inner
+
+
 def normalize_extended_json(value: Any) -> Any:
     """Convert MongoDB extended JSON wrappers to native Python values.
 
@@ -403,31 +448,7 @@ def normalize_extended_json(value: Any) -> Any:
         if len(value) == 1:
             key, inner = next(iter(value.items()))
             if key in _EXTENDED_JSON_SCALAR_KEYS:
-                if key == "$numberLong":
-                    return int(inner)
-                if key == "$numberInt":
-                    return int(inner)
-                if key in ("$numberDouble", "$numberDecimal"):
-                    return float(inner)
-                if key == "$oid":
-                    return str(inner)
-                if key == "$date":
-                    if isinstance(inner, dict):
-                        return normalize_extended_json(inner)
-                    return inner
-                if key == "$timestamp":
-                    if isinstance(inner, dict) and "$numberLong" in inner:
-                        return int(inner["$numberLong"])
-                    return inner
-                if key == "$binary":
-                    if isinstance(inner, dict) and "base64" in inner:
-                        return inner["base64"]
-                    return inner
-                if key == "$regex":
-                    if isinstance(inner, dict):
-                        return inner.get("pattern", inner)
-                    return inner
-                return inner
+                return _normalize_extended_json_wrapper(key, inner)
         return {k: normalize_extended_json(v) for k, v in value.items()}
     if isinstance(value, list):
         return [normalize_extended_json(v) for v in value]

@@ -99,6 +99,68 @@ class ElasticsearchDriver(DBDriver):
         if not index:
             raise ValueError("'index' parameter is required for Elasticsearch driver")
 
+    @staticmethod
+    def _search_params(
+        index: Any, body: Any, size: Any, request_timeout: Any, timeout: Any, scroll: Any = None
+    ) -> dict[str, Any]:
+        """Build the search() parameter dict, omitting None timeouts."""
+        params: dict[str, Any] = {"index": index, "body": body, "size": size}
+        if scroll is not None:
+            params["scroll"] = scroll
+        if request_timeout is not None:
+            params["request_timeout"] = request_timeout
+        if timeout is not None:
+            params["timeout"] = timeout
+        return params
+
+    def _yield_hits(self, response: Any, source_only: bool) -> Iterator[Row]:
+        for hit in response.get("hits", {}).get("hits", []):
+            doc = hit["_source"] if source_only else hit
+            yield doc
+            self._update_metrics(rows_read=1)
+
+    def _scroll_iterate(
+        self, index: Any, body: Any, scroll: Any, size: Any, source_only: bool, request_timeout: Any, timeout: Any
+    ) -> Iterator[Row]:
+        """Use scroll API for large result sets."""
+        self._scroll_timeout = scroll
+        # Initial search with scroll
+        search_params = self._search_params(index, body, size, request_timeout, timeout, scroll=scroll)
+        response = self.conn.search(**search_params)
+        self._scroll_id = response.get("_scroll_id")
+
+        # Yield results from initial search
+        yield from self._yield_hits(response, source_only)
+
+        # Continue scrolling
+        while self._scroll_id:
+            scroll_params: dict[str, Any] = {
+                "scroll_id": self._scroll_id,
+                "scroll": scroll,
+            }
+            if request_timeout is not None:
+                scroll_params["request_timeout"] = request_timeout
+
+            response = self.conn.scroll(**scroll_params)
+            hits = response.get("hits", {}).get("hits", [])
+            if not hits:
+                # No more results
+                break
+
+            yield from self._yield_hits(response, source_only)
+
+            # Update scroll_id for next iteration
+            self._scroll_id = response.get("_scroll_id")
+
+    def _cleanup_scroll(self) -> None:
+        """Clean up scroll context if it exists."""
+        if self._scroll_id and self.conn is not None:
+            try:
+                self.conn.clear_scroll(scroll_id=self._scroll_id)
+            except Exception:
+                pass
+            self._scroll_id = None
+
     def iterate(self) -> Iterator[Row]:
         """Return iterator of dict documents from Elasticsearch index.
 
@@ -125,71 +187,14 @@ class ElasticsearchDriver(DBDriver):
 
         try:
             if scroll:
-                # Use scroll API for large result sets
-                self._scroll_timeout = scroll
-                # Initial search with scroll
-                search_params: dict[str, Any] = {
-                    "index": index,
-                    "body": body,
-                    "scroll": scroll,
-                    "size": size,
-                }
-                if request_timeout is not None:
-                    search_params["request_timeout"] = request_timeout
-                if timeout is not None:
-                    search_params["timeout"] = timeout
-
-                response = self.conn.search(**search_params)
-                self._scroll_id = response.get("_scroll_id")
-
-                # Yield results from initial search
-                for hit in response.get("hits", {}).get("hits", []):
-                    doc = hit["_source"] if source_only else hit
-                    yield doc
-                    self._update_metrics(rows_read=1)
-
-                # Continue scrolling
-                while self._scroll_id:
-                    scroll_params: dict[str, Any] = {
-                        "scroll_id": self._scroll_id,
-                        "scroll": scroll,
-                    }
-                    if request_timeout is not None:
-                        scroll_params["request_timeout"] = request_timeout
-
-                    response = self.conn.scroll(**scroll_params)
-                    hits = response.get("hits", {}).get("hits", [])
-                    if not hits:
-                        # No more results
-                        break
-
-                    for hit in hits:
-                        doc = hit["_source"] if source_only else hit
-                        yield doc
-                        self._update_metrics(rows_read=1)
-
-                    # Update scroll_id for next iteration
-                    self._scroll_id = response.get("_scroll_id")
-
+                yield from self._scroll_iterate(index, body, scroll, size, source_only, request_timeout, timeout)
             else:
                 # Use regular search (limited to default max result window)
-                search_params: dict[str, Any] = {
-                    "index": index,
-                    "body": body,
-                    "size": size,
-                }
-                if request_timeout is not None:
-                    search_params["request_timeout"] = request_timeout
-                if timeout is not None:
-                    search_params["timeout"] = timeout
-
+                search_params = self._search_params(index, body, size, request_timeout, timeout)
                 response = self.conn.search(**search_params)
 
                 # Yield results
-                for hit in response.get("hits", {}).get("hits", []):
-                    doc = hit["_source"] if source_only else hit
-                    yield doc
-                    self._update_metrics(rows_read=1)
+                yield from self._yield_hits(response, source_only)
 
         except Exception as e:
             self._handle_error(e, "iterating documents")
@@ -199,13 +204,7 @@ class ElasticsearchDriver(DBDriver):
             return
 
         finally:
-            # Clean up scroll context if it exists
-            if self._scroll_id and self.conn is not None:
-                try:
-                    self.conn.clear_scroll(scroll_id=self._scroll_id)
-                except Exception:
-                    pass
-                self._scroll_id = None
+            self._cleanup_scroll()
 
     def close(self) -> None:
         """Close Elasticsearch connection and clean up resources."""

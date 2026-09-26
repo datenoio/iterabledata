@@ -10,6 +10,20 @@ from ..exceptions import FormatParseError
 from ..types import Row
 
 
+def _decode_kafka_payload(data: bytes) -> Any:
+    """Decode a key/value payload: JSON when possible, else text, else base64."""
+    try:
+        text = data.decode("utf-8")
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return text
+    except UnicodeDecodeError:
+        import base64
+
+        return base64.b64encode(data).decode("utf-8")
+
+
 class KafkaIterable(BaseFileIterable):
     """
     Apache Kafka message format reader/writer.
@@ -71,101 +85,58 @@ class KafkaIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return False
 
+    def _read_exact(self, nbytes: int) -> bytes:
+        """Read exactly ``nbytes`` from the stream; a short read ends iteration."""
+        data = self.fobj.read(nbytes)
+        if len(data) < nbytes:
+            raise StopIteration
+        return data
+
+    def _read_optional_payload(self) -> bytes | None:
+        """Read a length-prefixed payload (int32 big-endian; -1 means null)."""
+        length = struct.unpack(">i", self._read_exact(4))[0]
+        if length < 0:
+            return None
+        return self._read_exact(length)
+
+    def _read_headers(self) -> dict:
+        """Read the headers block (count int16, then key/value pairs)."""
+        headers_count = struct.unpack(">h", self._read_exact(2))[0]
+        headers = {}
+        for _ in range(headers_count):
+            # Read header key length (2 bytes, int16, big-endian)
+            hkey_len = struct.unpack(">h", self._read_exact(2))[0]
+
+            # Read header key
+            hkey = self.fobj.read(hkey_len).decode("utf-8")
+
+            # Read header value length (2 bytes, int16, big-endian)
+            hval_len = struct.unpack(">h", self._read_exact(2))[0]
+
+            # Read header value
+            hval = self.fobj.read(hval_len)
+            headers[hkey] = hval.decode("utf-8", errors="replace")
+        return headers
+
     def read(self, skip_empty: bool = True) -> dict:
         """Read single Kafka message"""
         try:
             # Read offset (8 bytes, int64, big-endian)
-            offset_bytes = self.fobj.read(8)
-            if len(offset_bytes) < 8:
-                raise StopIteration
-            offset = struct.unpack(">q", offset_bytes)[0]
+            offset = struct.unpack(">q", self._read_exact(8))[0]
 
             # Read timestamp (8 bytes, int64, big-endian)
-            timestamp_bytes = self.fobj.read(8)
-            if len(timestamp_bytes) < 8:
-                raise StopIteration
-            timestamp = struct.unpack(">q", timestamp_bytes)[0]
+            timestamp = struct.unpack(">q", self._read_exact(8))[0]
 
-            # Read key length (4 bytes, int32, big-endian, -1 means null)
-            key_len_bytes = self.fobj.read(4)
-            if len(key_len_bytes) < 4:
-                raise StopIteration
-            key_len = struct.unpack(">i", key_len_bytes)[0]
-
-            # Read key
-            key_data = None
-            if key_len >= 0:
-                key_data = self.fobj.read(key_len)
-                if len(key_data) < key_len:
-                    raise StopIteration
-
-            # Read value length (4 bytes, int32, big-endian, -1 means null)
-            value_len_bytes = self.fobj.read(4)
-            if len(value_len_bytes) < 4:
-                raise StopIteration
-            value_len = struct.unpack(">i", value_len_bytes)[0]
-
-            # Read value
-            value_data = None
-            if value_len >= 0:
-                value_data = self.fobj.read(value_len)
-                if len(value_data) < value_len:
-                    raise StopIteration
-
-            # Read headers count (2 bytes, int16, big-endian)
-            headers_count_bytes = self.fobj.read(2)
-            if len(headers_count_bytes) < 2:
-                raise StopIteration
-            headers_count = struct.unpack(">h", headers_count_bytes)[0]
+            # Read key and value (length-prefixed, -1 means null)
+            key_data = self._read_optional_payload()
+            value_data = self._read_optional_payload()
 
             # Read headers
-            headers = {}
-            for _ in range(headers_count):
-                # Read header key length (2 bytes, int16, big-endian)
-                hkey_len_bytes = self.fobj.read(2)
-                if len(hkey_len_bytes) < 2:
-                    raise StopIteration
-                hkey_len = struct.unpack(">h", hkey_len_bytes)[0]
-
-                # Read header key
-                hkey = self.fobj.read(hkey_len).decode("utf-8")
-
-                # Read header value length (2 bytes, int16, big-endian)
-                hval_len_bytes = self.fobj.read(2)
-                if len(hval_len_bytes) < 2:
-                    raise StopIteration
-                hval_len = struct.unpack(">h", hval_len_bytes)[0]
-
-                # Read header value
-                hval = self.fobj.read(hval_len)
-                headers[hkey] = hval.decode("utf-8", errors="replace")
+            headers = self._read_headers()
 
             # Parse key and value
-            key_obj = None
-            if key_data:
-                try:
-                    key_str = key_data.decode("utf-8")
-                    try:
-                        key_obj = json.loads(key_str)
-                    except json.JSONDecodeError:
-                        key_obj = key_str
-                except UnicodeDecodeError:
-                    import base64
-
-                    key_obj = base64.b64encode(key_data).decode("utf-8")
-
-            value_obj = None
-            if value_data:
-                try:
-                    value_str = value_data.decode("utf-8")
-                    try:
-                        value_obj = json.loads(value_str)
-                    except json.JSONDecodeError:
-                        value_obj = value_str
-                except UnicodeDecodeError:
-                    import base64
-
-                    value_obj = base64.b64encode(value_data).decode("utf-8")
+            key_obj = _decode_kafka_payload(key_data) if key_data else None
+            value_obj = _decode_kafka_payload(value_data) if value_data else None
 
             result = {}
             if self.include_metadata:

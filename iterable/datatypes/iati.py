@@ -43,6 +43,56 @@ def _text_of(elem: Any) -> str | None:
     return text or None
 
 
+def _collect_nested(child: Any) -> dict[str, Any]:
+    """Collect simple nested narratives / texts from an activity child."""
+    nested: dict[str, Any] = {}
+    for sub in child:
+        sn = _local(sub.tag)
+        st = _text_of(sub)
+        if st is None and not sub.attrib:
+            continue
+        entry: Any = st
+        if sub.attrib:
+            entry = {f"@{_local(ak)}": av for ak, av in sub.attrib.items()}
+            if st is not None:
+                entry["#text"] = st
+        if sn in nested:
+            if not isinstance(nested[sn], list):
+                nested[sn] = [nested[sn]]
+            nested[sn].append(entry)
+        else:
+            nested[sn] = entry
+    return nested
+
+
+def _child_value(child: Any) -> Any:
+    """Value for a non-identifier/title activity child element."""
+    value: Any
+    if len(child) == 0 and not child.attrib:
+        value = (child.text or "").strip() or None
+    else:
+        value = {}
+        for ak, av in child.attrib.items():
+            value[f"@{_local(ak)}"] = av
+        text = _text_of(child)
+        if text is not None:
+            value["#text"] = text
+        nested = _collect_nested(child)
+        if nested:
+            value.update(nested)
+    return value
+
+
+def _append_child(children: dict[str, Any], name: str, value: Any) -> None:
+    """Add a child value, promoting to a list on repeats."""
+    if name in children:
+        if not isinstance(children[name], list):
+            children[name] = [children[name]]
+        children[name].append(value)
+    else:
+        children[name] = value
+
+
 def _activity_to_dict(elem: Any) -> dict[str, Any]:
     record: dict[str, Any] = {}
     # Attributes on iati-activity
@@ -60,42 +110,7 @@ def _activity_to_dict(elem: Any) -> dict[str, Any]:
         elif name == "title":
             title = _text_of(child)
         else:
-            value: Any
-            if len(child) == 0 and not child.attrib:
-                value = (child.text or "").strip() or None
-            else:
-                value = {}
-                for ak, av in child.attrib.items():
-                    value[f"@{_local(ak)}"] = av
-                text = _text_of(child)
-                if text is not None:
-                    value["#text"] = text
-                # Collect simple nested narratives / texts
-                nested: dict[str, Any] = {}
-                for sub in child:
-                    sn = _local(sub.tag)
-                    st = _text_of(sub)
-                    if st is None and not sub.attrib:
-                        continue
-                    entry: Any = st
-                    if sub.attrib:
-                        entry = {f"@{_local(ak)}": av for ak, av in sub.attrib.items()}
-                        if st is not None:
-                            entry["#text"] = st
-                    if sn in nested:
-                        if not isinstance(nested[sn], list):
-                            nested[sn] = [nested[sn]]
-                        nested[sn].append(entry)
-                    else:
-                        nested[sn] = entry
-                if nested:
-                    value.update(nested)
-            if name in children:
-                if not isinstance(children[name], list):
-                    children[name] = [children[name]]
-                children[name].append(value)
-            else:
-                children[name] = value
+            _append_child(children, name, _child_value(child))
 
     record["iati-identifier"] = identifier
     record["title"] = title

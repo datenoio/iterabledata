@@ -156,6 +156,84 @@ class MySQLDriver(DBDriver):
         escaped = identifier.replace("`", "``")
         return f"`{escaped}`"
 
+    def _prepare_query(self) -> str | None:
+        """Build the query; returns None when the error policy skips."""
+        try:
+            return self._build_query()
+        except Exception as e:
+            self._handle_error(e, "building query")
+            if self._on_error == "raise":
+                raise
+            return None
+
+    def _open_cursor(self, server_side_cursor: bool) -> None:
+        if server_side_cursor:
+            # Use SSCursor (server-side cursor) for streaming
+            self._cursor = self.conn.cursor(pymysql.cursors.SSCursor)
+        else:
+            self._cursor = self.conn.cursor()
+
+    def _execute_query(self, query: str) -> bool:
+        """Execute on the current cursor; False when the error policy skips."""
+        try:
+            self._cursor.execute(query)
+            return True
+        except Exception as e:
+            self._handle_error(e, f"executing query: {query[:100]}")
+            if self._on_error == "raise":
+                raise
+            return False
+
+    def _set_column_names(self) -> None:
+        if self._cursor.description:
+            self._column_names = [desc[0] for desc in self._cursor.description]
+        else:
+            # No columns (e.g., INSERT, UPDATE without RETURNING)
+            self._column_names = []
+
+    def _yield_rows(self, rows: Any) -> Iterator[Row]:
+        for row in rows:
+            if self._column_names:
+                yield dict(zip(self._column_names, row, strict=False))
+            else:
+                # No column names - return as tuple or empty dict
+                yield {}
+
+            self._update_metrics(rows_read=1)
+
+    def _iterate_server_side(self, batch_size: int) -> Iterator[Row]:
+        """For server-side cursors, fetch in batches."""
+        while True:
+            try:
+                rows = self._cursor.fetchmany(batch_size)
+                if not rows:
+                    break
+
+                yield from self._yield_rows(rows)
+            except Exception as e:
+                self._handle_error(e, "fetching rows")
+                if self._on_error == "raise":
+                    raise
+                break
+
+    def _iterate_client_side(self) -> Iterator[Row]:
+        """For regular cursors, iterate directly."""
+        try:
+            yield from self._yield_rows(self._cursor)
+        except Exception as e:
+            self._handle_error(e, "iterating rows")
+            if self._on_error == "raise":
+                raise
+
+    def _cleanup_cursor(self) -> None:
+        """Clean up cursor."""
+        if self._cursor is not None:
+            try:
+                self._cursor.close()
+            except Exception:
+                pass
+            self._cursor = None
+
     def iterate(self) -> Iterator[Row]:
         """Return iterator of dict rows from MySQL query.
 
@@ -168,13 +246,8 @@ class MySQLDriver(DBDriver):
         if not self._connected or self.conn is None:
             raise RuntimeError("Not connected to database. Call connect() first.")
 
-        # Build query
-        try:
-            query = self._build_query()
-        except Exception as e:
-            self._handle_error(e, "building query")
-            if self._on_error == "raise":
-                raise
+        query = self._prepare_query()
+        if query is None:
             return
 
         # Get batch size
@@ -186,73 +259,23 @@ class MySQLDriver(DBDriver):
 
         try:
             # Create cursor
-            if server_side_cursor:
-                # Use SSCursor (server-side cursor) for streaming
-                self._cursor = self.conn.cursor(pymysql.cursors.SSCursor)
-            else:
-                self._cursor = self.conn.cursor()
+            self._open_cursor(server_side_cursor)
 
             # Execute query
-            try:
-                self._cursor.execute(query)
-            except Exception as e:
-                self._handle_error(e, f"executing query: {query[:100]}")
-                if self._on_error == "raise":
-                    raise
+            if not self._execute_query(query):
                 return
 
             # Get column names
-            if self._cursor.description:
-                self._column_names = [desc[0] for desc in self._cursor.description]
-            else:
-                # No columns (e.g., INSERT, UPDATE without RETURNING)
-                self._column_names = []
+            self._set_column_names()
 
             # Iterate over results
             if server_side_cursor:
-                # For server-side cursors, fetch in batches
-                while True:
-                    try:
-                        rows = self._cursor.fetchmany(batch_size)
-                        if not rows:
-                            break
-
-                        for row in rows:
-                            if self._column_names:
-                                yield dict(zip(self._column_names, row, strict=False))
-                            else:
-                                # No column names - return as tuple or empty dict
-                                yield {}
-
-                            self._update_metrics(rows_read=1)
-                    except Exception as e:
-                        self._handle_error(e, "fetching rows")
-                        if self._on_error == "raise":
-                            raise
-                        break
+                yield from self._iterate_server_side(batch_size)
             else:
-                # For regular cursors, iterate directly
-                try:
-                    for row in self._cursor:
-                        if self._column_names:
-                            yield dict(zip(self._column_names, row, strict=False))
-                        else:
-                            yield {}
-
-                        self._update_metrics(rows_read=1)
-                except Exception as e:
-                    self._handle_error(e, "iterating rows")
-                    if self._on_error == "raise":
-                        raise
+                yield from self._iterate_client_side()
 
         finally:
-            # Clean up cursor
-            if self._cursor is not None:
-                try:
-                    self._cursor.close()
-                except Exception:
-                    pass
-                self._cursor = None
+            self._cleanup_cursor()
 
     def close(self) -> None:
         """Close MySQL connection and clean up resources."""

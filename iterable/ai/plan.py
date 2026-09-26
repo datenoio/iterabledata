@@ -49,6 +49,44 @@ def _codec_note(path: str) -> str | None:
     return f"Detected compression codec: {codec_id}"
 
 
+def _collect_warnings(
+    source_id: str | None, target_id: str | None, source_meta: dict[str, Any], target_meta: dict[str, Any], target: str
+) -> list[str]:
+    warnings: list[str] = []
+    if target_id and not target_meta.get("writable", True):
+        warnings.append(f"Target format '{target_id}' is read-only; writing to {target!r} may fail.")
+
+    if source_id and source_meta.get("extra"):
+        warnings.append(f"Source format may require optional extra: pip install iterabledata[{source_meta['extra']}]")
+    if target_id and target_meta.get("extra"):
+        warnings.append(f"Target format may require optional extra: pip install iterabledata[{target_meta['extra']}]")
+    return warnings
+
+
+def _parse_llm_plan(raw: str) -> dict[str, Any]:
+    """Parse the LLM plan JSON, falling back to the first embedded object."""
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        import re
+
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        return json.loads(match.group(0)) if match else {}
+
+
+def _merge_llm_plan(plan: dict[str, Any], llm_plan: Any) -> None:
+    """Merge LLM-provided plan fragments into the declarative plan."""
+    if not isinstance(llm_plan, dict):
+        return
+    if llm_plan.get("steps"):
+        plan["steps"] = llm_plan["steps"]
+    if llm_plan.get("considerations"):
+        plan["considerations"] = llm_plan["considerations"]
+    if llm_plan.get("recommended_kwargs"):
+        plan["recommended_open_iterable_kwargs"] = llm_plan["recommended_kwargs"]
+    plan["llm_notes"] = llm_plan
+
+
 def plan_conversion(
     source: str,
     target: str,
@@ -76,14 +114,7 @@ def plan_conversion(
     if target_id:
         target_meta = describe_format(target_id, include_capabilities=True)
 
-    warnings: list[str] = []
-    if target_id and not target_meta.get("writable", True):
-        warnings.append(f"Target format '{target_id}' is read-only; writing to {target!r} may fail.")
-
-    if source_id and source_meta.get("extra"):
-        warnings.append(f"Source format may require optional extra: pip install iterabledata[{source_meta['extra']}]")
-    if target_id and target_meta.get("extra"):
-        warnings.append(f"Target format may require optional extra: pip install iterabledata[{target_meta['extra']}]")
+    warnings = _collect_warnings(source_id, target_id, source_meta, target_meta, target)
 
     codec_note = _codec_note(source)
     steps = [
@@ -120,20 +151,6 @@ def plan_conversion(
         )
         llm = get_provider(provider, api_key=api_key, base_url=base_url)
         raw = llm.generate(prompt=prompt, model=model, temperature=0.2, **kwargs)
-        try:
-            llm_plan = json.loads(raw)
-        except json.JSONDecodeError:
-            import re
-
-            match = re.search(r"\{.*\}", raw, re.DOTALL)
-            llm_plan = json.loads(match.group(0)) if match else {}
-        if isinstance(llm_plan, dict):
-            if llm_plan.get("steps"):
-                plan["steps"] = llm_plan["steps"]
-            if llm_plan.get("considerations"):
-                plan["considerations"] = llm_plan["considerations"]
-            if llm_plan.get("recommended_kwargs"):
-                plan["recommended_open_iterable_kwargs"] = llm_plan["recommended_kwargs"]
-            plan["llm_notes"] = llm_plan
+        _merge_llm_plan(plan, _parse_llm_plan(raw))
 
     return plan

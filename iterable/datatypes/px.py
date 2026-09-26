@@ -138,14 +138,8 @@ class PXIterable(BaseFileIterable):
                 # Keep as string if conversion fails
                 self.data_values.append(v)
 
-    def _generate_records(self):
-        """Generate flat records from multi-dimensional PC-Axis data"""
-        records = []
-
-        # Get all variable names in order
-        self.stub_vars + self.heading_vars
-
-        # Calculate dimensions
+    def _combination_counts(self) -> tuple[int, int]:
+        """Total stub/heading combination counts from the value dimensions."""
         stub_dims = [len(self.values.get(var, [])) for var in self.stub_vars]
         heading_dims = [len(self.values.get(var, [])) for var in self.heading_vars]
 
@@ -158,15 +152,60 @@ class PXIterable(BaseFileIterable):
         for dim in heading_dims:
             total_heading_combinations *= dim if dim > 0 else 1
 
+        return total_stub_combinations, total_heading_combinations
+
+    def _value_lists(self, var_names: list[str]) -> list[list[str]]:
+        """Value lists per variable; missing/empty lists get a placeholder."""
+        value_lists = [self.values.get(var, [""]) for var in var_names]
+        # Use empty list placeholder for missing values to avoid product errors
+        return [lst if lst else [""] for lst in value_lists]
+
+    def _build_record(self, stub_combo: tuple, heading_combo: tuple, data_idx: int) -> dict:
+        record = {}
+
+        # Add stub variables
+        for i, var in enumerate(self.stub_vars):
+            if i < len(stub_combo):
+                val = stub_combo[i]
+                record[var] = val if val != "" else None
+            else:
+                record[var] = None
+
+        # Add heading variables
+        for i, var in enumerate(self.heading_vars):
+            if i < len(heading_combo):
+                val = heading_combo[i]
+                record[var] = val if val != "" else None
+            else:
+                record[var] = None
+
+        # Add data value
+        if data_idx < len(self.data_values):
+            record["VALUE"] = self.data_values[data_idx]
+        else:
+            record["VALUE"] = None
+
+        # Add metadata fields
+        for key, value in self.metadata.items():
+            if key not in ["STUB", "HEADING"]:
+                record[f"_{key}"] = value
+
+        return record
+
+    def _generate_records(self):
+        """Generate flat records from multi-dimensional PC-Axis data"""
+        records = []
+
+        # Get all variable names in order
+        self.stub_vars + self.heading_vars
+
+        # Calculate dimensions / total number of data points
+        total_stub_combinations, total_heading_combinations = self._combination_counts()
         total_stub_combinations * total_heading_combinations
 
-        # Generate all combinations of stub variables
-        stub_value_lists = [self.values.get(var, [""]) for var in self.stub_vars]
-        heading_value_lists = [self.values.get(var, [""]) for var in self.heading_vars]
-
-        # Use empty list placeholder for missing values to avoid product errors
-        stub_value_lists = [lst if lst else [""] for lst in stub_value_lists]
-        heading_value_lists = [lst if lst else [""] for lst in heading_value_lists]
+        # Generate all combinations of stub and heading variables
+        stub_value_lists = self._value_lists(self.stub_vars)
+        heading_value_lists = self._value_lists(self.heading_vars)
 
         stub_combinations = list(product(*stub_value_lists)) if stub_value_lists else [()]
         heading_combinations = list(product(*heading_value_lists)) if heading_value_lists else [()]
@@ -175,36 +214,7 @@ class PXIterable(BaseFileIterable):
         data_idx = 0
         for stub_combo in stub_combinations:
             for heading_combo in heading_combinations:
-                record = {}
-
-                # Add stub variables
-                for i, var in enumerate(self.stub_vars):
-                    if i < len(stub_combo):
-                        val = stub_combo[i]
-                        record[var] = val if val != "" else None
-                    else:
-                        record[var] = None
-
-                # Add heading variables
-                for i, var in enumerate(self.heading_vars):
-                    if i < len(heading_combo):
-                        val = heading_combo[i]
-                        record[var] = val if val != "" else None
-                    else:
-                        record[var] = None
-
-                # Add data value
-                if data_idx < len(self.data_values):
-                    record["VALUE"] = self.data_values[data_idx]
-                else:
-                    record["VALUE"] = None
-
-                # Add metadata fields
-                for key, value in self.metadata.items():
-                    if key not in ["STUB", "HEADING"]:
-                        record[f"_{key}"] = value
-
-                records.append(record)
+                records.append(self._build_record(stub_combo, heading_combo, data_idx))
                 data_idx += 1
 
         return records

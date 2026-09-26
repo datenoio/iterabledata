@@ -67,6 +67,60 @@ class CIFIterable(BaseFileIterable):
                 for line in f:
                     yield line.rstrip("\r\n")
 
+    @staticmethod
+    def _read_loop_columns(lines: list[str], i: int) -> tuple[list[str], int]:
+        """Collect the ``_tag`` column headers following a ``loop_`` marker."""
+        columns: list[str] = []
+        while i < len(lines):
+            tag = lines[i].strip()
+            if not tag or tag.startswith("#"):
+                i += 1
+                continue
+            if tag.startswith("_"):
+                columns.append(tag)
+                i += 1
+                continue
+            break
+        return columns, i
+
+    @staticmethod
+    def _skip_loop_data(lines: list[str], i: int) -> int:
+        """Skip data rows of unrelated loops."""
+        while i < len(lines):
+            row_line = lines[i].strip()
+            if row_line.lower() == "loop_" or row_line.lower().startswith("data_"):
+                break
+            if row_line.startswith("_"):
+                break
+            i += 1
+        return i
+
+    def _read_atom_site_loop(self, lines: list[str], i: int, keys: list[str], rows: list[Row]) -> int:
+        """Read data rows of an ``_atom_site.*`` loop, appending dicts to ``rows``."""
+        n = len(keys)
+        while i < len(lines):
+            row_line = lines[i].strip()
+            if not row_line:
+                i += 1
+                break
+            if row_line.startswith("#"):
+                i += 1
+                continue
+            if row_line.lower() == "loop_" or row_line.lower().startswith("data_") or row_line.startswith("_"):
+                break
+            tokens = self._tokenize(row_line)
+            while len(tokens) < n and i + 1 < len(lines):
+                nxt = lines[i + 1].strip()
+                if not nxt or nxt.startswith("#") or nxt.startswith("_") or nxt.lower() == "loop_":
+                    break
+                i += 1
+                tokens.extend(self._tokenize(nxt))
+            if len(tokens) >= n:
+                values = tokens[:n]
+                rows.append({keys[j]: self._coerce(values[j]) for j in range(n)})
+            i += 1
+        return i
+
     def _parse_atom_site_rows(self) -> list[Row]:
         lines = list(self._iter_lines())
         i = 0
@@ -78,53 +132,15 @@ class CIFIterable(BaseFileIterable):
                 i += 1
                 continue
             i += 1
-            columns: list[str] = []
-            while i < len(lines):
-                tag = lines[i].strip()
-                if not tag or tag.startswith("#"):
-                    i += 1
-                    continue
-                if tag.startswith("_"):
-                    columns.append(tag)
-                    i += 1
-                    continue
-                break
+            columns, i = self._read_loop_columns(lines, i)
             is_atom_site = bool(columns) and all(c.lower().startswith(_ATOM_SITE_PREFIX) for c in columns)
             if not is_atom_site:
-                # Skip data rows of unrelated loops
-                while i < len(lines):
-                    row_line = lines[i].strip()
-                    if row_line.lower() == "loop_" or row_line.lower().startswith("data_"):
-                        break
-                    if row_line.startswith("_"):
-                        break
-                    i += 1
+                i = self._skip_loop_data(lines, i)
                 continue
 
             found = True
             keys = [c[len(_ATOM_SITE_PREFIX) :] for c in columns]
-            n = len(keys)
-            while i < len(lines):
-                row_line = lines[i].strip()
-                if not row_line:
-                    i += 1
-                    break
-                if row_line.startswith("#"):
-                    i += 1
-                    continue
-                if row_line.lower() == "loop_" or row_line.lower().startswith("data_") or row_line.startswith("_"):
-                    break
-                tokens = self._tokenize(row_line)
-                while len(tokens) < n and i + 1 < len(lines):
-                    nxt = lines[i + 1].strip()
-                    if not nxt or nxt.startswith("#") or nxt.startswith("_") or nxt.lower() == "loop_":
-                        break
-                    i += 1
-                    tokens.extend(self._tokenize(nxt))
-                if len(tokens) >= n:
-                    values = tokens[:n]
-                    rows.append({keys[j]: self._coerce(values[j]) for j in range(n)})
-                i += 1
+            i = self._read_atom_site_loop(lines, i, keys, rows)
 
         if not found:
             raise ValueError(

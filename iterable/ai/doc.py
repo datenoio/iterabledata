@@ -12,7 +12,7 @@ import datetime
 import json
 import logging
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..helpers.detect import open_iterable
 from ..helpers.structured_logging import OperationContext
@@ -25,6 +25,9 @@ from .cache import get_cached, make_doc_cache_key, set_cached
 from .context import redact_for_llm
 from .progress import ProgressCallback, ProgressReporter, Stage, StageTimer
 from .providers import get_provider
+
+if TYPE_CHECKING:
+    from .providers import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -584,6 +587,83 @@ def _validate_json_result(result: dict[str, Any]) -> None:
         logger.warning("Documentation JSON validation failed: %s", exc)
 
 
+def _validate_requested_blocks(requested: list[str]) -> None:
+    for name in requested:
+        if name not in blocks_module.BLOCK_REGISTRY:
+            raise ValueError(
+                f"Unknown documentation block: {name!r}. Available: {', '.join(blocks_module.available_blocks())}"
+            )
+
+
+def _resolve_llm_provider(
+    needs_llm: bool, provider: str | None, api_key: str | None, base_url: str | None
+) -> LLMProvider | None:
+    """Instantiate the LLM provider when any requested block needs one."""
+    if not needs_llm:
+        return None
+    try:
+        return get_provider(provider, api_key=api_key, base_url=base_url)
+    except Exception as exc:
+        logger.warning("LLM provider unavailable, LLM blocks will be empty: %s", exc)
+        return None
+
+
+def _materialize_nonfile_input(iterable: collections.abc.Iterable[Row] | str, source: str | None) -> list[Row] | None:
+    """Materialize non-file, single-use iterables so multiple passes are possible."""
+    if source is None and not isinstance(iterable, str):
+        if isinstance(iterable, list):
+            return iterable
+        return list(iterable)
+    return None
+
+
+def _log_block_usage(reporter: ProgressReporter, name: str, spec: Any, llm_provider: LLMProvider | None) -> None:
+    usage = llm_provider.get_usage_info() if llm_provider is not None and spec.requires_llm else None
+    if usage:
+        logger.info(
+            "block generated: %s",
+            name,
+            extra={
+                "job_id": reporter.job_id,
+                "stage": Stage.GENERATING.value,
+                "block": name,
+                "prompt_tokens": usage.get("prompt_tokens"),
+                "completion_tokens": usage.get("completion_tokens"),
+                "event_type": "ai_documentation",
+            },
+        )
+
+
+def _generate_requested_blocks(
+    requested: list[str],
+    base_ctx: BlockContext,
+    source: str | None,
+    resolved_tables: list[str] | None,
+    reporter: ProgressReporter,
+    llm_provider: LLMProvider | None,
+    **table_kwargs: Any,
+) -> dict[str, Any]:
+    """Generate every requested block (multi-table schema fan-out included)."""
+    result_blocks: dict[str, Any] = {}
+    total = len(requested)
+    for index, name in enumerate(requested):
+        pct = 40 + int(50 * (index / max(1, total)))
+        spec = blocks_module.BLOCK_REGISTRY[name]
+        with StageTimer(reporter, Stage.GENERATING, f"block: {name}", progress=pct, block=name):
+            if name == "schema" and resolved_tables and len(resolved_tables) > 1:
+                _generate_multitable_schema(
+                    result_blocks,
+                    base_ctx,
+                    source,
+                    resolved_tables,
+                    **table_kwargs,
+                )
+            else:
+                result_blocks[name] = blocks_module.render_block(name, base_ctx)
+        _log_block_usage(reporter, name, spec, llm_provider)
+    return result_blocks
+
+
 def generate_blocks(
     iterable: collections.abc.Iterable[Row] | str,
     blocks: list[str] | None = None,
@@ -641,32 +721,17 @@ def generate_blocks(
         Structured documentation result dict.
     """
     requested = list(blocks) if blocks else list(blocks_module.DEFAULT_BLOCKS)
-    for name in requested:
-        if name not in blocks_module.BLOCK_REGISTRY:
-            raise ValueError(
-                f"Unknown documentation block: {name!r}. Available: {', '.join(blocks_module.available_blocks())}"
-            )
+    _validate_requested_blocks(requested)
 
     user_context = dict(context) if context else {}
     reporter = ProgressReporter(progress, job_id=job_id)
 
     source = iterable if isinstance(iterable, str) and os.path.exists(iterable) else None
 
-    # Materialize non-file, single-use iterables so multiple passes are possible.
-    materialized: list[Row] | None = None
-    if source is None and not isinstance(iterable, str):
-        if isinstance(iterable, list):
-            materialized = iterable
-        else:
-            materialized = list(iterable)
+    materialized = _materialize_nonfile_input(iterable, source)
 
     needs_llm = any(blocks_module.BLOCK_REGISTRY[n].requires_llm for n in requested)
-    llm_provider = None
-    if needs_llm:
-        try:
-            llm_provider = get_provider(provider, api_key=api_key, base_url=base_url)
-        except Exception as exc:
-            logger.warning("LLM provider unavailable, LLM blocks will be empty: %s", exc)
+    llm_provider = _resolve_llm_provider(needs_llm, provider, api_key, base_url)
 
     with OperationContext("ai_documentation", job_id=reporter.job_id):
         reporter.emit(Stage.QUEUED, 0, "queued")
@@ -716,40 +781,19 @@ def generate_blocks(
         )
 
         # Stage: generating blocks.
-        result_blocks: dict[str, Any] = {}
-        total = len(requested)
-        for index, name in enumerate(requested):
-            pct = 40 + int(50 * (index / max(1, total)))
-            spec = blocks_module.BLOCK_REGISTRY[name]
-            with StageTimer(reporter, Stage.GENERATING, f"block: {name}", progress=pct, block=name):
-                if name == "schema" and resolved_tables and len(resolved_tables) > 1:
-                    _generate_multitable_schema(
-                        result_blocks,
-                        base_ctx,
-                        source,
-                        resolved_tables,
-                        sample_size=sample_size,
-                        include_statistics=include_statistics,
-                        detect_constraints=detect_constraints,
-                        redact_samples=redact_samples,
-                        provider_name=provider,
-                    )
-                else:
-                    result_blocks[name] = blocks_module.render_block(name, base_ctx)
-            usage = llm_provider.get_usage_info() if llm_provider is not None and spec.requires_llm else None
-            if usage:
-                logger.info(
-                    "block generated: %s",
-                    name,
-                    extra={
-                        "job_id": reporter.job_id,
-                        "stage": Stage.GENERATING.value,
-                        "block": name,
-                        "prompt_tokens": usage.get("prompt_tokens"),
-                        "completion_tokens": usage.get("completion_tokens"),
-                        "event_type": "ai_documentation",
-                    },
-                )
+        result_blocks = _generate_requested_blocks(
+            requested,
+            base_ctx,
+            source,
+            resolved_tables,
+            reporter,
+            llm_provider,
+            sample_size=sample_size,
+            include_statistics=include_statistics,
+            detect_constraints=detect_constraints,
+            redact_samples=redact_samples,
+            provider_name=provider,
+        )
 
         # Stage: assembling.
         with StageTimer(reporter, Stage.ASSEMBLING, "assemble document", progress=95):
@@ -978,6 +1022,121 @@ def _ordered_block_keys(result_blocks: dict[str, Any], requested: list[str]) -> 
     return ordered
 
 
+def _prompt_filename_section(context: dict[str, Any], prompt_parts: list[str]) -> None:
+    # Tell the model which filename to use in Python/R usage examples (SQL should use table `dataset`)
+    if "filename" not in context:
+        return
+    prompt_parts.append(
+        f"In Python/R usage examples, read the local file {context['filename']!r}. "
+        "In SQL examples, query the table named `dataset` (do not use the filename or "
+        "read_parquet/read_csv table functions)."
+    )
+    prompt_parts.append("")
+
+
+def _prompt_user_context_section(context: dict[str, Any], prompt_parts: list[str]) -> None:
+    # Add user-provided context (title, description, tags, territory, source, card metadata)
+    if not context.get("user_context"):
+        return
+    prompt_parts.append("## User-provided context:")
+    prompt_parts.append(json.dumps(context["user_context"], indent=2, default=str, ensure_ascii=False))
+    prompt_parts.append("")
+
+
+def _prompt_metadata_section(context: dict[str, Any], prompt_parts: list[str]) -> None:
+    # Add metadata if available
+    if "metadata" not in context:
+        return
+    metadata_info = context["metadata"]
+    prompt_parts.append("## Metadata:")
+    if metadata_info.get("keywords"):
+        prompt_parts.append(f"Keywords: {', '.join(metadata_info['keywords'][:10])}")
+    if metadata_info.get("geographic_coverage"):
+        geo = metadata_info["geographic_coverage"]
+        if geo.get("countries"):
+            prompt_parts.append(f"Countries: {', '.join(geo['countries'][:5])}")
+        if geo.get("regions"):
+            prompt_parts.append(f"Regions: {', '.join(geo['regions'][:5])}")
+    if metadata_info.get("temporal_coverage"):
+        temp = metadata_info["temporal_coverage"]
+        prompt_parts.append(f"Temporal coverage: {temp.get('start')} to {temp.get('end')} ({temp.get('granularity')})")
+    if metadata_info.get("data_theme"):
+        theme = metadata_info["data_theme"]
+        prompt_parts.append(f"Data theme: {theme.get('label')}")
+    prompt_parts.append("")
+
+
+def _prompt_schema_section(context: dict[str, Any], prompt_parts: list[str]) -> None:
+    # Add schema information
+    if "schema" not in context:
+        return
+    schema_info = context["schema"]
+    prompt_parts.append("## Schema Information:")
+    # Truncate schema info to avoid token limits
+    schema_str = json.dumps(schema_info, indent=2, default=str)
+    if len(schema_str) > 2000:
+        schema_str = schema_str[:2000] + "... (truncated)"
+    prompt_parts.append(schema_str)
+    prompt_parts.append("")
+
+
+def _prompt_field_descriptions_section(context: dict[str, Any], prompt_parts: list[str]) -> None:
+    # Add field descriptions if available
+    if "field_descriptions" not in context:
+        return
+    field_descriptions = context["field_descriptions"]
+    prompt_parts.append("## Field Descriptions:")
+    for field, desc in list(field_descriptions.items())[:20]:  # Limit to 20 fields
+        prompt_parts.append(f"- {field}: {desc}")
+    prompt_parts.append("")
+
+
+def _prompt_statistics_section(context: dict[str, Any], prompt_parts: list[str]) -> None:
+    # Add statistics if available
+    if "statistics" not in context:
+        return
+    stats_info = context["statistics"]
+    prompt_parts.append("## Statistics:")
+    # Include key statistics for first few fields
+    for field_name, field_stats in list(stats_info.items())[:10]:
+        if isinstance(field_stats, dict):
+            stats_summary = []
+            if "unique_count" in field_stats:
+                stats_summary.append(f"unique: {field_stats['unique_count']}")
+            if "count" in field_stats:
+                stats_summary.append(f"total: {field_stats['count']}")
+            if stats_summary:
+                prompt_parts.append(f"- {field_name}: {', '.join(stats_summary)}")
+    prompt_parts.append("")
+
+
+def _prompt_semantic_types_section(context: dict[str, Any], prompt_parts: list[str]) -> None:
+    # Add semantic types if available
+    if "semantic_types" not in context:
+        return
+    semantic_types = context["semantic_types"]
+    prompt_parts.append("## Semantic Types:")
+    for field_name, types in list(semantic_types.items())[:10]:
+        if types:
+            type_names = [t.get("type", "") for t in types[:3]]
+            prompt_parts.append(f"- {field_name}: {', '.join(type_names)}")
+    prompt_parts.append("")
+
+
+def _prompt_samples_section(context: dict[str, Any], prompt_parts: list[str]) -> None:
+    # Add sample data
+    if "samples" not in context:
+        return
+    samples = context["samples"]
+    prompt_parts.append("## Sample Data:")
+    # Truncate samples to avoid token limits
+    samples_str = json.dumps(samples[:5], indent=2, default=str)
+    if len(samples_str) > 1500:
+        samples_str = samples_str[:1500] + "... (truncated)"
+    prompt_parts.append(samples_str)
+    prompt_parts.append("")
+
+
 def _build_documentation_prompt(context: dict[str, Any], language: str = "English") -> str:
     """Build enhanced prompt for documentation generation."""
     prompt_parts = [
@@ -989,98 +1148,14 @@ def _build_documentation_prompt(context: dict[str, Any], language: str = "Englis
         "",
     ]
 
-    # Tell the model which filename to use in Python/R usage examples (SQL should use table `dataset`)
-    if "filename" in context:
-        prompt_parts.append(
-            f"In Python/R usage examples, read the local file {context['filename']!r}. "
-            "In SQL examples, query the table named `dataset` (do not use the filename or "
-            "read_parquet/read_csv table functions)."
-        )
-        prompt_parts.append("")
-
-    # Add user-provided context (title, description, tags, territory, source, card metadata)
-    if context.get("user_context"):
-        prompt_parts.append("## User-provided context:")
-        prompt_parts.append(json.dumps(context["user_context"], indent=2, default=str, ensure_ascii=False))
-        prompt_parts.append("")
-
-    # Add metadata if available
-    if "metadata" in context:
-        metadata_info = context["metadata"]
-        prompt_parts.append("## Metadata:")
-        if metadata_info.get("keywords"):
-            prompt_parts.append(f"Keywords: {', '.join(metadata_info['keywords'][:10])}")
-        if metadata_info.get("geographic_coverage"):
-            geo = metadata_info["geographic_coverage"]
-            if geo.get("countries"):
-                prompt_parts.append(f"Countries: {', '.join(geo['countries'][:5])}")
-            if geo.get("regions"):
-                prompt_parts.append(f"Regions: {', '.join(geo['regions'][:5])}")
-        if metadata_info.get("temporal_coverage"):
-            temp = metadata_info["temporal_coverage"]
-            prompt_parts.append(
-                f"Temporal coverage: {temp.get('start')} to {temp.get('end')} ({temp.get('granularity')})"
-            )
-        if metadata_info.get("data_theme"):
-            theme = metadata_info["data_theme"]
-            prompt_parts.append(f"Data theme: {theme.get('label')}")
-        prompt_parts.append("")
-
-    # Add schema information
-    if "schema" in context:
-        schema_info = context["schema"]
-        prompt_parts.append("## Schema Information:")
-        # Truncate schema info to avoid token limits
-        schema_str = json.dumps(schema_info, indent=2, default=str)
-        if len(schema_str) > 2000:
-            schema_str = schema_str[:2000] + "... (truncated)"
-        prompt_parts.append(schema_str)
-        prompt_parts.append("")
-
-    # Add field descriptions if available
-    if "field_descriptions" in context:
-        field_descriptions = context["field_descriptions"]
-        prompt_parts.append("## Field Descriptions:")
-        for field, desc in list(field_descriptions.items())[:20]:  # Limit to 20 fields
-            prompt_parts.append(f"- {field}: {desc}")
-        prompt_parts.append("")
-
-    # Add statistics if available
-    if "statistics" in context:
-        stats_info = context["statistics"]
-        prompt_parts.append("## Statistics:")
-        # Include key statistics for first few fields
-        for field_name, field_stats in list(stats_info.items())[:10]:
-            if isinstance(field_stats, dict):
-                stats_summary = []
-                if "unique_count" in field_stats:
-                    stats_summary.append(f"unique: {field_stats['unique_count']}")
-                if "count" in field_stats:
-                    stats_summary.append(f"total: {field_stats['count']}")
-                if stats_summary:
-                    prompt_parts.append(f"- {field_name}: {', '.join(stats_summary)}")
-        prompt_parts.append("")
-
-    # Add semantic types if available
-    if "semantic_types" in context:
-        semantic_types = context["semantic_types"]
-        prompt_parts.append("## Semantic Types:")
-        for field_name, types in list(semantic_types.items())[:10]:
-            if types:
-                type_names = [t.get("type", "") for t in types[:3]]
-                prompt_parts.append(f"- {field_name}: {', '.join(type_names)}")
-        prompt_parts.append("")
-
-    # Add sample data
-    if "samples" in context:
-        samples = context["samples"]
-        prompt_parts.append("## Sample Data:")
-        # Truncate samples to avoid token limits
-        samples_str = json.dumps(samples[:5], indent=2, default=str)
-        if len(samples_str) > 1500:
-            samples_str = samples_str[:1500] + "... (truncated)"
-        prompt_parts.append(samples_str)
-        prompt_parts.append("")
+    _prompt_filename_section(context, prompt_parts)
+    _prompt_user_context_section(context, prompt_parts)
+    _prompt_metadata_section(context, prompt_parts)
+    _prompt_schema_section(context, prompt_parts)
+    _prompt_field_descriptions_section(context, prompt_parts)
+    _prompt_statistics_section(context, prompt_parts)
+    _prompt_semantic_types_section(context, prompt_parts)
+    _prompt_samples_section(context, prompt_parts)
 
     prompt_parts.append(
         f"Generate well-formatted markdown documentation in {language} that describes this dataset comprehensively."

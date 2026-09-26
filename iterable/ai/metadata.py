@@ -111,6 +111,30 @@ def extract_keywords(
     return [word for word, _ in counts.most_common(max_keywords)]
 
 
+def _geo_fields(field_map: dict[str, str], kind: str) -> set[str]:
+    """Field names whose lowercased name contains a geo hint of ``kind``."""
+    return {name for name, lname in field_map.items() if any(hint in lname for hint in GEO_FIELD_HINTS[kind])}
+
+
+def _collect_geo_values(
+    samples: list[Row], field_names: list[str], country_fields: set[str], region_fields: set[str]
+) -> tuple[list[str], list[str]]:
+    countries = []
+    regions = []
+    for name, value in _iter_sample_values(samples, field_names):
+        if value is None:
+            continue
+        if name in country_fields and isinstance(value, str):
+            val = value.strip()
+            if 2 <= len(val) <= 64:
+                countries.append(val)
+        if name in region_fields and isinstance(value, str):
+            val = value.strip()
+            if 2 <= len(val) <= 64:
+                regions.append(val)
+    return countries, regions
+
+
 def extract_geographic_coverage(
     samples: list[Row],
     field_names: list[str],
@@ -133,33 +157,14 @@ def extract_geographic_coverage(
     }
 
     # Detect coordinate fields
-    coord_fields = {
-        name for name, lname in field_map.items() if any(hint in lname for hint in GEO_FIELD_HINTS["coordinates"])
-    }
-    if coord_fields:
+    if _geo_fields(field_map, "coordinates"):
         coverage["coordinates_present"] = True
 
     # Detect country and region fields
-    country_fields = {
-        name for name, lname in field_map.items() if any(hint in lname for hint in GEO_FIELD_HINTS["country"])
-    }
-    region_fields = {
-        name for name, lname in field_map.items() if any(hint in lname for hint in GEO_FIELD_HINTS["region"])
-    }
+    country_fields = _geo_fields(field_map, "country")
+    region_fields = _geo_fields(field_map, "region")
 
-    countries = []
-    regions = []
-    for name, value in _iter_sample_values(samples, field_names):
-        if value is None:
-            continue
-        if name in country_fields and isinstance(value, str):
-            val = value.strip()
-            if 2 <= len(val) <= 64:
-                countries.append(val)
-        if name in region_fields and isinstance(value, str):
-            val = value.strip()
-            if 2 <= len(val) <= 64:
-                regions.append(val)
+    countries, regions = _collect_geo_values(samples, field_names, country_fields, region_fields)
 
     if countries:
         coverage["countries"] = sorted(set(countries))[:10]

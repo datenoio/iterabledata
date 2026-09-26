@@ -268,6 +268,40 @@ def analyze(
     if isinstance(iterable, str):
         iterable = open_iterable(iterable)
 
+    collect_rows = autodoc and not isinstance(source_input, str)
+    fields, row_count, analyzed_rows = _analyze_fields(iterable, sample_size, collect_rows)
+
+    result: dict[str, Any] = {
+        "row_count": row_count if row_count < sample_size else None,
+        "fields": fields,
+        "structure": {
+            "field_count": len(fields),
+            "analyzed_rows": row_count,
+        },
+    }
+
+    if autodoc:
+        _apply_autodoc(
+            result,
+            source_input,
+            analyzed_rows,
+            provider=autodoc_provider,
+            model=autodoc_model,
+            autodoc_format=autodoc_format,
+            sample_size=sample_size,
+            include_field_descriptions=include_field_descriptions,
+            autodoc_kwargs=autodoc_kwargs,
+        )
+
+    return result
+
+
+def _analyze_fields(
+    iterable: collections.abc.Iterable[Row],
+    sample_size: int,
+    collect_rows: bool,
+) -> tuple[dict[str, dict[str, Any]], int, list[Row]]:
+    """Sample rows, infer per-field metadata, and optionally keep analyzed rows."""
     fields: dict[str, dict[str, Any]] = {}
     row_count = 0
     sample_values: dict[str, list[Any]] = {}
@@ -279,7 +313,7 @@ def analyze(
             break
 
         row_count = i + 1
-        if autodoc and not isinstance(source_input, str):
+        if collect_rows:
             analyzed_rows.append(row)
 
         # Analyze each field
@@ -304,53 +338,57 @@ def analyze(
     for field_name, samples in sample_values.items():
         fields[field_name]["sample_values"] = samples
 
-    result: dict[str, Any] = {
-        "row_count": row_count if row_count < sample_size else None,
-        "fields": fields,
-        "structure": {
-            "field_count": len(fields),
-            "analyzed_rows": row_count,
-        },
-    }
+    return fields, row_count, analyzed_rows
 
-    if autodoc:
-        from ..ai import doc
 
-        doc_input: str | list[Row] = source_input if isinstance(source_input, str) else analyzed_rows
-        doc_result = doc.generate(
-            doc_input,
-            provider=autodoc_provider,
-            model=autodoc_model,
-            format=autodoc_format,
-            include_schema=False,
-            include_samples=True,
-            sample_size=min(sample_size, 10),
-            include_field_descriptions=include_field_descriptions,
-            **autodoc_kwargs,
-        )
+def _apply_autodoc(
+    result: dict[str, Any],
+    source_input: str | collections.abc.Iterable[Row],
+    analyzed_rows: list[Row],
+    *,
+    provider: str,
+    model: str | None,
+    autodoc_format: str,
+    sample_size: int,
+    include_field_descriptions: bool,
+    autodoc_kwargs: dict[str, Any],
+) -> None:
+    """Generate AI documentation and merge it into the analysis result in place."""
+    from ..ai import doc
 
-        if autodoc_format == "json" and isinstance(doc_result, dict):
-            result["documentation"] = doc_result.get("documentation", "")
-            result["documentation_meta"] = {
-                "provider": autodoc_provider,
-                "model": autodoc_model,
-                "format": autodoc_format,
-                "usage": doc_result.get("usage"),
-            }
-            field_descriptions = doc_result.get("field_descriptions") or {}
-            for field_name, description in field_descriptions.items():
-                if field_name in result["fields"]:
-                    result["fields"][field_name]["description"] = description
-        else:
-            result["documentation"] = doc_result if isinstance(doc_result, str) else str(doc_result)
-            result["documentation_meta"] = {
-                "provider": autodoc_provider,
-                "model": autodoc_model,
-                "format": autodoc_format,
-                "usage": None,
-            }
+    doc_input: str | list[Row] = source_input if isinstance(source_input, str) else analyzed_rows
+    doc_result = doc.generate(
+        doc_input,
+        provider=provider,
+        model=model,
+        format=autodoc_format,
+        include_schema=False,
+        include_samples=True,
+        sample_size=min(sample_size, 10),
+        include_field_descriptions=include_field_descriptions,
+        **autodoc_kwargs,
+    )
 
-    return result
+    if autodoc_format == "json" and isinstance(doc_result, dict):
+        result["documentation"] = doc_result.get("documentation", "")
+        result["documentation_meta"] = {
+            "provider": provider,
+            "model": model,
+            "format": autodoc_format,
+            "usage": doc_result.get("usage"),
+        }
+        field_descriptions = doc_result.get("field_descriptions") or {}
+        for field_name, description in field_descriptions.items():
+            if field_name in result["fields"]:
+                result["fields"][field_name]["description"] = description
+    else:
+        result["documentation"] = doc_result if isinstance(doc_result, str) else str(doc_result)
+        result["documentation_meta"] = {
+            "provider": provider,
+            "model": model,
+            "format": autodoc_format,
+            "usage": None,
+        }
 
 
 def _infer_type(value: Any) -> str:

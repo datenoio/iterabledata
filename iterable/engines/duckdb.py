@@ -575,6 +575,36 @@ class DuckDBEngineIterable(BaseFileIterable):
     def _stringify_row(self, row: dict) -> dict:
         return {k: self._stringify_value(v) for k, v in row.items()}
 
+    def _result_to_dicts_pandas(self, result, stringify: bool) -> list[dict] | None:
+        """DataFrame-based conversion; returns None when unavailable/failed."""
+        if not HAS_PANDAS:
+            return None
+        try:
+            df = result.df()
+            # Convert DataFrame to list of dicts (faster than manual conversion)
+            dicts = df.to_dict("records")
+
+            # Handle column filtering if specified (more efficient with DataFrame)
+            if self._columns:
+                # Filter columns before conversion if possible, otherwise filter after
+                if all(col in df.columns for col in self._columns):
+                    df_filtered = df[self._columns]
+                    dicts = df_filtered.to_dict("records")
+                else:
+                    # Fallback: filter dicts after conversion
+                    dicts = [{k: row.get(k) for k in self._columns if k in row} for row in dicts]
+
+            if stringify:
+                dicts = [self._stringify_row(row) for row in dicts]
+            return dicts
+        except (duckdb.Error, duckdb.ProgrammingError, duckdb.OperationalError):
+            # DuckDB-specific errors - fall back to manual conversion
+            # This can happen if DataFrame conversion fails for some reason
+            return None
+        except Exception:
+            # Other unexpected errors during DataFrame conversion - fall back to manual conversion
+            return None
+
     def _result_to_dicts(self, result) -> list[dict]:
         """Convert DuckDB result to list of dicts efficiently.
 
@@ -592,33 +622,9 @@ class DuckDBEngineIterable(BaseFileIterable):
             list[dict]: List of dictionaries, one per row
         """
         stringify = self._file_format == "csv"
-        if HAS_PANDAS:
-            # Use DuckDB's optimized DataFrame conversion
-            try:
-                df = result.df()
-                # Convert DataFrame to list of dicts (faster than manual conversion)
-                dicts = df.to_dict("records")
-
-                # Handle column filtering if specified (more efficient with DataFrame)
-                if self._columns:
-                    # Filter columns before conversion if possible, otherwise filter after
-                    if all(col in df.columns for col in self._columns):
-                        df_filtered = df[self._columns]
-                        dicts = df_filtered.to_dict("records")
-                    else:
-                        # Fallback: filter dicts after conversion
-                        dicts = [{k: row.get(k) for k in self._columns if k in row} for row in dicts]
-
-                if stringify:
-                    dicts = [self._stringify_row(row) for row in dicts]
-                return dicts
-            except (duckdb.Error, duckdb.ProgrammingError, duckdb.OperationalError):
-                # DuckDB-specific errors - fall back to manual conversion
-                # This can happen if DataFrame conversion fails for some reason
-                pass
-            except Exception:
-                # Other unexpected errors during DataFrame conversion - fall back to manual conversion
-                pass
+        dicts = self._result_to_dicts_pandas(result, stringify)
+        if dicts is not None:
+            return dicts
 
         # Fallback: manual conversion (used when pandas not available or conversion fails)
         rows = result.fetchall()

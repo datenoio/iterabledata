@@ -209,16 +209,8 @@ class ASCIIGridIterable(BaseFileIterable):
             self._flush_write()
         super().close()
 
-    def _flush_write(self) -> None:
-        """Write buffered cell records as an Esri ASCII Grid."""
-        cells = self._write_buffer
-        if not cells:
-            return
-        rows = [int(c["row"]) for c in cells]
-        cols = [int(c["col"]) for c in cells]
-        nrows = max(rows) + 1
-        ncols = max(cols) + 1
-        # Infer cellsize / origin from adjacent cells when possible
+    def _infer_cellsize(self, cells: list[Row], rows: list[int], cols: list[int]) -> float:
+        """Infer cellsize from adjacent cells when possible."""
         cellsize = 1.0
         xs = [float(c["x"]) for c in cells if "x" in c]
         ys = [float(c["y"]) for c in cells if "y" in c]
@@ -232,7 +224,12 @@ class ASCIIGridIterable(BaseFileIterable):
                 if len(entries) >= 2:
                     cellsize = entries[1][1] - entries[0][1]
                     break
-        nodata = -9999.0
+        return cellsize
+
+    @staticmethod
+    def _build_grid_and_origin(
+        cells: list[Row], nrows: int, ncols: int, cellsize: float, nodata: float
+    ) -> tuple[list[list[float]], float, float]:
         grid = [[nodata for _ in range(ncols)] for _ in range(nrows)]
         xll = None
         yll = None
@@ -248,6 +245,31 @@ class ASCIIGridIterable(BaseFileIterable):
                     xll, yll = candidate_xll, candidate_yll
         if xll is None:
             xll, yll = 0.0, 0.0
+        return grid, xll, yll
+
+    def _write_text(self, text: str) -> None:
+        if self.fobj is not None:
+            if hasattr(self.fobj, "seek"):
+                self.fobj.seek(0)
+                if hasattr(self.fobj, "truncate"):
+                    self.fobj.truncate(0)
+            self.fobj.write(text)
+        elif self.filename is not None:
+            with open(self.filename, "w", encoding=self.encoding) as f:
+                f.write(text)
+
+    def _flush_write(self) -> None:
+        """Write buffered cell records as an Esri ASCII Grid."""
+        cells = self._write_buffer
+        if not cells:
+            return
+        rows = [int(c["row"]) for c in cells]
+        cols = [int(c["col"]) for c in cells]
+        nrows = max(rows) + 1
+        ncols = max(cols) + 1
+        cellsize = self._infer_cellsize(cells, rows, cols)
+        nodata = -9999.0
+        grid, xll, yll = self._build_grid_and_origin(cells, nrows, ncols, cellsize, nodata)
 
         lines = [
             f"ncols         {ncols}",
@@ -260,13 +282,5 @@ class ASCIIGridIterable(BaseFileIterable):
         for row_vals in grid:
             lines.append(" ".join(str(v) for v in row_vals))
         text = "\n".join(lines) + "\n"
-        if self.fobj is not None:
-            if hasattr(self.fobj, "seek"):
-                self.fobj.seek(0)
-                if hasattr(self.fobj, "truncate"):
-                    self.fobj.truncate(0)
-            self.fobj.write(text)
-        elif self.filename is not None:
-            with open(self.filename, "w", encoding=self.encoding) as f:
-                f.write(text)
+        self._write_text(text)
         self._write_buffer = []
