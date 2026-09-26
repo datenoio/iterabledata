@@ -81,37 +81,17 @@ jobs:
       continue-on-error: true
       run: python dev/scripts/mypy_changed_files.py
 
-    # Docstring-style ratchet: findings must not exceed the baseline recorded in
-    # CONTRIBUTING.md ("Static analysis ratchets"). Advisory (continue-on-error)
-    # until the existing findings are cleared; pydocstyle exits nonzero when
-    # findings exist, so the count is parsed from its output.
-    - name: Pydocstyle finding-count gate (advisory)
-      continue-on-error: true
-      run: |
-        BASELINE=22
-        OUTPUT=$(pydocstyle iterable || true)
-        echo "$OUTPUT"
-        COUNT=$(echo "$OUTPUT" | grep -cE "^ +[A-Z][0-9]+:" || true)
-        echo "PYDOCSTYLE GATE: $COUNT finding(s), baseline $BASELINE"
-        if [ "$COUNT" -gt "$BASELINE" ]; then
-          echo "FAIL: pydocstyle findings grew above the $BASELINE baseline"
-          exit 1
-        fi
+    # Docstring-style gate: all findings are cleared to zero, and pydocstyle
+    # exits nonzero when findings exist, so the direct invocation is blocking.
+    - name: Pydocstyle gate (blocking)
+      run: pydocstyle iterable
 
-    # Dead-code ratchet: same pattern as the pydocstyle gate above; vulture
-    # exits nonzero when it reports findings, so the count is parsed out.
-    - name: Vulture finding-count gate (advisory)
-      continue-on-error: true
-      run: |
-        BASELINE=17
-        OUTPUT=$(vulture iterable --min-confidence 80 || true)
-        echo "$OUTPUT"
-        COUNT=$(echo "$OUTPUT" | grep -c "confidence)" || true)
-        echo "VULTURE GATE: $COUNT finding(s), baseline $BASELINE"
-        if [ "$COUNT" -gt "$BASELINE" ]; then
-          echo "FAIL: vulture findings grew above the $BASELINE baseline"
-          exit 1
-        fi
+    # Dead-code gate: all findings are cleared to zero; vulture exits nonzero
+    # on findings, so the direct invocation is blocking. Protocol-required
+    # parameter names (``__exit__``/``seek``) are whitelisted in
+    # dev/vulture_whitelist.py.
+    - name: Vulture gate (blocking)
+      run: vulture iterable dev/vulture_whitelist.py --min-confidence 80
 
     - name: Code complexity with Radon (advisory)
       run: radon cc iterable --min B || true

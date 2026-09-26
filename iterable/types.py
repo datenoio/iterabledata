@@ -206,7 +206,8 @@ class PipelineResult:
         time_start: float | None = None,
         time_end: float | None = None,
         duration: float | None = None,
-    ):
+    ) -> None:
+        """Initialize pipeline result metrics."""
         self.rows_processed = rows_processed
         self.elapsed_seconds = elapsed_seconds
         self.exceptions = exceptions
@@ -261,7 +262,7 @@ class PipelineResult:
         }
 
     def get(self, key: str, default: Any = None) -> Any:
-        """Support dict.get() method for backward compatibility."""
+        """Return the metric for the given key, or default if missing."""
         try:
             return self[key]
         except KeyError:

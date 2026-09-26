@@ -1,3 +1,5 @@
+"""Base iterable classes for IterableData."""
+
 import inspect
 import json
 import typing
@@ -26,17 +28,16 @@ DEFAULT_BULK_NUMBER = 100
 
 
 class BaseIterable(ABC):
-    """Base iterable data class"""
+    """Base iterable data class."""
 
     def __init__(self) -> None:
-        """Initialize base iterable"""
+        """Initialize base iterable."""
         self._closed = False
         self._validation_hooks: list[ValidationHook] = []
         self._on_validation_error: str = "raise"
 
     def _apply_validation_hooks(self, row: Row) -> Row | None:
-        """
-        Apply validation hooks to a row.
+        """Apply validation hooks to a row.
 
         Args:
             row: Row to validate
@@ -48,18 +49,18 @@ class BaseIterable(ABC):
 
     @abstractmethod
     def reset(self) -> None:
-        """Reset iterator"""
+        """Reset iterator."""
         pass
 
     @staticmethod
     @abstractmethod
     def id() -> str:
-        """Identifier of selected destination"""
+        """Identifier of selected destination."""
         pass
 
     @staticmethod
     def has_totals() -> bool:
-        """Has totals. Default: False"""
+        """Whether the format has totals. Default: False."""
         return False
 
     @staticmethod
@@ -89,7 +90,7 @@ class BaseIterable(ABC):
 
     @abstractmethod
     def read(self, skip_empty: bool = True) -> Row:
-        """Read single record"""
+        """Read single record."""
         pass
 
     def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[Row]:
@@ -112,24 +113,26 @@ class BaseIterable(ABC):
 
     @staticmethod
     def is_flatonly() -> bool:
-        """Is source flat by only. Default: False"""
+        """Whether the source is flat-only. Default: False."""
         return False
 
     def is_flat(self) -> bool:
-        """Is source flat. Default: False"""
+        """Whether the source is flat. Default: False."""
         if self.__class__().is_flatonly():
             return True
         # For non-flat-only formats, default to False
         return False
 
     def is_streaming(self) -> bool:
-        """Is source streaming. Default: False"""
+        """Whether the source is streaming. Default: False."""
         return False
 
     def __next__(self) -> Row:
+        """Return the next row."""
         return self.read()
 
     def __iter__(self) -> typing.Iterator[Row]:
+        """Return the iterator (self)."""
         #        self.reset()
         return self
 
@@ -223,7 +226,7 @@ class BaseIterable(ABC):
 
 
 class BaseFileIterable(BaseIterable):
-    """Basic file iterable"""
+    """Basic file iterable."""
 
     datamode = "text"
 
@@ -544,7 +547,7 @@ class BaseFileIterable(BaseIterable):
         )
 
     def open(self) -> typing.IO[Any] | None:
-        """Open file as file data source"""
+        """Open file as file data source."""
         # Reopening clears the closed state so reset()/read() work again.
         self._closed = False
         if self.stype == ITERABLE_TYPE_FILE:
@@ -771,7 +774,7 @@ class BaseFileIterable(BaseIterable):
                 return super().__iter__()
 
     def __enter__(self) -> "BaseFileIterable":
-        """Context manager entry"""
+        """Context manager entry."""
         return self
 
     def __exit__(
@@ -780,7 +783,7 @@ class BaseFileIterable(BaseIterable):
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        """Context manager exit"""
+        """Context manager exit."""
         self.close()
         # Close error log file if we own it
         if self._error_log_owned and self._error_log_file is not None:

@@ -19,6 +19,7 @@ class BaseCodec:
         open_it: bool = False,
         options: dict[str, Any] | None = None,
     ) -> None:
+        """Initialize the codec with a filename or file object."""
         if options is None:
             options = {}
         self._fileobj: typing.IO[Any] | None = fileobj

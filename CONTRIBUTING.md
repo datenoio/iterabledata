@@ -109,8 +109,12 @@ per-worker coverage data. Coverage runs are always serial.
   (`actions/checkout` with `fetch-depth: 0`, already set on the lint job).
 - **Full-package mypy ratchet (advisory).** `python dev/scripts/mypy_ratchet.py`
   compares against `dev/mypy_baseline.txt`.
-- **Pydocstyle ratchet (advisory in CI).** Baseline: **22 findings**
-  (`pydocstyle iterable`, google convention) — counts must not exceed the
-  baseline; the CI gate compares and is advisory until findings are cleared.
-- **Vulture ratchet (advisory in CI).** Baseline: **17 findings**
-  (`vulture iterable --min-confidence 80`) — same must-not-exceed rule.
+- **Pydocstyle gate (blocking in CI).** Findings are cleared to **zero**
+  (`pydocstyle iterable`, google convention) — pydocstyle exits nonzero on
+  any finding, so any new finding fails CI. (Historical advisory baseline:
+  22 findings, cleared when the gate went blocking.)
+- **Vulture gate (blocking in CI).** Findings are cleared to **zero**
+  (`vulture iterable dev/vulture_whitelist.py --min-confidence 80`) — any new
+  finding fails CI. Protocol-required parameter names (`__exit__`/`__aexit__`
+  `exc_val`/`exc_tb`, io-style `seek` `whence`) are whitelisted in
+  `dev/vulture_whitelist.py`. (Historical advisory baseline: 17 findings.)

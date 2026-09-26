@@ -1,5 +1,4 @@
-"""
-Async base classes for IterableData.
+"""Async base classes for IterableData.
 
 Provides async versions of BaseIterable and BaseFileIterable for
 asynchronous I/O operations.
