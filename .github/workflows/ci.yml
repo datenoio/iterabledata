@@ -116,17 +116,16 @@ jobs:
     - name: Code complexity with Radon (advisory)
       run: radon cc iterable --min B || true
 
-    # Complexity gate: no D-or-worse graded functions. Advisory (`|| true`) while
-    # the remaining D-or-worse functions are being refactored; becomes blocking by
-    # dropping the final `|| true`. `radon cc` always exits 0, so the gate is
-    # enforced by grepping its output for D/E/F rank lines.
-    - name: Complexity gate, no D-or-worse functions (advisory)
+    # Complexity gate: no D-or-worse graded functions. Blocking now that all
+    # D-or-worse functions have been refactored. `radon cc` always exits 0, so
+    # the gate is enforced by grepping its output for D/E/F rank lines.
+    - name: Complexity gate, no D-or-worse functions (blocking)
       run: |
         OUTPUT=$(radon cc iterable --min D)
         echo "$OUTPUT"
         COUNT=$(echo "$OUTPUT" | grep -cE " - [DEF]$" || true)
-        echo "COMPLEXITY GATE: $COUNT D-or-worse function(s) remain (advisory until refactors land)"
-        ! echo "$OUTPUT" | grep -qE " - [DEF]$" || true
+        echo "COMPLEXITY GATE: $COUNT D-or-worse function(s) remain"
+        ! echo "$OUTPUT" | grep -qE " - [DEF]$"
 
   docs:
     runs-on: ubuntu-latest
