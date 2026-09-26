@@ -121,6 +121,103 @@ def _detect_vcf(text: str) -> tuple[str, float, str] | None:
     return None
 
 
+def _detect_json_or_jsonl(text_stripped: str) -> tuple[str, float, str] | None:
+    """Generic JSON / JSONL detection for text starting with ``{`` or ``[``."""
+    if not (text_stripped.startswith("{") or text_stripped.startswith("[")):
+        return None
+    try:
+        json.loads(text_stripped[:1000])
+        return ("json", 0.90, "heuristic")
+    except (ValueError, json.JSONDecodeError):
+        first_line = text_stripped.split("\n")[0].strip()
+        if first_line.startswith("{") or first_line.startswith("["):
+            try:
+                json.loads(first_line)
+                return ("jsonl", 0.80, "heuristic")
+            except (ValueError, json.JSONDecodeError):
+                pass
+    return None
+
+
+def _detect_delimited(text: str) -> tuple[str, float, str] | None:
+    """Delimited-text heuristic: matching delimiter counts on the first lines."""
+    if not any(d in text[:100] for d in (",", "\t", "|", ";")):
+        return None
+    lines = text.split("\n")[:5]
+    if len(lines) < 2:
+        return None
+    delimiters = [",", "\t", "|", ";"]
+    for delim in delimiters:
+        if delim in lines[0] and delim in lines[1]:
+            counts_0 = lines[0].count(delim)
+            counts_1 = lines[1].count(delim)
+            if abs(counts_0 - counts_1) <= 2 and counts_0 > 0:
+                format_id = "csv" if delim == "," else "tsv" if delim == "\t" else "psv"
+                confidence = 0.85 if abs(counts_0 - counts_1) == 0 else 0.75
+                return (format_id, confidence, "heuristic")
+    return None
+
+
+def _detect_jsonl_sequence(text: str) -> tuple[str, float, str] | None:
+    """JSONL fallback: at least three consecutive parseable JSON lines."""
+    lines = text.split("\n")[:10]
+    jsonl_count = 0
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            json.loads(line)
+            jsonl_count += 1
+        except (ValueError, json.JSONDecodeError):
+            break
+    if jsonl_count >= 3:
+        confidence = min(0.90, 0.70 + (jsonl_count * 0.05))
+        return ("jsonl", confidence, "heuristic")
+    return None
+
+
+def _detect_text_heuristics(peek: bytes) -> tuple[str, float, str] | None:
+    """Run the text-based detectors in their pinned order."""
+    try:
+        text = peek.decode("utf-8", errors="ignore")
+        text_stripped = text.strip()
+
+        # VCF disambiguation (genomic Variant Call Format vs vCard) must
+        # run before generic heuristics; both share the .vcf extension.
+        vcf_result = _detect_vcf(text)
+        if vcf_result is not None:
+            return vcf_result
+
+        # GeoJSON Text Sequences (RFC 8142): one Feature object per line,
+        # optionally prefixed with the record separator \x1e. Check before
+        # generic JSON/JSONL heuristics so sequences are not misdetected.
+        geojsonseq = _detect_geojsonseq(text)
+        if geojsonseq is not None:
+            return geojsonseq
+
+        # OTLP JSON export envelopes: checked before generic JSON so
+        # recognized OTLP documents route to the OTLP profile, while
+        # ordinary JSON keeps routing to plain JSON (see _detect_otlp_json
+        # for the conservative matching rules).
+        otlp_json = _detect_otlp_json(text)
+        if otlp_json is not None:
+            return otlp_json
+
+        json_result = _detect_json_or_jsonl(text_stripped)
+        if json_result is not None:
+            return json_result
+
+        delimited = _detect_delimited(text)
+        if delimited is not None:
+            return delimited
+
+        return _detect_jsonl_sequence(text)
+
+    except UnicodeDecodeError:
+        return None
+
+
 def detect_file_type_from_content(
     fileobj: BinaryIO | IO[bytes],
     peek_size: int = 8192,
@@ -162,79 +259,6 @@ def detect_file_type_from_content(
         if paimon is not None:
             return paimon
 
-        try:
-            text = peek.decode("utf-8", errors="ignore")
-            text_stripped = text.strip()
-
-            # VCF disambiguation (genomic Variant Call Format vs vCard) must
-            # run before generic heuristics; both share the .vcf extension.
-            vcf_result = _detect_vcf(text)
-            if vcf_result is not None:
-                return vcf_result
-
-            # GeoJSON Text Sequences (RFC 8142): one Feature object per line,
-            # optionally prefixed with the record separator \x1e. Check before
-            # generic JSON/JSONL heuristics so sequences are not misdetected.
-            geojsonseq = _detect_geojsonseq(text)
-            if geojsonseq is not None:
-                return geojsonseq
-
-            # OTLP JSON export envelopes: checked before generic JSON so
-            # recognized OTLP documents route to the OTLP profile, while
-            # ordinary JSON keeps routing to plain JSON (see _detect_otlp_json
-            # for the conservative matching rules).
-            otlp_json = _detect_otlp_json(text)
-            if otlp_json is not None:
-                return otlp_json
-
-            if text_stripped.startswith("{") or text_stripped.startswith("["):
-                try:
-                    import json
-
-                    json.loads(text_stripped[:1000])
-                    return ("json", 0.90, "heuristic")
-                except (ValueError, json.JSONDecodeError):
-                    first_line = text_stripped.split("\n")[0].strip()
-                    if first_line.startswith("{") or first_line.startswith("["):
-                        try:
-                            json.loads(first_line)
-                            return ("jsonl", 0.80, "heuristic")
-                        except (ValueError, json.JSONDecodeError):
-                            pass
-
-            if any(d in text[:100] for d in (",", "\t", "|", ";")):
-                lines = text.split("\n")[:5]
-                if len(lines) >= 2:
-                    delimiters = [",", "\t", "|", ";"]
-                    for delim in delimiters:
-                        if delim in lines[0] and delim in lines[1]:
-                            counts_0 = lines[0].count(delim)
-                            counts_1 = lines[1].count(delim)
-                            if abs(counts_0 - counts_1) <= 2 and counts_0 > 0:
-                                format_id = "csv" if delim == "," else "tsv" if delim == "\t" else "psv"
-                                confidence = 0.85 if abs(counts_0 - counts_1) == 0 else 0.75
-                                return (format_id, confidence, "heuristic")
-
-            lines = text.split("\n")[:10]
-            jsonl_count = 0
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    import json
-
-                    json.loads(line)
-                    jsonl_count += 1
-                except (ValueError, json.JSONDecodeError):
-                    break
-            if jsonl_count >= 3:
-                confidence = min(0.90, 0.70 + (jsonl_count * 0.05))
-                return ("jsonl", confidence, "heuristic")
-
-        except UnicodeDecodeError:
-            pass
-
-        return None
+        return _detect_text_heuristics(peek)
     except Exception:
         return None

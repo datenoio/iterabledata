@@ -70,6 +70,54 @@ def _should_upgrade_field_schema(left: dict[str, Any], right: dict[str, Any]) ->
     return False
 
 
+def _merge_upgraded_field(left: dict[str, Any], right: dict[str, Any], novalue: bool) -> dict[str, Any]:
+    """Build the upgraded field schema replacing a weak placeholder."""
+    upgraded = copy(right)
+    if (
+        left.get("type") in ("array", "dict")
+        and upgraded.get("type") == left.get("type")
+        and isinstance(left.get("schema"), dict)
+        and isinstance(upgraded.get("schema"), dict)
+    ):
+        upgraded["schema"] = merge_schemes([left["schema"], upgraded["schema"]])
+    if not novalue and "value" in left and "value" in upgraded:
+        upgraded["value"] = left["value"] + right.get("value", 0)
+    return upgraded
+
+
+def _merge_dict_field(left: dict[str, Any], right: dict[str, Any], novalue: bool) -> None:
+    if not novalue:
+        left["value"] += right["value"]
+    if "schema" in right and "schema" in left:
+        left["schema"] = merge_schemes([left["schema"], right["schema"]])
+    elif "schema" in right and "schema" not in left:
+        left["schema"] = right["schema"]
+
+
+def _merge_array_field(left: dict[str, Any], right: dict[str, Any], novalue: bool) -> None:
+    if not novalue:
+        left["value"] += right["value"]
+    if right.get("subtype") == "dict" and "schema" in right:
+        if left.get("subtype") != "dict" or "schema" not in left:
+            left["subtype"] = "dict"
+            left["schema"] = right["schema"]
+        else:
+            left["schema"] = merge_schemes([left["schema"], right["schema"]])
+    elif left.get("subtype") == "dict" and "schema" in left and "schema" in right:
+        left["schema"] = merge_schemes([left["schema"], right["schema"]])
+
+
+def _merge_field_in_place(left: dict[str, Any], right: dict[str, Any], novalue: bool) -> None:
+    """Merge ``right`` into ``left`` for the non-upgrade path."""
+    if left["type"] in ["integer", "float", "string", "datetime"]:
+        if not novalue:
+            left["value"] += right["value"]
+    elif left["type"] == "dict":
+        _merge_dict_field(left, right, novalue)
+    elif left["type"] == "array":
+        _merge_array_field(left, right, novalue)
+
+
 def merge_schemes(alist, novalue=True):
     """Merges schemes of list of objects and generates final data schema"""
     if len(alist) == 0:
@@ -91,47 +139,10 @@ def merge_schemes(alist, novalue=True):
             # Null placeholders and empty arrays start weak; upgrade when a later
             # row observes a richer dict / array-of-dict shape.
             if _should_upgrade_field_schema(left, right):
-                upgraded = copy(right)
-                if (
-                    left.get("type") == "array"
-                    and upgraded.get("type") == "array"
-                    and isinstance(left.get("schema"), dict)
-                    and isinstance(upgraded.get("schema"), dict)
-                ):
-                    upgraded["schema"] = merge_schemes([left["schema"], upgraded["schema"]])
-                elif (
-                    left.get("type") == "dict"
-                    and upgraded.get("type") == "dict"
-                    and isinstance(left.get("schema"), dict)
-                    and isinstance(upgraded.get("schema"), dict)
-                ):
-                    upgraded["schema"] = merge_schemes([left["schema"], upgraded["schema"]])
-                if not novalue and "value" in left and "value" in upgraded:
-                    upgraded["value"] = left["value"] + right.get("value", 0)
-                obj[k] = upgraded
+                obj[k] = _merge_upgraded_field(left, right, novalue)
                 continue
 
-            if left["type"] in ["integer", "float", "string", "datetime"]:
-                if not novalue:
-                    left["value"] += right["value"]
-            elif left["type"] == "dict":
-                if not novalue:
-                    left["value"] += right["value"]
-                if "schema" in right and "schema" in left:
-                    left["schema"] = merge_schemes([left["schema"], right["schema"]])
-                elif "schema" in right and "schema" not in left:
-                    left["schema"] = right["schema"]
-            elif left["type"] == "array":
-                if not novalue:
-                    left["value"] += right["value"]
-                if right.get("subtype") == "dict" and "schema" in right:
-                    if left.get("subtype") != "dict" or "schema" not in left:
-                        left["subtype"] = "dict"
-                        left["schema"] = right["schema"]
-                    else:
-                        left["schema"] = merge_schemes([left["schema"], right["schema"]])
-                elif left.get("subtype") == "dict" and "schema" in left and "schema" in right:
-                    left["schema"] = merge_schemes([left["schema"], right["schema"]])
+            _merge_field_in_place(left, right, novalue)
     return obj
 
 
@@ -228,6 +239,44 @@ def schema_from_list_of_dicts(data: list[dict]):
     return scheme
 
 
+def _apply_predefined(field: dict, name: str, key: str, predefined: dict = None) -> None:
+    """Fill description/class from the predefined mapping when present."""
+    if not predefined:
+        return
+    if name in predefined.keys():
+        field["description"] = predefined[name]["text"]
+        if predefined[name]["class"]:
+            field["class"] = predefined[name]["class"]
+    elif key in predefined.keys():
+        field["description"] = predefined[key]["text"]
+        if predefined[key]["class"]:
+            field["class"] = predefined[key]["class"]
+
+
+def _leaf_field(name: str, entry: dict, sampledata) -> dict:
+    """Field dict for a schema entry without a nested schema."""
+    if entry["type"] != "array":
+        field = {"name": name, "type": entry["type"], "description": "", "sample": sampledata, "class": ""}
+    else:
+        subtype = entry.get("subtype", "any")
+        field = {
+            "name": name,
+            "type": f"list of [{subtype}]",
+            "description": "",
+            "sample": sampledata,
+            "class": "",
+        }
+    return field
+
+
+def _container_field(name: str, entry: dict) -> dict:
+    """Field dict for a dict/array entry carrying a nested schema."""
+    if entry["type"] == "dict":
+        return {"name": name, "type": entry["type"], "description": "", "sample": "", "class": ""}
+    subtype = entry.get("subtype", "any")
+    return {"name": name, "type": f"list of [{subtype}]", "description": "", "sample": "", "class": ""}
+
+
 def schema2fieldslist(schema: dict, prefix: str = None, predefined: dict = None, sample: dict = None):
     """Converts data schema to the fields list"""
     fieldslist = []
@@ -241,26 +290,8 @@ def schema2fieldslist(schema: dict, prefix: str = None, predefined: dict = None,
         except Exception:
             sampledata = ""
         if "schema" not in schema[k].keys():
-            if schema[k]["type"] != "array":
-                field = {"name": name, "type": schema[k]["type"], "description": "", "sample": sampledata, "class": ""}
-            else:
-                subtype = schema[k].get("subtype", "any")
-                field = {
-                    "name": name,
-                    "type": f"list of [{subtype}]",
-                    "description": "",
-                    "sample": sampledata,
-                    "class": "",
-                }
-            if predefined:
-                if name in predefined.keys():
-                    field["description"] = predefined[name]["text"]
-                    if predefined[name]["class"]:
-                        field["class"] = predefined[name]["class"]
-                elif k in predefined.keys():
-                    field["description"] = predefined[k]["text"]
-                    if predefined[k]["class"]:
-                        field["class"] = predefined[k]["class"]
+            field = _leaf_field(name, schema[k], sampledata)
+            _apply_predefined(field, name, k, predefined)
             if field["type"] == "datetime":
                 field["class"] = "datetime"
             fieldslist.append(field)
@@ -271,32 +302,15 @@ def schema2fieldslist(schema: dict, prefix: str = None, predefined: dict = None,
             else:
                 subprefix = k
             if schema[k]["type"] == "dict":
-                field = {"name": name, "type": schema[k]["type"], "description": "", "sample": "", "class": ""}
-                if predefined:
-                    if name in predefined.keys():
-                        field["description"] = predefined[name]["text"]
-                        if predefined[name]["class"]:
-                            field["class"] = predefined[name]["class"]
-                    elif k in predefined.keys():
-                        field["description"] = predefined[k]["text"]
-                        if predefined[k]["class"]:
-                            field["class"] = predefined[k]["class"]
+                field = _container_field(name, schema[k])
+                _apply_predefined(field, name, k, predefined)
                 fieldslist.append(field)
                 fieldslist.extend(
                     schema2fieldslist(schema[k]["schema"], prefix=subprefix, predefined=predefined, sample=sample)
                 )
             elif schema[k]["type"] == "array":
-                subtype = schema[k].get("subtype", "any")
-                field = {"name": name, "type": f"list of [{subtype}]", "description": "", "sample": "", "class": ""}
-                if predefined:
-                    if name in predefined.keys():
-                        field["description"] = predefined[name]["text"]
-                        if predefined[name]["class"]:
-                            field["class"] = predefined[name]["class"]
-                    elif k in predefined.keys():
-                        field["description"] = predefined[k]["text"]
-                        if predefined[k]["class"]:
-                            field["class"] = predefined[k]["class"]
+                field = _container_field(name, schema[k])
+                _apply_predefined(field, name, k, predefined)
                 fieldslist.append(field)
                 fieldslist.extend(schema2fieldslist(schema[k]["schema"], prefix=subprefix, sample=sample))
     return fieldslist

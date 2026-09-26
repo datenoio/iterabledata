@@ -483,63 +483,53 @@ def _render_general_md(data: dict[str, Any], language: str | None = None) -> str
     return "\n".join(lines)
 
 
-def generate_schema(ctx: BlockContext) -> BlockResult:
-    """Schema block: per-field descriptions, batched for wide schemas."""
-    field_names = ctx.field_names()
-    schema_fields = ctx.schema_info.get("fields", {}) if ctx.schema_info else {}
+def _schema_batch_prompt(ctx: BlockContext, batch: list[str], sub_schema: dict[str, Any]) -> str:
+    field_list = ", ".join(batch)
+    return "\n\n".join(
+        p
+        for p in [
+            f"Document the schema of this dataset in {ctx.language}.",
+            f"Return exactly one `fields` entry for EVERY one of these {len(batch)} fields, "
+            f"in this order, and do not omit or merge any: {field_list}.",
+            "For each field provide name, physical type, an optional semantic_type, a "
+            "clear description, an example value, and whether it is nullable.",
+            _context_section(ctx),
+            "## Fields and inferred types:\n" + json.dumps(sub_schema, indent=2, default=str),
+            _samples_section(ctx, 1500),
+        ]
+        if p
+    )
 
-    all_fields: list[dict[str, Any]] = []
-    if ctx.provider is not None and field_names:
-        batches = _column_batches(field_names)
-        for batch in batches:
-            # Keep the per-field schema compact so the full field list always fits in
-            # the prompt (avoids truncating columns out of the request).
-            sub_schema = {
-                name: {
-                    "type": (schema_fields.get(name) or {}).get("type"),
-                    "nullable": (schema_fields.get(name) or {}).get("nullable"),
-                }
-                for name in batch
-            }
-            field_list = ", ".join(batch)
-            prompt = "\n\n".join(
-                p
-                for p in [
-                    f"Document the schema of this dataset in {ctx.language}.",
-                    f"Return exactly one `fields` entry for EVERY one of these {len(batch)} fields, "
-                    f"in this order, and do not omit or merge any: {field_list}.",
-                    "For each field provide name, physical type, an optional semantic_type, a "
-                    "clear description, an example value, and whether it is nullable.",
-                    _context_section(ctx),
-                    "## Fields and inferred types:\n" + json.dumps(sub_schema, indent=2, default=str),
-                    _samples_section(ctx, 1500),
-                ]
-                if p
-            )
-            data = _structured(ctx, prompt, "schema")
-            returned = data.get("fields", []) or []
-            all_fields.extend(returned)
 
-            # Retry once for any fields the model skipped within this batch.
-            described = {f.get("name") for f in returned if isinstance(f, dict)}
-            missing = [name for name in batch if name not in described]
-            if missing and len(missing) < len(batch):
-                retry_schema = {name: sub_schema[name] for name in missing}
-                retry_prompt = "\n\n".join(
-                    [
-                        f"Document the schema of this dataset in {ctx.language}.",
-                        f"Return one `fields` entry for EACH of these {len(missing)} fields, omitting none: "
-                        f"{', '.join(missing)}.",
-                        "For each field provide name, physical type, an optional semantic_type, a "
-                        "clear description, an example value, and whether it is nullable.",
-                        "## Fields and inferred types:\n" + json.dumps(retry_schema, indent=2, default=str),
-                    ]
-                )
-                retry_data = _structured(ctx, retry_prompt, "schema")
-                all_fields.extend(retry_data.get("fields", []) or [])
+def _document_schema_batch(ctx: BlockContext, batch: list[str], sub_schema: dict[str, Any]) -> list[dict[str, Any]]:
+    """Document one batch of fields, retrying once for fields the model skipped."""
+    data = _structured(ctx, _schema_batch_prompt(ctx, batch, sub_schema), "schema")
+    returned = data.get("fields", []) or []
+    all_fields = list(returned)
 
-    # Deduplicate by field name (a field may be returned by both the main pass and a
-    # retry); keep the richest entry (the one with a description).
+    # Retry once for any fields the model skipped within this batch.
+    described = {f.get("name") for f in returned if isinstance(f, dict)}
+    missing = [name for name in batch if name not in described]
+    if missing and len(missing) < len(batch):
+        retry_schema = {name: sub_schema[name] for name in missing}
+        retry_prompt = "\n\n".join(
+            [
+                f"Document the schema of this dataset in {ctx.language}.",
+                f"Return one `fields` entry for EACH of these {len(missing)} fields, omitting none: "
+                f"{', '.join(missing)}.",
+                "For each field provide name, physical type, an optional semantic_type, a "
+                "clear description, an example value, and whether it is nullable.",
+                "## Fields and inferred types:\n" + json.dumps(retry_schema, indent=2, default=str),
+            ]
+        )
+        retry_data = _structured(ctx, retry_prompt, "schema")
+        all_fields.extend(retry_data.get("fields", []) or [])
+    return all_fields
+
+
+def _dedupe_schema_fields(all_fields: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Deduplicate by field name (a field may be returned by both the main pass and a
+    retry); keep the richest entry (the one with a description)."""
     deduped: dict[str, dict[str, Any]] = {}
     for f in all_fields:
         if not isinstance(f, dict) or not f.get("name"):
@@ -548,9 +538,14 @@ def generate_schema(ctx: BlockContext) -> BlockResult:
         existing = deduped.get(name)
         if existing is None or (not existing.get("description") and f.get("description")):
             deduped[name] = f
+    return deduped
 
-    # Order by the dataset's field order, ensuring every known field appears even if
-    # the LLM omitted some (filled from the inferred schema).
+
+def _order_schema_fields(
+    field_names: list[str], deduped: dict[str, dict[str, Any]], schema_fields: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Order by the dataset's field order, ensuring every known field appears even if
+    the LLM omitted some (filled from the inferred schema)."""
     ordered_fields: list[dict[str, Any]] = []
     for name in field_names:
         if name in deduped:
@@ -566,6 +561,30 @@ def generate_schema(ctx: BlockContext) -> BlockResult:
             )
     # Append any extra fields the model returned that are not in the known field set.
     ordered_fields.extend(deduped.values())
+    return ordered_fields
+
+
+def generate_schema(ctx: BlockContext) -> BlockResult:
+    """Schema block: per-field descriptions, batched for wide schemas."""
+    field_names = ctx.field_names()
+    schema_fields = ctx.schema_info.get("fields", {}) if ctx.schema_info else {}
+
+    all_fields: list[dict[str, Any]] = []
+    if ctx.provider is not None and field_names:
+        for batch in _column_batches(field_names):
+            # Keep the per-field schema compact so the full field list always fits in
+            # the prompt (avoids truncating columns out of the request).
+            sub_schema = {
+                name: {
+                    "type": (schema_fields.get(name) or {}).get("type"),
+                    "nullable": (schema_fields.get(name) or {}).get("nullable"),
+                }
+                for name in batch
+            }
+            all_fields.extend(_document_schema_batch(ctx, batch, sub_schema))
+
+    deduped = _dedupe_schema_fields(all_fields)
+    ordered_fields = _order_schema_fields(field_names, deduped, schema_fields)
 
     data = {"fields": ordered_fields}
     return {"markdown": _render_schema_md(ordered_fields, ctx.language), "data": data}
@@ -782,6 +801,50 @@ def _yaml_scalar(value: str) -> str:
     return text
 
 
+def _clean_str_items(value: Any) -> list[str]:
+    """Keep only non-blank string items from a skill data list."""
+    return [item for item in (value or []) if isinstance(item, str) and item.strip()]
+
+
+def _skill_facts_lines(data: dict[str, Any], lbl: dict[str, str]) -> list[str]:
+    """Dataset facts bullet section (always rendered, possibly header-only)."""
+    lines = [f"## {lbl['dataset_facts']}", ""]
+    if data.get("file_name"):
+        lines.append(f"- **{lbl['file_name']}:** `{data['file_name']}`")
+    if data.get("format"):
+        lines.append(f"- **{lbl['format']}:** `{data['format']}`")
+    if data.get("record_count") is not None:
+        lines.append(f"- **{lbl['records']}:** {data['record_count']}")
+    fields = data.get("fields") or []
+    if fields:
+        field_list = ", ".join(f"`{name}`" for name in fields)
+        lines.append(f"- **{lbl['field']}s:** {field_list}")
+    lines.append("")
+    return lines
+
+
+def _skill_bullet_section(title: str, items: list[str]) -> list[str]:
+    """Bulleted section lines; empty list when there is nothing to show."""
+    if not items:
+        return []
+    lines = [f"## {title}", ""]
+    for item in items:
+        lines.append(f"- {item}")
+    lines.append("")
+    return lines
+
+
+def _skill_numbered_section(title: str, items: list[str]) -> list[str]:
+    """Numbered section lines; empty list when there is nothing to show."""
+    if not items:
+        return []
+    lines = [f"## {title}", ""]
+    for index, item in enumerate(items, start=1):
+        lines.append(f"{index}. {item}")
+    lines.append("")
+    return lines
+
+
 def _render_agent_skill_md(data: dict[str, Any], language: str | None = None) -> str:
     """Render a neutral agent-skill document (YAML frontmatter + Markdown body)."""
     lbl = get_labels(language)
@@ -799,46 +862,11 @@ def _render_agent_skill_md(data: dict[str, Any], language: str | None = None) ->
     if data.get("when_to_use"):
         lines.extend([f"## {lbl['when_to_use']}", "", str(data["when_to_use"]), ""])
 
-    lines.extend([f"## {lbl['dataset_facts']}", ""])
-    if data.get("file_name"):
-        lines.append(f"- **{lbl['file_name']}:** `{data['file_name']}`")
-    if data.get("format"):
-        lines.append(f"- **{lbl['format']}:** `{data['format']}`")
-    if data.get("record_count") is not None:
-        lines.append(f"- **{lbl['records']}:** {data['record_count']}")
-    fields = data.get("fields") or []
-    if fields:
-        field_list = ", ".join(f"`{name}`" for name in fields)
-        lines.append(f"- **{lbl['field']}s:** {field_list}")
-    lines.append("")
-
-    caveats = [item for item in (data.get("dataset_caveats") or []) if isinstance(item, str) and item.strip()]
-    if caveats:
-        lines.extend([f"## {lbl['caveats']}", ""])
-        for item in caveats:
-            lines.append(f"- {item}")
-        lines.append("")
-
-    steps = [item for item in (data.get("workflow_steps") or []) if isinstance(item, str) and item.strip()]
-    if steps:
-        lines.extend([f"## {lbl['workflow']}", ""])
-        for index, item in enumerate(steps, start=1):
-            lines.append(f"{index}. {item}")
-        lines.append("")
-
-    safety = [item for item in (data.get("safety_constraints") or []) if isinstance(item, str) and item.strip()]
-    if safety:
-        lines.extend([f"## {lbl['safety']}", ""])
-        for item in safety:
-            lines.append(f"- {item}")
-        lines.append("")
-
-    examples = [item for item in (data.get("example_steps") or []) if isinstance(item, str) and item.strip()]
-    if examples:
-        lines.extend([f"## {lbl['example_steps']}", ""])
-        for index, item in enumerate(examples, start=1):
-            lines.append(f"{index}. {item}")
-        lines.append("")
+    lines.extend(_skill_facts_lines(data, lbl))
+    lines.extend(_skill_bullet_section(lbl["caveats"], _clean_str_items(data.get("dataset_caveats"))))
+    lines.extend(_skill_numbered_section(lbl["workflow"], _clean_str_items(data.get("workflow_steps"))))
+    lines.extend(_skill_bullet_section(lbl["safety"], _clean_str_items(data.get("safety_constraints"))))
+    lines.extend(_skill_numbered_section(lbl["example_steps"], _clean_str_items(data.get("example_steps"))))
 
     return "\n".join(lines).rstrip() + "\n"
 

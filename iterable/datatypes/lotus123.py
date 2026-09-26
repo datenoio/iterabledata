@@ -42,11 +42,27 @@ def _col_name(index: int) -> str:
     return name
 
 
-def _parse_wk1(data: bytes) -> list[dict[str, Any]]:
-    """Parse a minimal WK1 workbook into row dicts (header-aware when row 0 is labels)."""
-    if len(data) < 4:
-        raise FormatParseError("123", "WK1 file too short")
+def _decode_cell_record(opcode: int, length: int, body: bytes) -> tuple[int, int, Any] | None:
+    """Decode one cell record to ``(row, col, value)``; None for non-cell opcodes."""
+    if opcode == _INTEGER and length >= 7:
+        _fmt, col, row, value = struct.unpack_from("<Bhhh", body, 0)
+        return row, col, int(value)
+    if opcode == _NUMBER and length >= 13:
+        _fmt, col, row = struct.unpack_from("<Bhh", body, 0)
+        return row, col, struct.unpack_from("<d", body, 5)[0]
+    if opcode == _LABEL and length >= 6:
+        _fmt, col, row = struct.unpack_from("<Bhh", body, 0)
+        raw = body[5:]
+        # First byte is alignment ('"', "'", "^", or "\\"); rest is ASCIZ text.
+        if raw and raw[0:1] in (b"'", b'"', b"^", b"\\"):
+            raw = raw[1:]
+        text = raw.split(b"\x00", 1)[0].decode("latin-1", errors="replace")
+        return row, col, text
+    return None
 
+
+def _collect_wk1_cells(data: bytes) -> tuple[dict[tuple[int, int], Any], bool, int, int]:
+    """Walk WK1 records, collecting cells; returns (cells, saw_bof, max_row, max_col)."""
     cells: dict[tuple[int, int], Any] = {}
     max_row = -1
     max_col = -1
@@ -69,51 +85,38 @@ def _parse_wk1(data: bytes) -> list[dict[str, Any]]:
             continue
         if opcode == _EOF:
             break
-        if opcode == _INTEGER and length >= 7:
-            _fmt, col, row, value = struct.unpack_from("<Bhhh", body, 0)
-            cells[(row, col)] = int(value)
-            max_row = max(max_row, row)
-            max_col = max(max_col, col)
-        elif opcode == _NUMBER and length >= 13:
-            _fmt, col, row = struct.unpack_from("<Bhh", body, 0)
-            value = struct.unpack_from("<d", body, 5)[0]
-            cells[(row, col)] = value
-            max_row = max(max_row, row)
-            max_col = max(max_col, col)
-        elif opcode == _LABEL and length >= 6:
-            _fmt, col, row = struct.unpack_from("<Bhh", body, 0)
-            raw = body[5:]
-            # First byte is alignment ('"', "'", "^", or "\\"); rest is ASCIZ text.
-            if raw and raw[0:1] in (b"'", b'"', b"^", b"\\"):
-                raw = raw[1:]
-            text = raw.split(b"\x00", 1)[0].decode("latin-1", errors="replace")
-            cells[(row, col)] = text
-            max_row = max(max_row, row)
-            max_col = max(max_col, col)
+        decoded = _decode_cell_record(opcode, length, body)
+        if decoded is None:
+            continue
+        row, col, value = decoded
+        cells[(row, col)] = value
+        max_row = max(max_row, row)
+        max_col = max(max_col, col)
+    return cells, saw_bof, max_row, max_col
 
-    if not saw_bof and not cells:
-        raise FormatParseError(
-            "123",
-            "Not a recognizable WK1 Lotus 1-2-3 file (missing BOF / cells)",
-        )
-    if max_row < 0:
-        return []
 
-    # Detect header row: if every filled cell in row 0 is a string, use as keys.
-    header_keys: list[str] | None = None
+def _detect_wk1_header(cells: dict[tuple[int, int], Any], max_col: int) -> tuple[list[str] | None, int]:
+    """Detect header row: if every filled cell in row 0 is a string, use as keys."""
     row0_vals = [cells.get((0, c)) for c in range(max_col + 1)]
     if (
         row0_vals
         and all(isinstance(v, str) or v is None for v in row0_vals)
         and any(isinstance(v, str) for v in row0_vals)
     ):
-        header_keys = []
+        header_keys: list[str] = []
         for c, v in enumerate(row0_vals):
             header_keys.append(v if isinstance(v, str) and v else _col_name(c))
-        start_row = 1
-    else:
-        start_row = 0
+        return header_keys, 1
+    return None, 0
 
+
+def _build_wk1_rows(
+    cells: dict[tuple[int, int], Any],
+    header_keys: list[str] | None,
+    start_row: int,
+    max_row: int,
+    max_col: int,
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for r in range(start_row, max_row + 1):
         if header_keys is not None:
@@ -125,6 +128,25 @@ def _parse_wk1(data: bytes) -> list[dict[str, Any]]:
             continue
         rows.append(record)
     return rows
+
+
+def _parse_wk1(data: bytes) -> list[dict[str, Any]]:
+    """Parse a minimal WK1 workbook into row dicts (header-aware when row 0 is labels)."""
+    if len(data) < 4:
+        raise FormatParseError("123", "WK1 file too short")
+
+    cells, saw_bof, max_row, max_col = _collect_wk1_cells(data)
+
+    if not saw_bof and not cells:
+        raise FormatParseError(
+            "123",
+            "Not a recognizable WK1 Lotus 1-2-3 file (missing BOF / cells)",
+        )
+    if max_row < 0:
+        return []
+
+    header_keys, start_row = _detect_wk1_header(cells, max_col)
+    return _build_wk1_rows(cells, header_keys, start_row, max_row, max_col)
 
 
 class Lotus123Iterable(BaseFileIterable):
