@@ -1,5 +1,9 @@
 # IterableData Repository Review
 
+> **SUPERSEDED 2026-09-26** — Point-in-time review of v1.0.16 kept for
+> history. The current audit and active work plan is
+> [`IMPROVEMENT_PLAN_2026-09.md`](IMPROVEMENT_PLAN_2026-09.md).
+
 **Review date:** 2026-07-16
 
 **Repository version:** 1.0.16

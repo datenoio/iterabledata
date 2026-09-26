@@ -1,5 +1,10 @@
 # IterableData Improvement Plan
 
+> **RETIRED 2026-09-26** — This June 2026 plan is superseded by
+> [`IMPROVEMENT_PLAN_2026-09.md`](IMPROVEMENT_PLAN_2026-09.md), which folded
+> this plan's execution status (~85% complete at that date) into its §2.
+> Kept for history only; do not track work against this file.
+
 Date: 2026-06-12
 Baseline: v1.0.11 (PyPI) + large uncommitted working tree (~262 changed paths)
 

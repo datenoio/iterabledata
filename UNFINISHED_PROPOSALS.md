@@ -2,15 +2,15 @@
 
 This document is a dated snapshot of OpenSpec proposals that are not yet complete. A proposal is considered unfinished if it has unchecked tasks in its `tasks.md` file.
 
-**Last Updated**: 2026-09-21
+**Last Updated**: 2026-09-26
 
 > **Note**: This file is a point-in-time snapshot. `openspec list` is the live source of truth for active changes; `openspec list --specs` lists capability specs.
 
 ## Summary
 
-- **Total Active Proposals**: 10
-- **Archived Today (2026-09-21)**: 23 proposals — every proposal previously listed in this file (and every other completed change) is now archived under `openspec/changes/archive/2026-09-21-*`
-- **Validation**: `openspec validate --all --strict` passes (73 items, 0 failures)
+- **Total Active Proposals**: 2
+- **Archived since the last snapshot**: 8 proposals — 6 under `openspec/changes/archive/2026-09-22-*` (the format-hardening batch plus `add-codec-performance-profiles` and `optimize-format-io-hot-paths`) and 2 more in the 2026-09-21 batch (`unify-format-capability-metadata`, `add-native-batch-conversion`)
+- **Validation**: `openspec validate --all --strict` passes (69 items, 0 failures)
 
 ---
 
@@ -18,16 +18,23 @@ This document is a dated snapshot of OpenSpec proposals that are not yet complet
 
 | Change ID | Tasks complete | Created |
 |---|---|---|
-| `optimize-format-io-hot-paths` | 14/17 | 7/16/2026 |
-| `strengthen-repository-quality-gates` | 7/20 | 7/16/2026 |
-| `add-otlp-format-profiles` | 11/18 | 7/16/2026 |
-| `extend-bioinformatics-formats` | 12/17 | 7/16/2026 |
-| `add-geoparquet-flatgeobuf-formats` | 8/16 | 7/16/2026 |
-| `add-zarr-format` | 9/15 | 7/16/2026 |
-| `add-codec-performance-profiles` | 11/16 | 7/16/2026 |
-| `add-native-batch-conversion` | 10/17 | 7/16/2026 |
-| `unify-format-capability-metadata` | 6/14 | 7/16/2026 |
+| `strengthen-repository-quality-gates` | 18/23 | 7/16/2026 |
 | `harden-release-artifacts` | 15/17 | 7/16/2026 |
+
+---
+
+## Archived 2026-09-22 (6 proposals)
+
+All archived with their spec deltas applied (`openspec archive <id> --yes`):
+
+- `extend-bioinformatics-formats` → spec update: `bioinformatics-formats` (CRAM/BED/GFF3/GTF hardening)
+- `add-otlp-format-profiles` → new spec: `otlp-profiles` (OTLP logs/metrics/traces/profiles)
+- `add-geoparquet-flatgeobuf-formats` → new specs: `geoparquet-format`, `flatgeobuf-format`
+- `add-zarr-format` → new spec: `zarr-format`
+- `add-codec-performance-profiles` → spec update: `compression-codecs`
+- `optimize-format-io-hot-paths` → spec update: `datatype-implementation`
+
+After this batch there are **67 capability specs** (`openspec list --specs`).
 
 ---
 
@@ -67,7 +74,7 @@ After this batch there are **63 capability specs** (`openspec list --specs`).
 
 - Proposals are considered "finished" when all tasks in `tasks.md` are checked
 - Finished proposals should be archived using `openspec archive <change-id> --yes` (add `--skip-specs` for tooling-only changes with no spec deltas)
-- The remaining 10 active proposals are partially implemented; see their `tasks.md` files for open work
+- The remaining 2 active proposals are partially implemented; see their `tasks.md` files for open work
 
 ---
 
@@ -108,4 +115,7 @@ After this batch there are **63 capability specs** (`openspec list --specs`).
 **Eleventh batch (2026-09-21):**
 - 23 proposals listed in the "Archived 2026-09-21" section above
 
-**Total archived**: 48 proposals across 11 batches
+**Twelfth batch (2026-09-22):**
+- 6 proposals listed in the "Archived 2026-09-22" section above
+
+**Total archived**: 54 proposals across 12 batches (74 dated archive directories including pre-OpenSpec-tracked entries)
