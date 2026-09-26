@@ -63,32 +63,19 @@ def infer(
         iterable = open_iterable(iterable)
 
     # Sample rows for inference
-    sample_rows: list[Row] = []
-    for i, row in enumerate(iterable):
-        if i >= sample_size:
-            break
-        sample_rows.append(row)
+    sample_rows = _sample_rows(iterable, sample_size)
 
     if not sample_rows:
         return {"fields": {}, "constraints": {}}
 
     # Use existing schema inference
     inferred_schema = schema_from_list_of_dicts(sample_rows)
-    if flatten_nested:
-        field_entries = unfold_nested_schema_fields(
-            inferred_schema,
-            max_depth=max_nested_depth,
-            keep_parents=keep_nested_parents,
-        )
-    else:
-        field_entries = []
-        for name, info in inferred_schema.items():
-            if not isinstance(info, dict):
-                continue
-            meta: dict[str, Any] = {"type": info.get("type", "string")}
-            if "subtype" in info:
-                meta["subtype"] = info["subtype"]
-            field_entries.append((str(name), meta))
+    field_entries = _resolve_field_entries(
+        inferred_schema,
+        flatten_nested=flatten_nested,
+        max_nested_depth=max_nested_depth,
+        keep_nested_parents=keep_nested_parents,
+    )
 
     # Convert to our format
     fields: dict[str, dict[str, Any]] = {}
@@ -97,81 +84,151 @@ def infer(
     total_rows = len(sample_rows)
 
     for field_name, field_info in field_entries:
-        fields[field_name] = {
+        field_meta: dict[str, Any] = {
             "type": field_info.get("type", "string"),
             "nullable": True,  # Determined from data below
             "sample_values": [],
         }
         if "subtype" in field_info:
-            fields[field_name]["subtype"] = field_info["subtype"]
+            field_meta["subtype"] = field_info["subtype"]
+        fields[field_name] = field_meta
 
-        # Determine nullability from the sampled data. A field is nullable if any
-        # sampled row has a None value for it or omits the field entirely.
-        if flatten_nested or "." in field_name:
-            present_values = [nested_field_value(row, field_name) for row in sample_rows]
-            null_count = sum(1 for value in present_values if value is None or value == [])
-            fields[field_name]["nullable"] = null_count > 0
-            values = []
-            for value in present_values:
-                if isinstance(value, list) and (not value or not isinstance(value[0], Mapping)):
-                    values.extend(value)
-                elif value is not None and value != []:
-                    values.append(value)
-            sample_values = present_values[:5]
-        else:
-            present_values = [row.get(field_name) for row in sample_rows if field_name in row]
-            null_count = sum(1 for v in present_values if v is None)
-            missing_count = total_rows - len(present_values)
-            fields[field_name]["nullable"] = (null_count + missing_count) > 0
-            values = [row.get(field_name) for row in sample_rows if field_name in row]
-            sample_values = [row.get(field_name) for row in sample_rows[:5] if field_name in row]
+        nullable, values, sample_values = _collect_field_values(field_name, sample_rows, total_rows, flatten_nested)
+        field_meta["nullable"] = nullable
 
         # Detect constraints if requested
         if detect_constraints:
-            field_constraints: dict[str, Any] = {}
-            # Collect values for constraint detection
-            if values:
-                non_null_values = [v for v in values if v is not None]
-
-                if non_null_values:
-                    # Numeric constraints
-                    if field_info.get("type") in ["integer", "float"]:
-                        numeric_values = [v for v in non_null_values if isinstance(v, (int, float))]
-                        if numeric_values:
-                            field_constraints["min"] = min(numeric_values)
-                            field_constraints["max"] = max(numeric_values)
-
-                    # String length constraints
-                    if field_info.get("type") == "string":
-                        string_values = [v for v in non_null_values if isinstance(v, str)]
-                        if string_values:
-                            lengths = [len(v) for v in string_values]
-                            field_constraints["min_length"] = min(lengths)
-                            field_constraints["max_length"] = max(lengths)
-
-                    # Enum-like detection (if limited distinct values)
-                    distinct_reprs: set[str] = set()
-                    distinct_values: list[Any] = []
-                    for v in non_null_values:
-                        r = hashable_repr(v)
-                        if r not in distinct_reprs:
-                            distinct_reprs.add(r)
-                            distinct_values.append(v)
-                    if len(distinct_values) <= 10 and len(non_null_values) > 5:
-                        # Might be an enum
-                        field_constraints["possible_values"] = distinct_values
-
+            field_constraints = _detect_field_constraints(field_info, values)
             if field_constraints:
                 constraints[field_name] = field_constraints
 
         # Add sample values
-        fields[field_name]["sample_values"] = sample_values[:5]
+        field_meta["sample_values"] = sample_values[:5]
 
     result: dict[str, Any] = {"fields": fields}
     if detect_constraints:
         result["constraints"] = constraints
 
     return result
+
+
+def _sample_rows(iterable: collections.abc.Iterable[Row], sample_size: int) -> list[Row]:
+    """Collect up to ``sample_size`` rows from the iterable."""
+    sample_rows: list[Row] = []
+    for i, row in enumerate(iterable):
+        if i >= sample_size:
+            break
+        sample_rows.append(row)
+    return sample_rows
+
+
+def _resolve_field_entries(
+    inferred_schema: dict[str, Any],
+    *,
+    flatten_nested: bool,
+    max_nested_depth: int,
+    keep_nested_parents: bool,
+) -> list[tuple[str, dict[str, Any]]]:
+    """Turn the inferred schema into (field_name, field_info) entries."""
+    if flatten_nested:
+        return unfold_nested_schema_fields(
+            inferred_schema,
+            max_depth=max_nested_depth,
+            keep_parents=keep_nested_parents,
+        )
+    field_entries = []
+    for name, info in inferred_schema.items():
+        if not isinstance(info, dict):
+            continue
+        meta: dict[str, Any] = {"type": info.get("type", "string")}
+        if "subtype" in info:
+            meta["subtype"] = info["subtype"]
+        field_entries.append((str(name), meta))
+    return field_entries
+
+
+def _collect_field_values(
+    field_name: str,
+    sample_rows: list[Row],
+    total_rows: int,
+    flatten_nested: bool,
+) -> tuple[bool, list[Any], list[Any]]:
+    """Compute (nullable, values, sample_values) for one field from the sample.
+
+    A field is nullable if any sampled row has a None value for it or omits the
+    field entirely (nested paths treat ``[]`` as null too).
+    """
+    if flatten_nested or "." in field_name:
+        return _collect_nested_field_values(field_name, sample_rows)
+    return _collect_flat_field_values(field_name, sample_rows, total_rows)
+
+
+def _collect_nested_field_values(field_name: str, sample_rows: list[Row]) -> tuple[bool, list[Any], list[Any]]:
+    """Collect values for a (possibly nested) dotted field path."""
+    present_values = [nested_field_value(row, field_name) for row in sample_rows]
+    null_count = sum(1 for value in present_values if value is None or value == [])
+    nullable = null_count > 0
+    values = []
+    for value in present_values:
+        if isinstance(value, list) and (not value or not isinstance(value[0], Mapping)):
+            values.extend(value)
+        elif value is not None and value != []:
+            values.append(value)
+    sample_values = present_values[:5]
+    return nullable, values, sample_values
+
+
+def _collect_flat_field_values(
+    field_name: str, sample_rows: list[Row], total_rows: int
+) -> tuple[bool, list[Any], list[Any]]:
+    """Collect values for a top-level field name."""
+    present_values = [row.get(field_name) for row in sample_rows if field_name in row]
+    null_count = sum(1 for v in present_values if v is None)
+    missing_count = total_rows - len(present_values)
+    nullable = (null_count + missing_count) > 0
+    values = [row.get(field_name) for row in sample_rows if field_name in row]
+    sample_values = [row.get(field_name) for row in sample_rows[:5] if field_name in row]
+    return nullable, values, sample_values
+
+
+def _detect_field_constraints(field_info: dict[str, Any], values: list[Any]) -> dict[str, Any]:
+    """Detect min/max, string-length, and enum-like constraints for one field."""
+    field_constraints: dict[str, Any] = {}
+    if not values:
+        return field_constraints
+
+    non_null_values = [v for v in values if v is not None]
+    if not non_null_values:
+        return field_constraints
+
+    # Numeric constraints
+    if field_info.get("type") in ["integer", "float"]:
+        numeric_values = [v for v in non_null_values if isinstance(v, (int, float))]
+        if numeric_values:
+            field_constraints["min"] = min(numeric_values)
+            field_constraints["max"] = max(numeric_values)
+
+    # String length constraints
+    if field_info.get("type") == "string":
+        string_values = [v for v in non_null_values if isinstance(v, str)]
+        if string_values:
+            lengths = [len(v) for v in string_values]
+            field_constraints["min_length"] = min(lengths)
+            field_constraints["max_length"] = max(lengths)
+
+    # Enum-like detection (if limited distinct values)
+    distinct_reprs: set[str] = set()
+    distinct_values: list[Any] = []
+    for v in non_null_values:
+        r = hashable_repr(v)
+        if r not in distinct_reprs:
+            distinct_reprs.add(r)
+            distinct_values.append(v)
+    if len(distinct_values) <= 10 and len(non_null_values) > 5:
+        # Might be an enum
+        field_constraints["possible_values"] = distinct_values
+
+    return field_constraints
 
 
 def to_jsonschema(schema: dict[str, Any]) -> dict[str, Any]:

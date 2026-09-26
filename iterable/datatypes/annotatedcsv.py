@@ -66,6 +66,18 @@ def convert_value(value: str, dtype: str):
         return value
 
 
+def _infer_scalar_value(value):
+    """Best-effort numeric inference for columns without an explicit datatype."""
+    if value and value.strip():
+        try:
+            if "." in value:
+                return float(value)
+            return int(value)
+        except ValueError:
+            return value
+    return value
+
+
 class AnnotatedCSVIterable(BaseFileIterable):
     """InfluxDB Annotated CSV iterable"""
 
@@ -253,6 +265,14 @@ class AnnotatedCSVIterable(BaseFileIterable):
 
     def read(self, skip_empty: bool = True) -> dict:
         """Read single annotated CSV record"""
+        row = self._read_next_data_row(skip_empty)
+        row = self._convert_row_datatypes(row)
+        row = self._apply_default_values(row)
+        self.pos += 1
+        return row
+
+    def _read_next_data_row(self, skip_empty: bool) -> dict:
+        """Read rows until a non-annotation, non-empty data row is found."""
         while True:
             row = next(self.reader)
 
@@ -273,18 +293,25 @@ class AnnotatedCSVIterable(BaseFileIterable):
                 continue
 
             break
+        return row
 
-        # Apply type conversions if datatypes are available
-        # Datatypes align with header columns by position
-        # In InfluxDB annotated CSV, datatypes may not cover all columns
-        # We need to map datatypes to the appropriate columns
+    def _header_keys(self) -> list[str]:
+        """Column keys from the header row, preserving empty-column positions."""
+        return [col.strip() if col.strip() else f"_col{i}" for i, col in enumerate(self.header_row)]
+
+    def _non_empty_header_columns(self) -> list[int]:
+        """Indexes of header columns with a non-empty name."""
+        return [i for i, col in enumerate(self.header_row) if col.strip()]
+
+    def _convert_row_datatypes(self, row: dict) -> dict:
+        """Apply InfluxDB datatype conversions to a raw row.
+
+        Datatypes align with header columns by position. In InfluxDB annotated
+        CSV, datatypes may not cover all columns, so several alignments are tried.
+        """
         if self.datatypes and len(self.datatypes) > 0 and self.header_row:
-            converted_row = {}
-            # Get ordered keys from header_row to maintain column order
-            header_keys = [col.strip() if col.strip() else f"_col{i}" for i, col in enumerate(self.header_row)]
-
-            # Count non-empty columns in header to understand alignment
-            non_empty_cols = [i for i, col in enumerate(self.header_row) if col.strip()]
+            header_keys = self._header_keys()
+            non_empty_cols = self._non_empty_header_columns()
 
             # If datatypes count matches non-empty columns, align them
             # Otherwise, try to align from the start (skipping empty columns)
@@ -296,53 +323,13 @@ class AnnotatedCSVIterable(BaseFileIterable):
                 # Datatypes align with all columns
                 dtype_offset = 0
 
+            converted_row = {}
             for i, key in enumerate(header_keys):
                 value = row.get(key, "")
+                converted_row[key] = self._convert_column_value(i, value, dtype_offset, non_empty_cols)
+            return converted_row
 
-                # Determine datatype index
-                if dtype_offset == -1:
-                    # Use index in non-empty columns list
-                    if i in non_empty_cols:
-                        dtype_idx = non_empty_cols.index(i)
-                        if dtype_idx < len(self.datatypes):
-                            dtype = self.datatypes[dtype_idx]
-                            converted_row[key] = convert_value(value, dtype) if value else value
-                        else:
-                            converted_row[key] = value
-                    else:
-                        converted_row[key] = value
-                else:
-                    # Use direct index alignment
-                    dtype_idx = i + dtype_offset
-                    if dtype_idx >= 0 and dtype_idx < len(self.datatypes):
-                        dtype = self.datatypes[dtype_idx]
-                        converted_row[key] = convert_value(value, dtype) if value else value
-                    elif len(self.datatypes) == len(non_empty_cols):
-                        # If datatypes match non-empty columns exactly, try that alignment
-                        if i in non_empty_cols:
-                            dtype_idx = non_empty_cols.index(i)
-                            if dtype_idx < len(self.datatypes):
-                                dtype = self.datatypes[dtype_idx]
-                                converted_row[key] = convert_value(value, dtype) if value else value
-                            else:
-                                converted_row[key] = value
-                        else:
-                            converted_row[key] = value
-                    else:
-                        # Try to infer type for columns without explicit datatype
-                        # If value looks like a number, try to convert
-                        if value and value.strip():
-                            try:
-                                if "." in value:
-                                    converted_row[key] = float(value)
-                                else:
-                                    converted_row[key] = int(value)
-                            except ValueError:
-                                converted_row[key] = value
-                        else:
-                            converted_row[key] = value
-            row = converted_row
-        elif self.datatypes and len(self.datatypes) > 0:
+        if self.datatypes and len(self.datatypes) > 0:
             # Fallback: apply by iteration order
             converted_row = {}
             for i, (key, value) in enumerate(row.items()):
@@ -351,47 +338,81 @@ class AnnotatedCSVIterable(BaseFileIterable):
                     converted_row[key] = convert_value(value, dtype)
                 else:
                     converted_row[key] = value
-            row = converted_row
+            return converted_row
 
-        # Apply default values if available
-        # Default values align with header columns by position
-        if self.default_values and len(self.default_values) > 0 and self.header_row:
-            header_keys = [col.strip() if col.strip() else f"_col{i}" for i, col in enumerate(self.header_row)]
-            non_empty_cols = [i for i, col in enumerate(self.header_row) if col.strip()]
-
-            for i, key in enumerate(header_keys):
-                value = row.get(key, "")
-                # Apply default if value is empty
-                if not value or value == "" or value is None:
-                    # Find corresponding default value
-                    if len(self.default_values) == len(non_empty_cols) and i in non_empty_cols:
-                        default_idx = non_empty_cols.index(i)
-                        if default_idx < len(self.default_values):
-                            default_val = self.default_values[default_idx]
-                            if default_val and default_val != "":
-                                # Apply type conversion if datatype available
-                                # Apply type conversion if datatype available
-                                # Find the datatype for this column
-                                dtype = None
-                                if len(self.datatypes) == len(non_empty_cols):
-                                    if i in non_empty_cols:
-                                        dtype_idx = non_empty_cols.index(i)
-                                        if dtype_idx < len(self.datatypes):
-                                            dtype = self.datatypes[dtype_idx]
-                                elif i < len(self.datatypes):
-                                    dtype = self.datatypes[i]
-
-                                if dtype:
-                                    row[key] = convert_value(default_val, dtype)
-                                else:
-                                    row[key] = default_val
-                    elif i < len(self.default_values):
-                        default_val = self.default_values[i]
-                        if default_val and default_val != "":
-                            row[key] = default_val
-
-        self.pos += 1
         return row
+
+    def _convert_column_value(self, i: int, value, dtype_offset: int, non_empty_cols: list[int]):
+        """Convert one column value using the resolved datatype alignment."""
+        if dtype_offset == -1:
+            # Use index in non-empty columns list
+            if i in non_empty_cols:
+                dtype_idx = non_empty_cols.index(i)
+                if dtype_idx < len(self.datatypes):
+                    return convert_value(value, self.datatypes[dtype_idx]) if value else value
+            return value
+
+        # Use direct index alignment
+        dtype_idx = i + dtype_offset
+        if dtype_idx >= 0 and dtype_idx < len(self.datatypes):
+            return convert_value(value, self.datatypes[dtype_idx]) if value else value
+
+        if len(self.datatypes) == len(non_empty_cols):
+            # If datatypes match non-empty columns exactly, try that alignment
+            if i in non_empty_cols:
+                dtype_idx = non_empty_cols.index(i)
+                if dtype_idx < len(self.datatypes):
+                    return convert_value(value, self.datatypes[dtype_idx]) if value else value
+            return value
+
+        # Try to infer type for columns without explicit datatype
+        # If value looks like a number, try to convert
+        return _infer_scalar_value(value)
+
+    def _default_datatype_for_column(self, i: int, non_empty_cols: list[int]):
+        """Resolve the datatype used when converting a default value, or None."""
+        if len(self.datatypes) == len(non_empty_cols):
+            if i in non_empty_cols:
+                dtype_idx = non_empty_cols.index(i)
+                if dtype_idx < len(self.datatypes):
+                    return self.datatypes[dtype_idx]
+            return None
+        if i < len(self.datatypes):
+            return self.datatypes[i]
+        return None
+
+    def _apply_default_values(self, row: dict) -> dict:
+        """Apply #default annotation values to empty columns, converting when typed."""
+        if not (self.default_values and len(self.default_values) > 0 and self.header_row):
+            return row
+
+        header_keys = self._header_keys()
+        non_empty_cols = self._non_empty_header_columns()
+
+        for i, key in enumerate(header_keys):
+            value = row.get(key, "")
+            # Apply default if value is empty
+            if not value or value == "" or value is None:
+                self._apply_default_at(row, i, key, non_empty_cols)
+        return row
+
+    def _apply_default_at(self, row: dict, i: int, key: str, non_empty_cols: list[int]) -> None:
+        """Apply the default value for column ``i`` to ``row[key]`` if one exists."""
+        if len(self.default_values) == len(non_empty_cols) and i in non_empty_cols:
+            default_idx = non_empty_cols.index(i)
+            if default_idx < len(self.default_values):
+                default_val = self.default_values[default_idx]
+                if default_val and default_val != "":
+                    # Apply type conversion if datatype available
+                    dtype = self._default_datatype_for_column(i, non_empty_cols)
+                    if dtype:
+                        row[key] = convert_value(default_val, dtype)
+                    else:
+                        row[key] = default_val
+        elif i < len(self.default_values):
+            default_val = self.default_values[i]
+            if default_val and default_val != "":
+                row[key] = default_val
 
     def write(self, record: Row) -> None:
         """Write single annotated CSV record"""

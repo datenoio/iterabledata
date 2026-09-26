@@ -108,7 +108,7 @@ def generate(
     """
     # Block-based path: delegate to the structured block engine.
     if blocks is not None:
-        result = generate_blocks(
+        return _generate_with_blocks(
             iterable,
             blocks=blocks,
             provider=provider,
@@ -123,16 +123,12 @@ def generate(
             temperature=temperature,
             max_tokens=max_tokens,
             progress=progress,
-            **kwargs,
+            format=format,
+            extra_kwargs=kwargs,
         )
-        if format == "json":
-            return result
-        return result["full_document_markdown"]
 
     # Determine if we have a file path for semantic type detection and usage samples
-    filename: str | None = None
-    if isinstance(iterable, str) and os.path.exists(iterable):
-        filename = iterable
+    filename = _resolve_source_filename(iterable)
 
     cache_params = {
         "provider": provider,
@@ -152,6 +148,7 @@ def generate(
         "language": language,
         "validate_output": validate_output,
     }
+    cache_key = None
     if cache:
         cache_key = make_doc_cache_key(iterable, cache_params, sample_size)
         cached = get_cached(cache_key)
@@ -161,7 +158,121 @@ def generate(
     # Preserve user-provided context before the internal prompt context shadows the name.
     user_context = dict(context) if context else {}
 
-    # Collect context information
+    # Collect samples, schema, metadata, semantic types, PII, and statistics.
+    context, extracted_metadata = _assemble_prompt_context(
+        iterable,
+        filename=filename,
+        user_context=user_context,
+        include_samples=include_samples,
+        sample_size=sample_size,
+        include_schema=include_schema,
+        include_metadata=include_metadata,
+        semantic_types=semantic_types,
+        pii_detect=pii_detect,
+        pii_mask_samples=pii_mask_samples,
+        include_statistics=include_statistics,
+        include_field_descriptions=include_field_descriptions,
+        provider=provider,
+        api_key=api_key,
+        base_url=base_url,
+        language=language,
+    )
+
+    # Build enhanced prompt
+    prompt = _build_documentation_prompt(context, language)
+
+    provider_kwargs = _filter_provider_kwargs(kwargs)
+
+    llm_provider, generated_text = _generate_with_provider(
+        provider,
+        api_key=api_key,
+        base_url=base_url,
+        prompt=prompt,
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        provider_kwargs=provider_kwargs,
+    )
+
+    result = _format_result(format, generated_text, context, llm_provider, extracted_metadata, validate_output)
+
+    if cache:
+        set_cached(cache_key, result)
+    return result
+
+
+def _generate_with_blocks(
+    iterable: collections.abc.Iterable[Row] | str,
+    *,
+    blocks: list[str],
+    provider: str,
+    model: str | None,
+    api_key: str | None,
+    base_url: str | None,
+    context: dict[str, Any] | None,
+    language: str,
+    tables: list[str] | None,
+    sample_size: int,
+    include_statistics: bool,
+    temperature: float,
+    max_tokens: int | None,
+    progress: ProgressCallback | None,
+    format: str,
+    extra_kwargs: dict[str, Any],
+) -> str | dict[str, Any]:
+    """Delegate to the block-based engine and shape the return value by format."""
+    result = generate_blocks(
+        iterable,
+        blocks=blocks,
+        provider=provider,
+        model=model,
+        api_key=api_key,
+        base_url=base_url,
+        context=context,
+        language=language,
+        tables=tables,
+        sample_size=sample_size,
+        include_statistics=include_statistics,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        progress=progress,
+        **extra_kwargs,
+    )
+    if format == "json":
+        return result
+    return result["full_document_markdown"]
+
+
+def _resolve_source_filename(iterable: collections.abc.Iterable[Row] | str) -> str | None:
+    """Return the iterable's file path when it points at an existing file."""
+    if isinstance(iterable, str) and os.path.exists(iterable):
+        return iterable
+    return None
+
+
+def _assemble_prompt_context(
+    iterable: collections.abc.Iterable[Row] | str,
+    *,
+    filename: str | None,
+    user_context: dict[str, Any],
+    include_samples: bool,
+    sample_size: int,
+    include_schema: bool,
+    include_metadata: bool,
+    semantic_types: bool,
+    pii_detect: bool,
+    pii_mask_samples: bool,
+    include_statistics: bool,
+    include_field_descriptions: bool,
+    provider: str,
+    api_key: str | None,
+    base_url: str | None,
+    language: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Collect samples, schema, metadata, semantics, PII, and stats into a prompt context.
+
+    Returns the populated prompt context and the extracted metadata dict.
+    """
     context: dict[str, Any] = {}
     if filename is not None:
         context["filename"] = filename
@@ -171,103 +282,170 @@ def generate(
     # Get sample data first (needed for field names and metadata)
     samples: list[Row] = []
     field_names: list[str] = []
-
     if include_samples:
-        try:
-            # Open iterable if file path
-            if isinstance(iterable, str):
-                iterable_obj = open_iterable(iterable)
-            else:
-                iterable_obj = iterable
+        samples, field_names = _collect_samples(iterable, sample_size, context)
 
-            for i, row in enumerate(iterable_obj):
-                if i >= sample_size:
-                    break
-                samples.append(row)
-            context["samples"] = samples
-
-            # Extract field names from samples
-            if samples:
-                if isinstance(samples[0], dict):
-                    field_names = list(samples[0].keys())
-                elif isinstance(samples[0], list):
-                    # Can't determine field names from list samples
-                    field_names = []
-        except Exception as e:
-            logger.warning(f"Sample collection failed: {e}")
-
-    # Get schema if requested
-    # Use file path if available to avoid issues with exhausted iterables
+    # Get schema if requested; field names from the schema win over sample-derived ones.
     if include_schema:
-        try:
-            if isinstance(iterable, str) and os.path.exists(iterable):
-                # Use file path - schema.infer will open it fresh
-                schema_info = schema.infer(iterable, detect_constraints=True)
-            else:
-                # For non-file iterables, create a fresh iterable
-                if isinstance(iterable, str):
-                    iterable_obj = open_iterable(iterable)
-                else:
-                    iterable_obj = iterable
-                # Try to reset if possible
-                if hasattr(iterable_obj, "reset"):
-                    iterable_obj.reset()
-                schema_info = schema.infer(iterable_obj, detect_constraints=True)
-            context["schema"] = schema_info
-            # Update field names from schema if available
-            schema_field_names = list(schema_info.get("fields", {}).keys())
-            if schema_field_names:
-                field_names = schema_field_names
-        except Exception as e:
-            logger.warning(f"Schema inference failed: {e}")
-            # Field names already extracted from samples if available
+        schema_field_names = _collect_schema(iterable, context)
+        if schema_field_names:
+            field_names = schema_field_names
 
     # Extract metadata if requested
     extracted_metadata: dict[str, Any] = {}
     if include_metadata and samples and field_names:
-        try:
-            keywords = metadata.extract_keywords(field_names, samples)
-            extracted_metadata["keywords"] = keywords
-
-            geographic_coverage = metadata.extract_geographic_coverage(samples, field_names)
-            if geographic_coverage.get("countries") or geographic_coverage.get("regions"):
-                extracted_metadata["geographic_coverage"] = geographic_coverage
-
-            temporal_coverage = metadata.extract_temporal_coverage(samples, field_names)
-            if temporal_coverage:
-                extracted_metadata["temporal_coverage"] = temporal_coverage
-
-            languages = metadata.detect_languages(samples, field_names)
-            if languages:
-                extracted_metadata["languages"] = languages
-
-            data_theme = metadata.classify_data_theme(field_names, keywords)
-            if data_theme:
-                extracted_metadata["data_theme"] = data_theme
-
-            context["metadata"] = extracted_metadata
-        except Exception as e:
-            logger.warning(f"Metadata extraction failed: {e}")
+        extracted_metadata = _collect_metadata(field_names, samples, context)
 
     # Detect semantic types if requested
-    semantic_type_map: dict[str, list[dict[str, Any]]] = {}
     if semantic_types and filename:
-        try:
-            semantic_type_map = semantic.detect_semantic_types(filename, field_names)
-            context["semantic_types"] = semantic_type_map
-        except Exception as e:
-            logger.warning(f"Semantic type detection failed: {e}")
+        _collect_semantic_types(filename, field_names, context)
 
     # Detect PII if requested
     pii_fields: list[dict[str, Any]] = []
     if pii_detect and filename:
-        try:
-            pii_fields = semantic.detect_pii(filename, field_names)
-            context["pii_fields"] = pii_fields
-        except Exception as e:
-            logger.warning(f"PII detection failed: {e}")
+        pii_fields = _collect_pii_fields(filename, field_names, context)
 
-    # Mask PII in samples if requested
+    # Mask PII in samples if requested; otherwise heuristically redact for cloud providers
+    _mask_or_redact_samples(
+        samples,
+        field_names,
+        pii_fields,
+        pii_mask_samples=pii_mask_samples,
+        include_samples=include_samples,
+        provider=provider,
+        context=context,
+    )
+
+    # Get statistics if requested
+    if include_statistics:
+        _collect_statistics(iterable, context)
+
+    # Generate field descriptions if requested
+    if include_field_descriptions and field_names:
+        _collect_field_descriptions(provider, api_key, base_url, field_names, language, context)
+
+    return context, extracted_metadata
+
+
+def _fresh_iterable(iterable: collections.abc.Iterable[Row] | str) -> collections.abc.Iterable[Row]:
+    """Open file paths and reset resettable iterables so a fresh pass is possible."""
+    if isinstance(iterable, str):
+        iterable_obj = open_iterable(iterable)
+    else:
+        iterable_obj = iterable
+    if hasattr(iterable_obj, "reset"):
+        iterable_obj.reset()
+    return iterable_obj
+
+
+def _collect_samples(
+    iterable: collections.abc.Iterable[Row] | str,
+    sample_size: int,
+    context: dict[str, Any],
+) -> tuple[list[Row], list[str]]:
+    """Collect sample rows into the prompt context; return (samples, field_names)."""
+    samples: list[Row] = []
+    field_names: list[str] = []
+    try:
+        # Open iterable if file path
+        if isinstance(iterable, str):
+            iterable_obj = open_iterable(iterable)
+        else:
+            iterable_obj = iterable
+
+        for i, row in enumerate(iterable_obj):
+            if i >= sample_size:
+                break
+            samples.append(row)
+        context["samples"] = samples
+
+        # Extract field names from samples
+        if samples:
+            if isinstance(samples[0], dict):
+                field_names = list(samples[0].keys())
+            elif isinstance(samples[0], list):
+                # Can't determine field names from list samples
+                field_names = []
+    except Exception as e:
+        logger.warning(f"Sample collection failed: {e}")
+    return samples, field_names
+
+
+def _collect_schema(iterable: collections.abc.Iterable[Row] | str, context: dict[str, Any]) -> list[str]:
+    """Infer the schema into the prompt context; return schema-derived field names."""
+    try:
+        # Use the file path if available to avoid issues with exhausted iterables
+        if isinstance(iterable, str) and os.path.exists(iterable):
+            schema_info = schema.infer(iterable, detect_constraints=True)
+        else:
+            schema_info = schema.infer(_fresh_iterable(iterable), detect_constraints=True)
+        context["schema"] = schema_info
+        return list(schema_info.get("fields", {}).keys())
+    except Exception as e:
+        logger.warning(f"Schema inference failed: {e}")
+        # Field names already extracted from samples if available
+        return []
+
+
+def _collect_metadata(field_names: list[str], samples: list[Row], context: dict[str, Any]) -> dict[str, Any]:
+    """Extract heuristic metadata (keywords, coverage, languages, theme)."""
+    extracted_metadata: dict[str, Any] = {}
+    try:
+        keywords = metadata.extract_keywords(field_names, samples)
+        extracted_metadata["keywords"] = keywords
+
+        geographic_coverage = metadata.extract_geographic_coverage(samples, field_names)
+        if geographic_coverage.get("countries") or geographic_coverage.get("regions"):
+            extracted_metadata["geographic_coverage"] = geographic_coverage
+
+        temporal_coverage = metadata.extract_temporal_coverage(samples, field_names)
+        if temporal_coverage:
+            extracted_metadata["temporal_coverage"] = temporal_coverage
+
+        languages = metadata.detect_languages(samples, field_names)
+        if languages:
+            extracted_metadata["languages"] = languages
+
+        data_theme = metadata.classify_data_theme(field_names, keywords)
+        if data_theme:
+            extracted_metadata["data_theme"] = data_theme
+
+        context["metadata"] = extracted_metadata
+    except Exception as e:
+        logger.warning(f"Metadata extraction failed: {e}")
+    return extracted_metadata
+
+
+def _collect_semantic_types(filename: str, field_names: list[str], context: dict[str, Any]) -> None:
+    """Detect Metacrafter semantic types and store them in the prompt context."""
+    try:
+        context["semantic_types"] = semantic.detect_semantic_types(filename, field_names)
+    except Exception as e:
+        logger.warning(f"Semantic type detection failed: {e}")
+
+
+def _collect_pii_fields(filename: str, field_names: list[str], context: dict[str, Any]) -> list[dict[str, Any]]:
+    """Detect PII fields and store them in the prompt context."""
+    pii_fields: list[dict[str, Any]] = []
+    try:
+        pii_fields = semantic.detect_pii(filename, field_names)
+        context["pii_fields"] = pii_fields
+    except Exception as e:
+        logger.warning(f"PII detection failed: {e}")
+    return pii_fields
+
+
+def _mask_or_redact_samples(
+    samples: list[Row],
+    field_names: list[str],
+    pii_fields: list[dict[str, Any]],
+    *,
+    pii_mask_samples: bool,
+    include_samples: bool,
+    provider: str,
+    context: dict[str, Any],
+) -> list[Row]:
+    """Apply Metacrafter PII masking or the cloud-provider heuristic redaction."""
     if pii_mask_samples and pii_fields and samples:
         try:
             samples = semantic.mask_pii_samples(samples, field_names, pii_fields)
@@ -278,45 +456,41 @@ def generate(
         # Heuristic redaction for cloud providers when Metacrafter masking is off
         samples = redact_for_llm(samples)
         context["samples"] = samples
+    return samples
 
-    # Get statistics if requested
-    # Use file path if available to avoid issues with exhausted iterables
-    statistics: dict[str, Any] | None = None
-    if include_statistics:
-        try:
-            if isinstance(iterable, str) and os.path.exists(iterable):
-                # Use file path - stats.compute will open it fresh
-                stats_info = stats.compute(iterable)
-            else:
-                # For non-file iterables, create a fresh iterable
-                if isinstance(iterable, str):
-                    iterable_obj = open_iterable(iterable)
-                else:
-                    iterable_obj = iterable
-                # Try to reset if possible
-                if hasattr(iterable_obj, "reset"):
-                    iterable_obj.reset()
-                stats_info = stats.compute(iterable_obj)
-            statistics = stats_info
-            context["statistics"] = statistics
-        except Exception as e:
-            logger.warning(f"Statistics computation failed: {e}")
 
-    # Generate field descriptions if requested
-    field_descriptions: dict[str, str] = {}
-    if include_field_descriptions and field_names:
-        try:
-            llm_provider = get_provider(provider, api_key=api_key, base_url=base_url)
-            field_descriptions = llm_provider.get_fields_info(field_names, language=language)
-            context["field_descriptions"] = field_descriptions
-        except Exception as e:
-            logger.warning(f"Field description generation failed: {e}")
+def _collect_statistics(iterable: collections.abc.Iterable[Row] | str, context: dict[str, Any]) -> None:
+    """Compute per-field statistics and store them in the prompt context."""
+    try:
+        # Use the file path if available to avoid issues with exhausted iterables
+        if isinstance(iterable, str) and os.path.exists(iterable):
+            stats_info = stats.compute(iterable)
+        else:
+            stats_info = stats.compute(_fresh_iterable(iterable))
+        context["statistics"] = stats_info
+    except Exception as e:
+        logger.warning(f"Statistics computation failed: {e}")
 
-    # Build enhanced prompt
-    prompt = _build_documentation_prompt(context, language)
 
-    # Filter kwargs: only pass provider-safe options to the LLM (exclude doc.generate params)
-    _doc_param_names = {
+def _collect_field_descriptions(
+    provider: str,
+    api_key: str | None,
+    base_url: str | None,
+    field_names: list[str],
+    language: str,
+    context: dict[str, Any],
+) -> None:
+    """Generate field-level descriptions with the LLM and store them in the context."""
+    try:
+        llm_provider = get_provider(provider, api_key=api_key, base_url=base_url)
+        context["field_descriptions"] = llm_provider.get_fields_info(field_names, language=language)
+    except Exception as e:
+        logger.warning(f"Field description generation failed: {e}")
+
+
+# generate()'s own parameter names: never forwarded to the LLM provider.
+_DOC_GENERATE_PARAM_NAMES = frozenset(
+    {
         "iterable",
         "provider",
         "model",
@@ -336,9 +510,26 @@ def generate(
         "pii_mask_samples",
         "language",
     }
-    provider_kwargs = {k: v for k, v in kwargs.items() if k not in _doc_param_names}
+)
 
-    # Get provider and generate
+
+def _filter_provider_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Keep only provider-safe options (exclude doc.generate's own parameters)."""
+    return {k: v for k, v in kwargs.items() if k not in _DOC_GENERATE_PARAM_NAMES}
+
+
+def _generate_with_provider(
+    provider: str,
+    *,
+    api_key: str | None,
+    base_url: str | None,
+    prompt: str,
+    model: str | None,
+    temperature: float,
+    max_tokens: int | None,
+    provider_kwargs: dict[str, Any],
+) -> tuple[Any, str]:
+    """Resolve the LLM provider and generate the documentation text."""
     try:
         llm_provider = get_provider(provider, api_key=api_key, base_url=base_url)
         generated_text = llm_provider.generate(
@@ -353,20 +544,23 @@ def generate(
             f"Provider '{provider}' requires additional dependencies. "
             f"Install with: pip install openai (or provider-specific package)"
         ) from e
+    return llm_provider, generated_text
 
-    # Format output
+
+def _format_result(
+    format: str,
+    generated_text: str,
+    context: dict[str, Any],
+    llm_provider: Any,
+    extracted_metadata: dict[str, Any],
+    validate_output: bool,
+) -> str | dict[str, Any]:
+    """Shape the generated text into the requested output format."""
     result: str | dict[str, Any]
     if format == "json":
         result = _format_as_json(generated_text, context, llm_provider.get_usage_info(), extracted_metadata)
         if validate_output:
-            try:
-                from .models import validate_documentation_result
-
-                validate_documentation_result(result)
-            except ImportError:
-                logger.warning("validate_output requires pydantic: pip install pydantic")
-            except Exception as exc:
-                logger.warning("Documentation JSON validation failed: %s", exc)
+            _validate_json_result(result)
     elif format == "html":
         result = _format_as_html(generated_text)
     elif format == "yaml":
@@ -375,10 +569,19 @@ def generate(
         result = _format_as_text(generated_text)
     else:  # markdown
         result = generated_text
-
-    if cache:
-        set_cached(cache_key, result)
     return result
+
+
+def _validate_json_result(result: dict[str, Any]) -> None:
+    """Best-effort Pydantic validation of a JSON documentation result."""
+    try:
+        from .models import validate_documentation_result
+
+        validate_documentation_result(result)
+    except ImportError:
+        logger.warning("validate_output requires pydantic: pip install pydantic")
+    except Exception as exc:
+        logger.warning("Documentation JSON validation failed: %s", exc)
 
 
 def generate_blocks(
