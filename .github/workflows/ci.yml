@@ -13,7 +13,11 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
+    # Full history is required by the "Mypy changed files" step below: it diffs
+    # against the base branch via a three-dot (merge-base) git diff.
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -32,9 +36,13 @@ jobs:
     - name: Ruff format check (blocking)
       run: ruff format --check iterable tests
 
+    # Blocking zero-error gate. Only files verified clean under this exact
+    # command may be added (OpenSpec strengthen-repository-quality-gates 3.3);
+    # the same modules carry disallow_untyped_defs in pyproject [tool.mypy].
     - name: Mypy core modules (blocking)
       run: |
         mypy --follow-imports=skip \
+          iterable/__init__.py \
           iterable/base.py \
           iterable/codec_base.py \
           iterable/guidance.py \
@@ -46,7 +54,11 @@ jobs:
           iterable/helpers/detect.py \
           iterable/helpers/open_iterable.py \
           iterable/helpers/content_detection.py \
-          iterable/helpers/format_registry.py
+          iterable/helpers/format_registry.py \
+          iterable/helpers/__init__.py \
+          iterable/helpers/format_descriptions.py \
+          iterable/helpers/progress.py \
+          iterable/helpers/read_ahead.py
 
     - name: Fixture coverage report (advisory)
       run: python dev/scripts/find_missing_fixtures.py || true
@@ -61,11 +73,45 @@ jobs:
     - name: Mypy error-count ratchet (advisory)
       run: python dev/scripts/mypy_ratchet.py || true
 
-    - name: Pydocstyle (advisory)
-      run: pydocstyle iterable || true
+    # New-code strictness: mypy must pass on every iterable/*.py file changed
+    # vs the base branch (three-dot diff; needs the fetch-depth: 0 checkout
+    # above). Advisory (continue-on-error) until it proves stable in CI;
+    # becomes blocking by dropping continue-on-error. See CONTRIBUTING.md.
+    - name: Mypy changed files vs base branch (advisory)
+      continue-on-error: true
+      run: python dev/scripts/mypy_changed_files.py
 
-    - name: Dead code check with Vulture (advisory)
-      run: vulture iterable --min-confidence 80 || true
+    # Docstring-style ratchet: findings must not exceed the baseline recorded in
+    # CONTRIBUTING.md ("Static analysis ratchets"). Advisory (continue-on-error)
+    # until the existing findings are cleared; pydocstyle exits nonzero when
+    # findings exist, so the count is parsed from its output.
+    - name: Pydocstyle finding-count gate (advisory)
+      continue-on-error: true
+      run: |
+        BASELINE=22
+        OUTPUT=$(pydocstyle iterable || true)
+        echo "$OUTPUT"
+        COUNT=$(echo "$OUTPUT" | grep -cE "^ +[A-Z][0-9]+:" || true)
+        echo "PYDOCSTYLE GATE: $COUNT finding(s), baseline $BASELINE"
+        if [ "$COUNT" -gt "$BASELINE" ]; then
+          echo "FAIL: pydocstyle findings grew above the $BASELINE baseline"
+          exit 1
+        fi
+
+    # Dead-code ratchet: same pattern as the pydocstyle gate above; vulture
+    # exits nonzero when it reports findings, so the count is parsed out.
+    - name: Vulture finding-count gate (advisory)
+      continue-on-error: true
+      run: |
+        BASELINE=17
+        OUTPUT=$(vulture iterable --min-confidence 80 || true)
+        echo "$OUTPUT"
+        COUNT=$(echo "$OUTPUT" | grep -c "confidence)" || true)
+        echo "VULTURE GATE: $COUNT finding(s), baseline $BASELINE"
+        if [ "$COUNT" -gt "$BASELINE" ]; then
+          echo "FAIL: vulture findings grew above the $BASELINE baseline"
+          exit 1
+        fi
 
     - name: Code complexity with Radon (advisory)
       run: radon cc iterable --min B || true
@@ -152,6 +198,16 @@ jobs:
         fail_ci_if_error: false
         flags: unittests
 
+    # Publishes the core (full-suite) coverage report as a CI artifact alongside
+    # the per-family artifacts from the optional-family-smoke job, so an
+    # aggregate step could combine them.
+    - name: Upload core coverage artifact
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-core
+        path: coverage.xml
+
   # Base environment: dev tooling only, no optional format extras.
   # Guards against collection errors from top-level optional imports in tests
   # (missing extras must skip, never error).
@@ -223,24 +279,31 @@ jobs:
           - family: columnar
             extras: "parquet"
             tests: "tests/test_parquet.py tests/test_arrow.py"
+            cov: "*/datatypes/parquet.py,*/datatypes/arrow.py"
           - family: geospatial
             extras: "geospatial,parquet"
             tests: "tests/test_geoparquet.py"
+            cov: "*/datatypes/geoparquet.py"
           - family: bio
             extras: "alignment,bio"
             tests: "tests/test_genomic_intervals.py"
+            cov: "*/datatypes/genomic_intervals.py,*/datatypes/genomic_vcf.py"
           - family: codecs
             extras: "compression"
             tests: "tests/test_codec_profiles.py"
+            cov: "*/codecs/*"
           - family: scientific
             extras: "hdf5,netcdf,npy"
             tests: "tests/test_numpy.py"
+            cov: "*/datatypes/numpy.py"
           - family: database
             extras: "db"
             tests: "tests/test_db_engines.py -k 'not integration'"
+            cov: "*/db/*,*/engines/*"
           - family: lakehouse
             extras: "lakehouse"
             tests: "tests/test_delta.py tests/test_iceberg.py"
+            cov: "*/datatypes/delta.py,*/datatypes/iceberg.py"
     name: optional-${{ matrix.family }}
     steps:
       - uses: actions/checkout@v4
@@ -267,8 +330,25 @@ jobs:
           echo "apt-get failed after retries" >&2
           exit 1
       - run: python -m pip install --upgrade pip && pip install -e ".[dev,${{ matrix.extras }}]"
-      - name: Run family tests (missing extras must skip, failures must be visible)
-        run: pytest ${{ matrix.tests }} --no-cov
+      # Coverage runs serially within the job on purpose: pytest-xdist (-n) must
+      # NOT be combined with coverage here — tests/conftest.py chdirs to a
+      # disposable runtime root in pytest_configure, which would scatter
+      # per-worker coverage data. --cov-fail-under=0 keeps the global floor=50
+      # enforced only on the full-dev-env matrix legs; family subsets are
+      # reported below, not floored (see CONTRIBUTING.md "Coverage floors").
+      - name: Run family tests with coverage (missing extras must skip, failures must be visible)
+        run: pytest ${{ matrix.tests }} --cov=iterable --cov-report=xml:coverage-${{ matrix.family }}.xml --cov-fail-under=0
+      - name: Family coverage report (term-missing, advisory)
+        run: coverage report --include="${{ matrix.cov }}" --show-missing --fail-under=0
+      - name: Upload family coverage data
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.family }}
+          path: |
+            coverage-${{ matrix.family }}.xml
+            .coverage
+          include-hidden-files: true
+          if-no-files-found: warn
       - name: Assert committed fixtures were not modified
         run: git diff --exit-code -- tests/fixtures
 

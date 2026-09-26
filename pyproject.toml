@@ -432,17 +432,24 @@ module = [
 ignore_missing_imports = true  # Many formats have optional dependencies without type stubs
 
 # Strict typing for core modules (plan 3.5 — expand as mypy errors are cleared).
+# Every module listed here is also in the blocking "Mypy core modules" gate in
+# .github/workflows/ci.yml and was verified zero-error under that command.
 [[tool.mypy.overrides]]
 module = [
+    "iterable",
     "iterable.base",
     "iterable.codec_base",
     "iterable.guidance",
     "iterable.exceptions",
     "iterable.types",
+    "iterable.helpers",
     "iterable.helpers.detect",
     "iterable.helpers.open_iterable",
     "iterable.helpers.content_detection",
     "iterable.helpers.format_registry",
+    "iterable.helpers.format_descriptions",
+    "iterable.helpers.progress",
+    "iterable.helpers.read_ahead",
     "iterable.async_base",
     "iterable.helpers.utils",
 ]
