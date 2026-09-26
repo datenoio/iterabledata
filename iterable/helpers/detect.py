@@ -224,6 +224,163 @@ def _extension_is_ambiguous(filename: str) -> bool:
     return ext in _AMBIGUOUS_EXTENSIONS
 
 
+# Compound profile suffixes must be resolved before the generic last-dot
+# lookup (``.otlp.json`` would otherwise be treated as ordinary JSON).
+_COMPOUND_FORMATS: dict[str, str] = {
+    "otlp.json": "otlp-json",
+    "otlp.pb": "otlp-protobuf",
+    "otlp.protobuf": "otlp-protobuf",
+    "geoparquet": "geoparquet",
+    "iati.xml": "iati",
+}
+
+
+def _new_file_type_result(filename: str) -> FileTypeResult:
+    """Initial (failed) detection result; detection stages fill it in."""
+    return {
+        "filename": filename,
+        "success": False,
+        "codec": None,
+        "datatype": None,
+        "confidence": 0.0,
+        "detection_method": "none",
+    }
+
+
+def _filename_result(filename: str, datatype: type[BaseIterable], codec: type[BaseCodec] | None) -> FileTypeResult:
+    """Successful filename-based result; filename detection has the highest confidence."""
+    return {
+        "filename": filename,
+        "success": True,
+        "codec": codec,
+        "datatype": datatype,
+        "confidence": 1.0,
+        "detection_method": "filename",
+    }
+
+
+def _detect_compound_format(filename: str, codec_registry: dict[str, tuple[str, str]]) -> FileTypeResult | None:
+    """Resolve compound profile suffixes (e.g. ``.otlp.json``), with optional codec suffix."""
+    lowered = filename.lower()
+    for suffix, format_id in _COMPOUND_FORMATS.items():
+        if lowered.endswith(f".{suffix}"):
+            return _filename_result(filename, _datatype_class(format_id), None)
+        for codec_id in codec_registry:
+            if lowered.endswith(f".{suffix}.{codec_id}"):
+                return _filename_result(filename, _datatype_class(format_id), _codec_class(codec_id))
+    return None
+
+
+def _detect_from_extension(
+    filename: str,
+    parts: list[str],
+    format_registry: dict[str, tuple[str, str]],
+    codec_registry: dict[str, tuple[str, str]],
+    debug: bool,
+) -> FileTypeResult | None:
+    """Generic extension lookup: ``name.fmt`` or ``name.fmt.codec``."""
+    if len(parts) == 2:
+        if parts[-1] in format_registry:
+            if debug or is_debug_enabled():
+                format_detection_logger.debug(
+                    f"Detected format from extension: {parts[-1]} (confidence: 1.0, method: filename)"
+                )
+            return _filename_result(filename, _datatype_class(parts[-1]), None)
+        return None
+    if len(parts) > 2:
+        if parts[-2] in format_registry and parts[-1] in codec_registry:
+            if debug or is_debug_enabled():
+                format_detection_logger.debug(
+                    f"Detected format from extension: {parts[-2]} with codec {parts[-1]} "
+                    f"(confidence: 1.0, method: filename)"
+                )
+            return _filename_result(filename, _datatype_class(parts[-2]), _codec_class(parts[-1]))
+        if parts[-1] in format_registry:
+            if debug or is_debug_enabled():
+                format_detection_logger.debug(
+                    f"Detected format from extension: {parts[-1]} (confidence: 1.0, method: filename)"
+                )
+            return _filename_result(filename, _datatype_class(parts[-1]), None)
+    return None
+
+
+def _detect_by_filename(filename: str, debug: bool) -> FileTypeResult:
+    """Filename-based detection: compound suffixes first, then generic extension lookup."""
+    parts = filename.lower().rsplit(".", 2)
+    if debug or is_debug_enabled():
+        format_detection_logger.debug(f"File extension parts: {parts}")
+
+    format_registry = _get_format_registry()
+    codec_registry = _get_codec_registry()
+
+    compound = _detect_compound_format(filename, codec_registry)
+    if compound is not None:
+        return compound
+
+    extension = _detect_from_extension(filename, parts, format_registry, codec_registry, debug)
+    if extension is not None:
+        return extension
+    return _new_file_type_result(filename)
+
+
+def _content_detected_format(fileobj: IO[bytes]) -> tuple[str, float, str] | None:
+    """Content-detect and validate against the format registry; None when no match."""
+    detection_result = detect_file_type_from_content(fileobj)
+    if not detection_result:
+        return None
+    detected_format, confidence, method = detection_result
+    if detected_format and detected_format in _get_format_registry():
+        return detected_format, confidence, method
+    return None
+
+
+def _apply_ambiguous_extension_content(filename: str, result: FileTypeResult, fileobj: IO[bytes] | None) -> None:
+    """Let content detection pick between formats sharing an ambiguous extension."""
+    if not result["success"] or fileobj is None or not _extension_is_ambiguous(filename):
+        return
+    detected = _content_detected_format(fileobj)
+    if detected is None:
+        return
+    detected_format, confidence, method = detected
+    result["datatype"] = _datatype_class(detected_format)
+    result["confidence"] = confidence
+    result["detection_method"] = method
+
+
+def _apply_content_fallback(result: FileTypeResult, fileobj: IO[bytes] | None, debug: bool) -> None:
+    """Content-based detection used when filename detection failed."""
+    if result["success"] or fileobj is None:
+        return
+    if debug or is_debug_enabled():
+        format_detection_logger.debug("Extension detection failed, trying content-based detection")
+    detected = _content_detected_format(fileobj)
+    if detected is None:
+        return
+    detected_format, confidence, method = detected
+    result["datatype"] = _datatype_class(detected_format)
+    result["success"] = True
+    result["confidence"] = confidence
+    result["detection_method"] = method
+    if debug or is_debug_enabled():
+        format_detection_logger.debug(
+            f"Content-based detection: {detected_format} (confidence: {confidence:.2f}, method: {method})"
+        )
+
+
+def _log_detection_outcome(result: FileTypeResult, debug: bool) -> None:
+    """Emit the final debug summary line for a detection run."""
+    if not (debug or is_debug_enabled()):
+        return
+    if result["success"]:
+        format_detection_logger.debug(
+            f"Detection successful: format={result['datatype'].__name__ if result['datatype'] else None}, "
+            f"codec={result['codec'].__name__ if result['codec'] else None}, "
+            f"confidence={result['confidence']:.2f}, method={result['detection_method']}"
+        )
+    else:
+        format_detection_logger.debug("Detection failed: no matching format found")
+
+
 def detect_file_type(filename: str, fileobj: IO[bytes] | None = None, debug: bool = False) -> FileTypeResult:
     """Detects file type and compression codec from filename and/or content
 
@@ -244,123 +401,19 @@ def detect_file_type(filename: str, fileobj: IO[bytes] | None = None, debug: boo
     if debug or is_debug_enabled():
         format_detection_logger.debug(f"Detecting file type for: {filename}")
 
-    result: FileTypeResult = {
-        "filename": filename,
-        "success": False,
-        "codec": None,
-        "datatype": None,
-        "confidence": 0.0,
-        "detection_method": "none",
-    }
-
     # First, try filename-based detection - High confidence (1.0)
-    parts = filename.lower().rsplit(".", 2)
-    if debug or is_debug_enabled():
-        format_detection_logger.debug(f"File extension parts: {parts}")
-
-    format_registry = _get_format_registry()
-    codec_registry = _get_codec_registry()
-
-    # Compound profile suffixes must be resolved before the generic last-dot
-    # lookup (``.otlp.json`` would otherwise be treated as ordinary JSON).
-    compound_formats = {
-        "otlp.json": "otlp-json",
-        "otlp.pb": "otlp-protobuf",
-        "otlp.protobuf": "otlp-protobuf",
-        "geoparquet": "geoparquet",
-        "iati.xml": "iati",
-    }
-    for suffix, format_id in compound_formats.items():
-        if filename.lower().endswith(f".{suffix}"):
-            result["datatype"] = _datatype_class(format_id)
-            result["success"] = True
-            result["confidence"] = 1.0
-            result["detection_method"] = "filename"
-            break
-        for codec_id in codec_registry:
-            if filename.lower().endswith(f".{suffix}.{codec_id}"):
-                result["datatype"] = _datatype_class(format_id)
-                result["codec"] = _codec_class(codec_id)
-                result["success"] = True
-                result["confidence"] = 1.0
-                result["detection_method"] = "filename"
-                break
-        if result["success"]:
-            break
-
-    if not result["success"] and len(parts) == 2:
-        if parts[-1] in format_registry:
-            result["datatype"] = _datatype_class(parts[-1])
-            result["success"] = True
-            result["confidence"] = 1.0
-            result["detection_method"] = "filename"
-            if debug or is_debug_enabled():
-                format_detection_logger.debug(
-                    f"Detected format from extension: {parts[-1]} (confidence: 1.0, method: filename)"
-                )
-    elif not result["success"] and len(parts) > 2:
-        if parts[-2] in format_registry and parts[-1] in codec_registry:
-            result["datatype"] = _datatype_class(parts[-2])
-            result["success"] = True
-            result["codec"] = _codec_class(parts[-1])
-            result["confidence"] = 1.0
-            result["detection_method"] = "filename"
-            if debug or is_debug_enabled():
-                format_detection_logger.debug(
-                    f"Detected format from extension: {parts[-2]} with codec {parts[-1]} "
-                    f"(confidence: 1.0, method: filename)"
-                )
-        elif parts[-1] in format_registry:
-            result["datatype"] = _datatype_class(parts[-1])
-            result["success"] = True
-            result["confidence"] = 1.0
-            result["detection_method"] = "filename"
-            if debug or is_debug_enabled():
-                format_detection_logger.debug(
-                    f"Detected format from extension: {parts[-1]} (confidence: 1.0, method: filename)"
-                )
+    result = _detect_by_filename(filename, debug)
 
     # Some extensions are shared by unrelated formats (e.g. .vcf is both
     # genomic Variant Call Format and vCard). When the extension is ambiguous
     # and we have content to inspect, let content detection pick between them.
-    if result["success"] and fileobj is not None and _extension_is_ambiguous(filename):
-        detection_result = detect_file_type_from_content(fileobj)
-        if detection_result:
-            detected_format, confidence, method = detection_result
-            format_registry = _get_format_registry()
-            if detected_format and detected_format in format_registry:
-                result["datatype"] = _datatype_class(detected_format)
-                result["confidence"] = confidence
-                result["detection_method"] = method
+    if result["success"]:
+        _apply_ambiguous_extension_content(filename, result, fileobj)
+    else:
+        # If filename detection failed and we have a file object, try content-based detection
+        _apply_content_fallback(result, fileobj, debug)
 
-    # If filename detection failed and we have a file object, try content-based detection
-    if not result["success"] and fileobj is not None:
-        if debug or is_debug_enabled():
-            format_detection_logger.debug("Extension detection failed, trying content-based detection")
-        detection_result = detect_file_type_from_content(fileobj)
-        if detection_result:
-            detected_format, confidence, method = detection_result
-            format_registry = _get_format_registry()
-            if detected_format and detected_format in format_registry:
-                result["datatype"] = _datatype_class(detected_format)
-                result["success"] = True
-                result["confidence"] = confidence
-                result["detection_method"] = method
-                if debug or is_debug_enabled():
-                    format_detection_logger.debug(
-                        f"Content-based detection: {detected_format} (confidence: {confidence:.2f}, method: {method})"
-                    )
-
-    if debug or is_debug_enabled():
-        if result["success"]:
-            format_detection_logger.debug(
-                f"Detection successful: format={result['datatype'].__name__ if result['datatype'] else None}, "
-                f"codec={result['codec'].__name__ if result['codec'] else None}, "
-                f"confidence={result['confidence']:.2f}, method={result['detection_method']}"
-            )
-        else:
-            format_detection_logger.debug("Detection failed: no matching format found")
-
+    _log_detection_outcome(result, debug)
     return result
 
 

@@ -90,21 +90,37 @@ def _capabilities_from_descriptor(descriptor: Any) -> dict[str, Any]:
     }
 
 
-def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, Any]:
-    """Detect capabilities for a format class by introspection.
+# Known non-streaming formats (from memory audit).
+# These formats load entire files into memory.
+KNOWN_NON_STREAMING_FORMATS = {
+    "feed",
+    "rss",
+    "atom",  # Feed formats
+    "arff",  # ARFF format
+    "html",
+    "htm",  # HTML format
+    "hocon",  # HOCON format
+    "edn",  # EDN format
+    "bencode",  # Bencode format
+    "asn1",  # ASN.1 format
+    "ical",
+    "ics",  # iCal format
+    "turtle",
+    "ttl",  # Turtle RDF format
+    "vcf",  # VCF format
+    "mhtml",  # MHTML format
+    "flexbuffers",  # FlexBuffers format
+    "px",  # PC-Axis format
+    "mvt",  # MVT (Mapbox Vector Tile) - single tile per file
+}
 
-    This is the fallback path for plugin formats that have no declarative
-    descriptor. Built-in formats report descriptor values via
-    ``_capabilities_from_descriptor()`` instead; conformance tests (not this
-    runtime path) verify those declarations against the implementation.
+# Sentinel distinguishing "declaration method missing" from a None result.
+_MISSING = object()
 
-    Args:
-        format_class: The format class to introspect
 
-    Returns:
-        Dictionary with capability flags (True/False/None)
-    """
-    caps: dict[str, bool | None] = {
+def _empty_capabilities() -> dict[str, Any]:
+    """Baseline introspection result; unknown fields stay None/'unknown'/empty."""
+    return {
         "readable": None,
         "writable": None,
         "bulk_read": None,
@@ -125,202 +141,204 @@ def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, Any]:
         "maturity": "stable",
     }
 
+
+def _class_format_id(format_class: type[BaseIterable]) -> Any:
+    """Best-effort format id from the class's static ``id()``; None when unavailable."""
+    try:
+        if hasattr(format_class, "id") and callable(getattr(format_class, "id", None)):
+            return format_class.id()
+    except (AttributeError, TypeError):
+        pass
+    return None
+
+
+def _apply_descriptor_capabilities(caps: dict[str, Any], descriptor: Any) -> None:
+    """Overlay declarative descriptor values onto the introspected capability dict.
+
+    Extended capabilities are declarative. Runtime method inspection elsewhere
+    remains only for backwards-compatible legacy keys.
+    """
+    caps.update(
+        {
+            "native_bulk_read": descriptor.native_bulk_read,
+            "native_bulk_write": descriptor.native_bulk_write,
+            "read_memory": descriptor.read_memory,
+            "write_memory": descriptor.write_memory,
+            "selection": list(descriptor.selection),
+            "codec_support": list(descriptor.codec_support),
+            "source_constraints": list(descriptor.source_constraints),
+            "maturity": descriptor.maturity,
+        }
+    )
+
+
+def _write_override_implements(write_method: Any) -> bool:
+    """Source-scan heuristic: a write() that only raises WriteNotSupportedError is not real."""
+    try:
+        source = inspect.getsource(write_method)
+    except (OSError, TypeError):
+        # Can't inspect source (e.g., C extension) - assume supported if overridden
+        return True
+    if "WriteNotSupportedError" not in source:
+        # No WriteNotSupportedError - likely supported
+        return True
+    # Count non-comment, non-docstring lines
+    lines = [
+        line.strip()
+        for line in source.split("\n")
+        if line.strip()
+        and not line.strip().startswith("#")
+        and not line.strip().startswith('"""')
+        and not line.strip().startswith("'''")
+    ]
+    # If only 1-3 lines (def + docstring + raise), it's not supported
+    return len(lines) > 3
+
+
+def _detect_writable(format_class: type[BaseIterable], format_id: Any) -> bool:
+    """Detect real write support, distinguishing overrides from the base-class default."""
+    # Quick check via format descriptor (falls back to legacy read-only set for orphans).
+    if format_id and _is_read_only(format_id):
+        return False
+    # Need to distinguish between actual implementation and base class default
+    has_write_method = hasattr(format_class, "write") and callable(getattr(format_class, "write", None))
+    if not has_write_method:
+        return False
+    # Base class raises WriteNotSupportedError, so we need to check if the method
+    # is overridden with actual implementation
+    try:
+        write_method = format_class.write
+        # Check if it's the base class method (BaseIterable.write)
+        from ..base import BaseIterable
+
+        if write_method is BaseIterable.write:
+            # It's the base class default - not supported
+            return False
+        return _write_override_implements(write_method)
+    except Exception:
+        # Fallback: if method exists and is overridden, assume supported
+        return has_write_method
+
+
+def _call_static_declaration(format_class: type[BaseIterable], name: str) -> Any:
+    """Call a static capability declaration; ``_MISSING`` when absent, errors propagate."""
+    if hasattr(format_class, name) and callable(getattr(format_class, name, None)):
+        return getattr(format_class, name)()
+    return _MISSING
+
+
+def _static_bool_capability(format_class: type[BaseIterable], name: str) -> bool | None:
+    """Boolean capability from a static declaration; None when the call fails."""
+    try:
+        value = _call_static_declaration(format_class, name)
+    except (ImportError, AttributeError, TypeError):
+        return None
+    if value is _MISSING:
+        return False
+    return value
+
+
+def _detect_flat_nested(format_class: type[BaseIterable]) -> tuple[Any, Any]:
+    """Detect (flat_only, nested) from the is_flatonly() declaration."""
+    try:
+        value = _call_static_declaration(format_class, "is_flatonly")
+    except (ImportError, AttributeError, TypeError):
+        return None, None
+    if value is _MISSING:
+        # Default: assume nested data is supported unless proven otherwise
+        return False, True
+    return value, not value
+
+
+def _explicit_streaming_declaration(format_class: type[BaseIterable]) -> bool | None:
+    """Explicit is_streaming() declaration made by the format class itself.
+
+    Only declarations below the BaseIterable/BaseFileIterable defaults in the
+    MRO count; None means "no explicit declaration, use heuristics".
+    """
+    for klass in getattr(format_class, "__mro__", ()):
+        if "is_streaming" not in klass.__dict__:
+            continue
+        if klass.__name__ in ("BaseIterable", "BaseFileIterable"):
+            break  # only the base default; fall through to heuristics
+        try:
+            # Declarations are constant (`return True/False`) so the
+            # instance argument is unused.
+            return bool(klass.__dict__["is_streaming"](None))
+        except Exception:
+            # Instance-dependent declaration (e.g. `return self._streaming`
+            # in JSON/GeoJSON): the format supports streaming for large
+            # files even if small files are loaded eagerly.
+            return True
+    return None
+
+
+def _detect_streaming(format_class: type[BaseIterable], readable: Any) -> bool | None:
+    """Detect streaming support: explicit declaration, known list, hook, or readable."""
+    try:
+        explicit_streaming = _explicit_streaming_declaration(format_class)
+        if explicit_streaming is not None:
+            return explicit_streaming
+
+        # Check if format ID is in known non-streaming list
+        format_id = _class_format_id(format_class)
+        if format_id and format_id.lower() in KNOWN_NON_STREAMING_FORMATS:
+            return False
+        if hasattr(format_class, "_should_use_streaming") and callable(
+            getattr(format_class, "_should_use_streaming", None)
+        ):
+            # Conditional streaming (large files stream, small files load)
+            return True
+        # Default: assume streaming for most formats (library emphasizes streaming)
+        # Most formats in IterableData are designed for streaming (row-by-row processing)
+        return readable
+    except (ImportError, AttributeError, TypeError):
+        return None
+
+
+def _detect_capabilities(format_class: type[BaseIterable]) -> dict[str, Any]:
+    """Detect capabilities for a format class by introspection.
+
+    This is the fallback path for plugin formats that have no declarative
+    descriptor. Built-in formats report descriptor values via
+    ``_capabilities_from_descriptor()`` instead; conformance tests (not this
+    runtime path) verify those declarations against the implementation.
+
+    Args:
+        format_class: The format class to introspect
+
+    Returns:
+        Dictionary with capability flags (True/False/None)
+    """
+    caps = _empty_capabilities()
+
     # Check for read/write methods
     caps["readable"] = hasattr(format_class, "read") and callable(getattr(format_class, "read", None))
 
     # Check for write support - first check READ_ONLY_FORMATS registry for quick lookup
-    format_id = None
-    try:
-        if hasattr(format_class, "id") and callable(getattr(format_class, "id", None)):
-            format_id = format_class.id()
-    except (AttributeError, TypeError):
-        pass
+    format_id = _class_format_id(format_class)
 
-    # Extended capabilities are declarative. Runtime method inspection below
-    # remains only for backwards-compatible legacy keys.
     descriptor = get_descriptor(format_id) if format_id else None
     if descriptor is not None:
-        caps.update(
-            {
-                "native_bulk_read": descriptor.native_bulk_read,
-                "native_bulk_write": descriptor.native_bulk_write,
-                "read_memory": descriptor.read_memory,
-                "write_memory": descriptor.write_memory,
-                "selection": list(descriptor.selection),
-                "codec_support": list(descriptor.codec_support),
-                "source_constraints": list(descriptor.source_constraints),
-                "maturity": descriptor.maturity,
-            }
-        )
+        _apply_descriptor_capabilities(caps, descriptor)
 
-    # Quick check via format descriptor (falls back to legacy read-only set for orphans).
-    if format_id and _is_read_only(format_id):
-        caps["writable"] = False
-    else:
-        # Need to distinguish between actual implementation and base class default
-        has_write_method = hasattr(format_class, "write") and callable(getattr(format_class, "write", None))
-        if has_write_method:
-            # Check if write() is actually implemented (not just base class default)
-            # Base class raises WriteNotSupportedError, so we need to check if the method
-            # is overridden with actual implementation
-            try:
-                # Get the write method
-                write_method = format_class.write
-                # Check if it's the base class method (BaseIterable.write)
-                from ..base import BaseIterable
-
-                if write_method is BaseIterable.write:
-                    # It's the base class default - not supported
-                    caps["writable"] = False
-                else:
-                    # Method is overridden - check if it actually implements writing
-                    # or just raises WriteNotSupportedError
-                    try:
-                        source = inspect.getsource(write_method)
-                        # If source contains WriteNotSupportedError and is very short,
-                        # it's likely just raising the error
-                        if "WriteNotSupportedError" in source:
-                            # Count non-comment, non-docstring lines
-                            lines = [
-                                line.strip()
-                                for line in source.split("\n")
-                                if line.strip()
-                                and not line.strip().startswith("#")
-                                and not line.strip().startswith('"""')
-                                and not line.strip().startswith("'''")
-                            ]
-                            # If only 1-3 lines (def + docstring + raise), it's not supported
-                            if len(lines) <= 3:
-                                caps["writable"] = False
-                            else:
-                                # Has more implementation - likely supported
-                                caps["writable"] = True
-                        else:
-                            # No WriteNotSupportedError - likely supported
-                            caps["writable"] = True
-                    except (OSError, TypeError):
-                        # Can't inspect source (e.g., C extension) - assume supported if overridden
-                        caps["writable"] = True
-            except Exception:
-                # Fallback: if method exists and is overridden, assume supported
-                caps["writable"] = has_write_method
-        else:
-            caps["writable"] = False
+    caps["writable"] = _detect_writable(format_class, format_id)
 
     caps["bulk_read"] = hasattr(format_class, "read_bulk") and callable(getattr(format_class, "read_bulk", None))
     caps["bulk_write"] = hasattr(format_class, "write_bulk") and callable(getattr(format_class, "write_bulk", None))
 
     # Check static methods for format characteristics
-    try:
-        if hasattr(format_class, "has_totals") and callable(getattr(format_class, "has_totals", None)):
-            caps["totals"] = format_class.has_totals()
-        else:
-            caps["totals"] = False
-    except (ImportError, AttributeError, TypeError):
-        caps["totals"] = None
-
-    try:
-        if hasattr(format_class, "has_tables") and callable(getattr(format_class, "has_tables", None)):
-            caps["tables"] = format_class.has_tables()
-        else:
-            caps["tables"] = False
-    except (ImportError, AttributeError, TypeError):
-        caps["tables"] = None
-
-    try:
-        if hasattr(format_class, "is_flatonly") and callable(getattr(format_class, "is_flatonly", None)):
-            caps["flat_only"] = format_class.is_flatonly()
-            caps["nested"] = not caps["flat_only"]
-        else:
-            # Default: assume nested data is supported unless proven otherwise
-            caps["flat_only"] = False
-            caps["nested"] = True
-    except (ImportError, AttributeError, TypeError):
-        caps["flat_only"] = None
-        caps["nested"] = None
+    caps["totals"] = _static_bool_capability(format_class, "has_totals")
+    caps["tables"] = _static_bool_capability(format_class, "has_tables")
+    caps["flat_only"], caps["nested"] = _detect_flat_nested(format_class)
 
     # Check for streaming support
-    try:
-        # Prefer an explicit is_streaming() declaration made by the format
-        # class itself (anywhere below the BaseIterable default in the MRO)
-        # over heuristics: formats now declare their memory behavior directly.
-        explicit_streaming: bool | None = None
-        for klass in getattr(format_class, "__mro__", ()):
-            if "is_streaming" not in klass.__dict__:
-                continue
-            if klass.__name__ in ("BaseIterable", "BaseFileIterable"):
-                break  # only the base default; fall through to heuristics
-            try:
-                # Declarations are constant (`return True/False`) so the
-                # instance argument is unused.
-                explicit_streaming = bool(klass.__dict__["is_streaming"](None))
-            except Exception:
-                # Instance-dependent declaration (e.g. `return self._streaming`
-                # in JSON/GeoJSON): the format supports streaming for large
-                # files even if small files are loaded eagerly.
-                explicit_streaming = True
-            break
-
-        if explicit_streaming is not None:
-            caps["streaming"] = explicit_streaming
-        else:
-            # Known non-streaming formats (from memory audit)
-            # These formats load entire files into memory
-            KNOWN_NON_STREAMING_FORMATS = {
-                "feed",
-                "rss",
-                "atom",  # Feed formats
-                "arff",  # ARFF format
-                "html",
-                "htm",  # HTML format
-                "hocon",  # HOCON format
-                "edn",  # EDN format
-                "bencode",  # Bencode format
-                "asn1",  # ASN.1 format
-                "ical",
-                "ics",  # iCal format
-                "turtle",
-                "ttl",  # Turtle RDF format
-                "vcf",  # VCF format
-                "mhtml",  # MHTML format
-                "flexbuffers",  # FlexBuffers format
-                "px",  # PC-Axis format
-                "mvt",  # MVT (Mapbox Vector Tile) - single tile per file
-            }
-
-            # Check if format ID is in known non-streaming list
-            # Try to get format ID from static method
-            format_id = None
-            try:
-                if hasattr(format_class, "id") and callable(getattr(format_class, "id", None)):
-                    format_id = format_class.id()
-            except (AttributeError, TypeError):
-                pass
-
-            if format_id and format_id.lower() in KNOWN_NON_STREAMING_FORMATS:
-                caps["streaming"] = False
-            elif hasattr(format_class, "_should_use_streaming") and callable(
-                getattr(format_class, "_should_use_streaming", None)
-            ):
-                # Conditional streaming (large files stream, small files load)
-                caps["streaming"] = True
-            else:
-                # Default: assume streaming for most formats (library emphasizes streaming)
-                # Most formats in IterableData are designed for streaming (row-by-row processing)
-                caps["streaming"] = caps["readable"]
-    except (ImportError, AttributeError, TypeError):
-        caps["streaming"] = None
+    caps["streaming"] = _detect_streaming(format_class, caps["readable"])
 
     # Compression support: most text formats support compression
-    # Binary formats may or may not. We'll be conservative and set to None
-    # unless we can determine otherwise. In practice, most formats work with codecs.
-    try:
-        # Check if format is in TEXT_DATA_TYPES from detect.py (indirect check)
-        # For now, assume compression is supported if format is readable
-        # This is a reasonable default as most formats work with codecs
-        caps["compression"] = caps["readable"]
-    except (ImportError, AttributeError, TypeError):
-        caps["compression"] = None
+    # Binary formats may or may not. In practice, most formats work with codecs,
+    # so compression is assumed supported if the format is readable.
+    caps["compression"] = caps["readable"]
 
     return caps
 

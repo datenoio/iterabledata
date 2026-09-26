@@ -8,24 +8,45 @@ from ..helpers.utils import rowincount
 from ..types import Row
 
 
-def parse_line_protocol(line: str) -> dict:
+def _append_part_char(measurement_part: str, fields_part: str, current_part: str, char: str) -> tuple[str, str]:
+    """Append a character to the active raw part (measurement or fields)."""
+    if current_part == "measurement":
+        return measurement_part + char, fields_part
+    if current_part == "fields":
+        return measurement_part, fields_part + char
+    return measurement_part, fields_part
+
+
+def _handle_space(line: str, i: int, current_part: str) -> tuple[str, str | None, bool]:
+    """Handle a space outside quotes during the character scan.
+
+    Returns (current_part, timestamp_part, consumed):
+    - timestamp_part set means the remaining text is the timestamp; caller breaks
+    - consumed=False means the space itself must be appended to the active part
     """
-    Parse a single InfluxDB Line Protocol line.
+    remaining = line[i + 1 :].strip()
+    if current_part == "measurement":
+        # Check if next part has = (indicating fields)
+        if "=" in remaining:
+            # Next part is fields
+            return "fields", None, True
+        # Might be timestamp or just part of measurement
+        return current_part, None, False
+    # current_part == "fields": check if remaining looks like a timestamp
+    # (all digits, or long without '=')
+    if remaining and (remaining.isdigit() or ("=" not in remaining and len(remaining) > 10)):
+        return current_part, remaining, True
+    # Still part of fields (quoted string with space)
+    return current_part, None, False
 
-    Format: measurement[,tag_key=tag_value[,tag_key=tag_value]]
-    field_key=field_value[,field_key=field_value] [timestamp]
 
-    Returns a dict with keys: measurement, tags (dict), fields (dict), time (optional)
+def _split_line_parts(line: str) -> tuple[str, str, str | None]:
+    """Scan a line into (measurement_part, fields_part, timestamp_part).
+
+    Character-by-character scan honoring double quotes and backslash escapes;
+    escaped characters and quotes are kept verbatim in the raw parts. Parts are
+    stripped before returning.
     """
-    line = line.strip()
-    if not line:
-        raise ValueError("Empty line")
-
-    # Parse ILP line character by character to handle quoted strings properly
-    # Format: measurement[,tags] fields [timestamp]
-    # Tags and fields are separated by space
-    # Fields and timestamp are separated by space
-
     measurement_part = ""
     fields_part = ""
     timestamp_part = None
@@ -40,155 +61,144 @@ def parse_line_protocol(line: str) -> dict:
 
         if escape_next:
             escape_next = False
-            if current_part == "measurement":
-                measurement_part += char
-            elif current_part == "fields":
-                fields_part += char
+            measurement_part, fields_part = _append_part_char(measurement_part, fields_part, current_part, char)
             i += 1
             continue
 
         if char == "\\":
             escape_next = True
-            if current_part == "measurement":
-                measurement_part += char
-            elif current_part == "fields":
-                fields_part += char
+            measurement_part, fields_part = _append_part_char(measurement_part, fields_part, current_part, char)
             i += 1
             continue
 
         if char == '"':
             in_quotes = not in_quotes
-            if current_part == "measurement":
-                measurement_part += char
-            elif current_part == "fields":
-                fields_part += char
+            measurement_part, fields_part = _append_part_char(measurement_part, fields_part, current_part, char)
             i += 1
             continue
 
         if char == " " and not in_quotes:
-            # Space outside quotes - might be a separator
-            if current_part == "measurement":
-                # Check if next part has = (indicating fields)
-                remaining = line[i + 1 :].strip()
-                if "=" in remaining:
-                    # Next part is fields
-                    current_part = "fields"
-                else:
-                    # Might be timestamp or just part of measurement
-                    measurement_part += char
-            elif current_part == "fields":
-                # Check if remaining looks like timestamp (all digits or long)
-                remaining = line[i + 1 :].strip()
-                if remaining and (remaining.isdigit() or ("=" not in remaining and len(remaining) > 10)):
-                    # This is timestamp
-                    timestamp_part = remaining
-                    break
-                else:
-                    # Still part of fields (quoted string with space)
-                    fields_part += char
+            current_part, timestamp_part, consumed = _handle_space(line, i, current_part)
+            if timestamp_part is not None:
+                break
+            if not consumed:
+                measurement_part, fields_part = _append_part_char(measurement_part, fields_part, current_part, char)
             i += 1
             continue
 
         # Regular character
-        if current_part == "measurement":
-            measurement_part += char
-        elif current_part == "fields":
-            fields_part += char
+        measurement_part, fields_part = _append_part_char(measurement_part, fields_part, current_part, char)
         i += 1
 
     # Clean up
-    measurement_part = measurement_part.strip()
-    fields_part = fields_part.strip()
     if timestamp_part:
         timestamp_part = timestamp_part.strip()
+    return measurement_part.strip(), fields_part.strip(), timestamp_part
 
-    # Parse measurement and tags
-    # Tags come after measurement, separated by commas
-    # Format: measurement,tag1=val1,tag2=val2
-    if "," in measurement_part:
-        # Check if there are tags (tags have = signs)
-        comma_pos = measurement_part.find(",")
-        # Check if there's an = sign after the first comma (indicating tags)
-        if "=" in measurement_part[comma_pos + 1 :]:
-            measurement = measurement_part[:comma_pos]
-            tags_str = measurement_part[comma_pos + 1 :]
 
-            tags = {}
-            # Parse tags - split on commas, but handle escaped commas
-            # Use a simple approach: split on comma, then check for escaped commas
-            # For ILP, commas in tag values should be escaped, so we can split on comma
-            tag_parts = tags_str.split(",")
-            for tag_part in tag_parts:
-                if "=" in tag_part:
-                    # Split on first = (tag keys can't contain =)
-                    eq_pos = tag_part.find("=")
-                    if eq_pos > 0:
-                        tag_key = tag_part[:eq_pos]
-                        tag_value = tag_part[eq_pos + 1 :]
-                        tags[tag_key] = unescape_value(tag_value)
-        else:
-            # No tags, comma is part of measurement name
-            measurement = measurement_part
-            tags = {}
-    else:
-        # No tags
-        measurement = measurement_part
-        tags = {}
+def _parse_measurement_and_tags(measurement_part: str) -> tuple[str, dict]:
+    """Split the measurement part into (measurement, tags).
 
-    # Parse fields
+    Tags come after the measurement, separated by commas, and have '=' signs;
+    a comma without a following '=' is part of the measurement name.
+    """
+    if "," not in measurement_part:
+        return measurement_part, {}
+
+    comma_pos = measurement_part.find(",")
+    # Check if there's an = sign after the first comma (indicating tags)
+    if "=" not in measurement_part[comma_pos + 1 :]:
+        # No tags, comma is part of measurement name
+        return measurement_part, {}
+
+    measurement = measurement_part[:comma_pos]
+    tags_str = measurement_part[comma_pos + 1 :]
+
+    tags = {}
+    # Parse tags - split on commas, but handle escaped commas
+    # Use a simple approach: split on comma, then check for escaped commas
+    # For ILP, commas in tag values should be escaped, so we can split on comma
+    for tag_part in tags_str.split(","):
+        if "=" not in tag_part:
+            continue
+        # Split on first = (tag keys can't contain =)
+        eq_pos = tag_part.find("=")
+        if eq_pos > 0:
+            tags[tag_part[:eq_pos]] = unescape_value(tag_part[eq_pos + 1 :])
+    return measurement, tags
+
+
+def _find_closing_quote(fields_part: str, quote_start: int) -> int:
+    """Locate the closing quote of a quoted field value, skipping escaped quotes."""
+    quote_end = quote_start + 1
+    while quote_end < len(fields_part):
+        if fields_part[quote_end] == '"' and (quote_end == quote_start + 1 or fields_part[quote_end - 1] != "\\"):
+            break
+        quote_end += 1
+    return quote_end
+
+
+def _read_field_value(fields_part: str, value_start: int) -> tuple[str, int]:
+    """Read one raw field value starting after '='; returns (raw_value, next_index)."""
+    # Check if value is quoted
+    if value_start < len(fields_part) and fields_part[value_start] == '"':
+        quote_end = _find_closing_quote(fields_part, value_start)
+        field_value = fields_part[value_start : quote_end + 1]
+        # Find next comma after the quoted value
+        next_comma = fields_part.find(",", quote_end + 1)
+        if next_comma == -1:
+            next_comma = len(fields_part)
+        return field_value, next_comma + 1
+
+    # Unquoted value - find next comma
+    next_comma = fields_part.find(",", value_start)
+    if next_comma == -1:
+        return fields_part[value_start:], len(fields_part)
+    return fields_part[value_start:next_comma], next_comma + 1
+
+
+def _parse_fields(fields_part: str) -> dict:
+    """Parse the fields segment into a dict, honoring quoted string values."""
     fields = {}
-    if fields_part:
-        # Parse fields - need to handle quoted strings properly
-        # Fields are separated by commas, but quoted strings can contain commas
-        i = 0
-        while i < len(fields_part):
-            # Find the next = sign
-            eq_pos = fields_part.find("=", i)
-            if eq_pos == -1:
-                break
+    if not fields_part:
+        return fields
 
-            field_key = fields_part[i:eq_pos]
-            field_value_start = eq_pos + 1
+    # Parse fields - need to handle quoted strings properly
+    # Fields are separated by commas, but quoted strings can contain commas
+    i = 0
+    while i < len(fields_part):
+        # Find the next = sign
+        eq_pos = fields_part.find("=", i)
+        if eq_pos == -1:
+            break
 
-            # Check if value is quoted
-            if field_value_start < len(fields_part) and fields_part[field_value_start] == '"':
-                # Find the closing quote (handling escaped quotes)
-                quote_end = field_value_start + 1
-                while quote_end < len(fields_part):
-                    if fields_part[quote_end] == '"' and (
-                        quote_end == field_value_start + 1 or fields_part[quote_end - 1] != "\\"
-                    ):
-                        break
-                    quote_end += 1
+        field_key = fields_part[i:eq_pos]
+        field_value, i = _read_field_value(fields_part, eq_pos + 1)
+        fields[field_key] = parse_field_value(field_value)
+    return fields
 
-                field_value = fields_part[field_value_start : quote_end + 1]
-                # Find next comma after the quoted value
-                next_comma = fields_part.find(",", quote_end + 1)
-                if next_comma == -1:
-                    next_comma = len(fields_part)
-                i = next_comma + 1
-            else:
-                # Unquoted value - find next comma
-                next_comma = fields_part.find(",", field_value_start)
-                if next_comma == -1:
-                    field_value = fields_part[field_value_start:]
-                    i = len(fields_part)
-                else:
-                    field_value = fields_part[field_value_start:next_comma]
-                    i = next_comma + 1
 
-            # Parse field value
-            fields[field_key] = parse_field_value(field_value)
+def parse_line_protocol(line: str) -> dict:
+    """
+    Parse a single InfluxDB Line Protocol line.
 
-    # Parse timestamp
-    time = None
-    if timestamp_part:
-        # Return timestamp as string (as per test expectation)
-        time = str(timestamp_part)
+    Format: measurement[,tag_key=tag_value[,tag_key=tag_value]]
+    field_key=field_value[,field_key=field_value] [timestamp]
+
+    Returns a dict with keys: measurement, tags (dict), fields (dict), time (optional)
+    """
+    line = line.strip()
+    if not line:
+        raise ValueError("Empty line")
+
+    measurement_part, fields_part, timestamp_part = _split_line_parts(line)
+    measurement, tags = _parse_measurement_and_tags(measurement_part)
+    fields = _parse_fields(fields_part)
 
     result = {"measurement": measurement, "tags": tags, "fields": fields}
-    if time is not None:
-        result["time"] = time
+    if timestamp_part:
+        # Return timestamp as string (as per test expectation)
+        result["time"] = str(timestamp_part)
 
     return result
 

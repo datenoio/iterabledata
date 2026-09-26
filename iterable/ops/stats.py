@@ -36,6 +36,153 @@ def default_dict_threshold() -> float:
     return 0.1
 
 
+def _new_field_stats() -> dict[str, Any]:
+    """Initial per-field accumulator."""
+    return {
+        "count": 0,
+        "null_count": 0,
+        "values": [],
+        "numeric_values": [],
+        "rows_seen": 0,
+    }
+
+
+def _accumulate_value(stats: dict[str, Any], value: Any) -> None:
+    """Accumulate a single (non-exploded) value into the field accumulator."""
+    if value is None:
+        stats["null_count"] += 1
+        return
+    stats["count"] += 1
+    stats["values"].append(value)
+
+    # Collect numeric values for statistical computation
+    if isinstance(value, (int, float)):
+        stats["numeric_values"].append(value)
+
+
+def _accumulate_exploded(stats: dict[str, Any], value: list) -> None:
+    """Accumulate each element of a projected scalar list (dotted array path)."""
+    if not value:
+        stats["null_count"] += 1
+        return
+    for item in value:
+        if item is None:
+            stats["null_count"] += 1
+            continue
+        stats["count"] += 1
+        stats["values"].append(item)
+        if isinstance(item, (int, float)):
+            stats["numeric_values"].append(item)
+
+
+def _accumulate_row_fields(
+    field_stats: dict[str, dict[str, Any]],
+    working: Mapping[str, Any],
+    flatten_nested: bool,
+) -> None:
+    """Accumulate every field of one (possibly nested-projected) row."""
+    for field_name, value in working.items():
+        if field_name not in field_stats:
+            field_stats[field_name] = _new_field_stats()
+
+        stats = field_stats[field_name]
+        stats["rows_seen"] += 1
+
+        # Dotted paths under arrays of objects are projected as scalar lists;
+        # count each element so languages.code stats include every language.
+        explode = (
+            flatten_nested
+            and "." in str(field_name)
+            and isinstance(value, list)
+            and (not value or not isinstance(value[0], Mapping))
+        )
+        if explode:
+            _accumulate_exploded(stats, value)
+        else:
+            _accumulate_value(stats, value)
+
+
+def _count_missing_rows_as_null(field_stats: dict[str, dict[str, Any]], row_count: int) -> None:
+    """Rows that omit a nested path never visit the key; treat those as null."""
+    for stats in field_stats.values():
+        missing_rows = row_count - int(stats.get("rows_seen", 0))
+        if missing_rows > 0:
+            stats["null_count"] += missing_rows
+
+
+def _numeric_stats(numeric_values: list) -> dict[str, Any]:
+    """min/max/mean/median/stddev over collected numeric values ({} when none)."""
+    if not numeric_values:
+        return {}
+
+    sorted_numeric = sorted(numeric_values)
+    result: dict[str, Any] = {
+        "min": sorted_numeric[0],
+        "max": sorted_numeric[-1],
+        "mean": sum(numeric_values) / len(numeric_values),
+    }
+
+    # Median
+    n = len(sorted_numeric)
+    if n % 2 == 0:
+        result["median"] = (sorted_numeric[n // 2 - 1] + sorted_numeric[n // 2]) / 2
+    else:
+        result["median"] = sorted_numeric[n // 2]
+
+    # Standard deviation
+    if len(numeric_values) > 1:
+        mean = result["mean"]
+        variance = sum((x - mean) ** 2 for x in numeric_values) / len(numeric_values)
+        result["stddev"] = variance**0.5
+    else:
+        result["stddev"] = 0.0
+    return result
+
+
+def _string_length_stats(values: list) -> dict[str, Any]:
+    """min/max/avg length over the string values ({} when none)."""
+    string_values = [v for v in values if isinstance(v, str)]
+    if not string_values:
+        return {}
+    return {
+        "min_length": min(len(v) for v in string_values),
+        "max_length": max(len(v) for v in string_values),
+        "avg_length": sum(len(v) for v in string_values) / len(string_values),
+    }
+
+
+def _finalize_field(
+    stats: dict[str, Any],
+    threshold: float,
+    include_top_values: bool,
+    top_n: int,
+) -> dict[str, Any]:
+    """Compute the final statistics dict for one accumulated field."""
+    values = stats["values"]
+    numeric_values = stats["numeric_values"]
+
+    non_null = stats["count"]
+    null_count = stats["null_count"]
+    total = non_null + null_count
+    unique_count = len({hashable_repr(v) for v in values})
+
+    field_result: dict[str, Any] = {
+        "count": non_null,
+        "null_count": null_count,
+        "null_fraction": (null_count / total) if total else 0.0,
+        "unique_count": unique_count,
+        "is_dictionary": bool(non_null) and (unique_count / non_null) <= threshold,
+    }
+
+    if include_top_values and values:
+        counter: Counter[Any] = Counter(hashable_key(v) for v in values)
+        field_result["top_values"] = [{"value": value, "count": count} for value, count in counter.most_common(top_n)]
+
+    field_result.update(_numeric_stats(numeric_values))
+    field_result.update(_string_length_stats(values))
+    return field_result
+
+
 def compute(
     iterable: collections.abc.Iterable[Row],
     detect_dates: bool = False,
@@ -104,115 +251,16 @@ def compute(
             )
         else:
             working = row
-        for field_name, value in working.items():
-            if field_name not in field_stats:
-                field_stats[field_name] = {
-                    "count": 0,
-                    "null_count": 0,
-                    "values": [],
-                    "numeric_values": [],
-                    "rows_seen": 0,
-                }
-
-            stats = field_stats[field_name]
-            stats["rows_seen"] += 1
-
-            # Dotted paths under arrays of objects are projected as scalar lists;
-            # count each element so languages.code stats include every language.
-            explode = (
-                flatten_nested
-                and "." in str(field_name)
-                and isinstance(value, list)
-                and (not value or not isinstance(value[0], Mapping))
-            )
-            if explode:
-                if not value:
-                    stats["null_count"] += 1
-                    continue
-                for item in value:
-                    if item is None:
-                        stats["null_count"] += 1
-                        continue
-                    stats["count"] += 1
-                    stats["values"].append(item)
-                    if isinstance(item, (int, float)):
-                        stats["numeric_values"].append(item)
-                continue
-
-            if value is None:
-                stats["null_count"] += 1
-            else:
-                stats["count"] += 1
-                stats["values"].append(value)
-
-                # Collect numeric values for statistical computation
-                if isinstance(value, (int, float)):
-                    stats["numeric_values"].append(value)
+        _accumulate_row_fields(field_stats, working, flatten_nested)
 
     if flatten_nested:
-        # Rows that omit a nested path never visit the key; treat those as null.
-        for stats in field_stats.values():
-            missing_rows = row_count - int(stats.get("rows_seen", 0))
-            if missing_rows > 0:
-                stats["null_count"] += missing_rows
+        _count_missing_rows_as_null(field_stats, row_count)
 
     # Compute final statistics
-    result: dict[str, dict[str, Any]] = {}
-    for field_name, stats in field_stats.items():
-        values = stats["values"]
-        numeric_values = stats["numeric_values"]
-
-        non_null = stats["count"]
-        null_count = stats["null_count"]
-        total = non_null + null_count
-        unique_count = len({hashable_repr(v) for v in values})
-
-        field_result: dict[str, Any] = {
-            "count": non_null,
-            "null_count": null_count,
-            "null_fraction": (null_count / total) if total else 0.0,
-            "unique_count": unique_count,
-            "is_dictionary": bool(non_null) and (unique_count / non_null) <= threshold,
-        }
-
-        if include_top_values and values:
-            counter: Counter[Any] = Counter(hashable_key(v) for v in values)
-            field_result["top_values"] = [
-                {"value": value, "count": count} for value, count in counter.most_common(top_n)
-            ]
-
-        # Numeric statistics
-        if numeric_values:
-            sorted_numeric = sorted(numeric_values)
-            field_result["min"] = sorted_numeric[0]
-            field_result["max"] = sorted_numeric[-1]
-            field_result["mean"] = sum(numeric_values) / len(numeric_values)
-
-            # Median
-            n = len(sorted_numeric)
-            if n % 2 == 0:
-                field_result["median"] = (sorted_numeric[n // 2 - 1] + sorted_numeric[n // 2]) / 2
-            else:
-                field_result["median"] = sorted_numeric[n // 2]
-
-            # Standard deviation
-            if len(numeric_values) > 1:
-                mean = field_result["mean"]
-                variance = sum((x - mean) ** 2 for x in numeric_values) / len(numeric_values)
-                field_result["stddev"] = variance**0.5
-            else:
-                field_result["stddev"] = 0.0
-
-        # String statistics
-        string_values = [v for v in values if isinstance(v, str)]
-        if string_values:
-            field_result["min_length"] = min(len(v) for v in string_values)
-            field_result["max_length"] = max(len(v) for v in string_values)
-            field_result["avg_length"] = sum(len(v) for v in string_values) / len(string_values)
-
-        result[field_name] = field_result
-
-    return result
+    return {
+        field_name: _finalize_field(stats, threshold, include_top_values, top_n)
+        for field_name, stats in field_stats.items()
+    }
 
 
 def frequency(
