@@ -23,6 +23,6 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Run `python -m build`, `twine check`, and `check-wheel-contents` from a clean checkout.
+- [x] 4.1 Run `python -m build`, `twine check`, and `check-wheel-contents` from a clean checkout.
 - [x] 4.2 Verify wheel contents contain only allowed top-level paths.
 - [ ] 4.3 Exercise the consolidated workflow without publication, then complete one approved release.
