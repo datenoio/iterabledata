@@ -11,6 +11,7 @@ from typing import Any
 
 from ..types import Row
 from .base import DBDriver
+from .pooling import pool_enabled, pooled_acquire, pooled_release
 
 # Imported at module level (guarded) so the optional dependency stays optional
 # while remaining patchable as ``iterable.db.elasticsearch.Elasticsearch`` in tests.
@@ -18,6 +19,14 @@ try:
     from elasticsearch import Elasticsearch
 except ImportError:  # pragma: no cover - exercised when dependency is absent
     Elasticsearch = None
+
+
+def _validate_connection(conn: Any) -> bool:
+    """Validate that a pooled Elasticsearch client is still usable."""
+    try:
+        return bool(conn.ping())
+    except Exception:
+        return False
 
 
 class ElasticsearchDriver(DBDriver):
@@ -42,10 +51,20 @@ class ElasticsearchDriver(DBDriver):
                 - timeout: Server-side timeout (string, e.g., "30s", "1m")
                 - connect_args: Additional arguments for Elasticsearch() client
                     (e.g., request_timeout for client-level default timeout)
+                - pool: Pool configuration dict (or bool) with keys:
+                    - enabled: Enable connection pooling (default: False, opt-in)
+                    - min_size: Minimum pool size (default: 1)
+                    - max_size: Maximum pool size (default: 10)
+                    - timeout: Connection acquisition timeout in seconds (default: 30.0)
+                    - max_idle: Maximum idle time in seconds (default: 300.0)
+                  Ignored when `source` is an existing Elasticsearch client object.
         """
         super().__init__(source, **kwargs)
         self._scroll_id: str | None = None
         self._scroll_timeout: str | None = None
+        self._pool: Any = None
+        self._pooled_conn: Any = None
+        self._pooled_created_time: float | None = None
 
     def connect(self) -> None:
         """Establish Elasticsearch connection.
@@ -76,10 +95,29 @@ class ElasticsearchDriver(DBDriver):
         # Extract connection arguments
         connect_args = self.kwargs.get("connect_args", {})
 
+        # Extract pool configuration (opt-in: disabled by default)
+        pool_config = self.kwargs.get("pool", {})
+        use_pool = pool_enabled(pool_config, default=False)
+
         try:
             # Create Elasticsearch client
             # The connection URL can be a single string or list of strings
-            self.conn = Elasticsearch([self.source], **connect_args)
+            if use_pool:
+                # Use connection pool
+                pool_key = f"elasticsearch:{self.source}"
+
+                def factory():
+                    """Factory function to create new Elasticsearch client."""
+                    return Elasticsearch([self.source], **connect_args)
+
+                config_dict = pool_config if isinstance(pool_config, dict) else {}
+                self._pool, self._pooled_conn, self._pooled_created_time = pooled_acquire(
+                    pool_key, factory, config_dict, validate=_validate_connection
+                )
+                self.conn = self._pooled_conn
+            else:
+                # Direct connection (no pooling)
+                self.conn = Elasticsearch([self.source], **connect_args)
             self._connected = True
 
             # Validate index is specified
@@ -216,8 +254,18 @@ class ElasticsearchDriver(DBDriver):
                 pass
             self._scroll_id = None
 
-        # Close connection
-        super().close()
+        # Return client to pool if pooled, otherwise close directly
+        if self._pool is not None and self._pooled_conn is not None and self._pooled_created_time is not None:
+            pooled_release(self._pool, self._pooled_conn, self._pooled_created_time)
+            self._pool = None
+            self._pooled_conn = None
+            self._pooled_created_time = None
+            self.conn = None
+            self._connected = False
+            self._closed = True
+        else:
+            # Direct close (no pooling)
+            super().close()
 
     @staticmethod
     def list_indices(

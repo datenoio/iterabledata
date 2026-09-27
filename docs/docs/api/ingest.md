@@ -26,6 +26,8 @@ Database ingestion operations help you load data into databases:
 - **MongoDB** - NoSQL document database
 - **MySQL** - Popular relational database
 - **Elasticsearch** - Search and analytics engine
+- **ClickHouse** - Columnar OLAP database (insert-only)
+- **Microsoft SQL Server** - Enterprise relational database (insert-only)
 
 ## Functions
 
@@ -51,8 +53,8 @@ print(f"Inserted: {result.rows_inserted} rows")
 - `iterable`: An iterable of row dictionaries, or a file path/stream
 - `db_url`: Database connection URL or file path
 - `table`: Table/collection name
-- `dbtype`: Database type - "postgresql", "mongodb", "duckdb", "mysql", "sqlite", "elasticsearch"
-- `mode`: Ingestion mode - "insert" (default) or "upsert"
+- `dbtype`: Database type - "postgresql", "mongodb", "duckdb", "mysql", "sqlite", "elasticsearch", "clickhouse", "mssql"
+- `mode`: Ingestion mode - "insert" (default) or "upsert". Note: "clickhouse" and "mssql" are insert-only; mode="upsert" raises ValueError for them
 - `upsert_key`: Field name(s) to use for upsert matching (required if mode="upsert")
 - `batch`: Batch size for bulk operations (default: 5000)
 - `create_table`: Whether to auto-create table/collection if it doesn't exist (default: False)
@@ -245,6 +247,48 @@ result = ingest.to_db(
 - Upsert uses document ID matching
 - Connection URL: Elasticsearch server URL
 
+### ClickHouse
+
+- Requires `clickhouse-connect` package
+- Insert-only: `mode="upsert"` raises `ValueError` (ClickHouse has no row-level UPDATE)
+- `create_table=True` creates all columns as `Nullable(String)` under `ENGINE = MergeTree ORDER BY tuple()`
+- Connection URL format: `clickhouse://user:pass@host:port/dbname`
+
+```python
+from iterable import ingest
+
+# Ingest to ClickHouse
+result = ingest.to_db(
+    "events.jsonl",
+    db_url="clickhouse://user:pass@localhost:9000/analytics",
+    table="events",
+    dbtype="clickhouse",
+    create_table=True
+)
+```
+
+### Microsoft SQL Server
+
+- Requires `pyodbc` package (plus an ODBC driver, e.g. ODBC Driver 17/18 for SQL Server)
+- Insert-only: `mode="upsert"` raises `ValueError` (MERGE-based upsert is not implemented)
+- `create_table=True` creates all columns as `NVARCHAR(MAX)`, guarded by an `OBJECT_ID` check
+  (T-SQL has no `CREATE TABLE IF NOT EXISTS`)
+- Connection URL format: `mssql://user:pass@host:port/dbname?driver=ODBC+Driver+17+for+SQL+Server`
+  (`mssql+pyodbc://`, `odbc://`, DSNs, and full pyodbc connection strings also work)
+
+```python
+from iterable import ingest
+
+# Ingest to SQL Server
+result = ingest.to_db(
+    "users.csv",
+    db_url="mssql://user:pass@localhost:1433/mydb",
+    table="dbo.users",
+    dbtype="mssql",
+    create_table=True
+)
+```
+
 ## Error Handling
 
 ```python
@@ -289,6 +333,12 @@ pip install mysql-connector-python
 
 # Elasticsearch
 pip install 'elasticsearch>=8.0'
+
+# ClickHouse
+pip install clickhouse-connect
+
+# Microsoft SQL Server
+pip install pyodbc
 
 # DuckDB (if not already installed)
 pip install duckdb

@@ -11,6 +11,7 @@ from typing import Any
 
 from ..types import Row
 from .base import DBDriver
+from .pooling import pool_enabled, pooled_acquire, pooled_release
 
 # Imported at module level (guarded) so the optional dependency stays optional
 # while remaining patchable as ``iterable.db.mssql.pyodbc`` in tests.
@@ -22,6 +23,17 @@ except ImportError:  # pragma: no cover - exercised when dependency is absent
 
 # Connection-string keys derived from the URL (not overridable via connect_args).
 _RESERVED_CONN_KEYS = ["UID", "PWD", "SERVER", "PORT", "DATABASE", "DRIVER"]
+
+
+def _validate_connection(conn: Any) -> bool:
+    """Validate that a pooled SQL Server connection is still usable."""
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.close()
+        return True
+    except Exception:
+        return False
 
 
 def _build_connection_string(source: str, connect_args: dict[str, Any]) -> str:
@@ -92,10 +104,20 @@ class MSSQLDriver(DBDriver):
                 - columns: List of column names for projection
                 - filter: WHERE clause fragment (e.g., "active = 1")
                 - connect_args: Additional arguments for pyodbc.connect()
+                - pool: Pool configuration dict (or bool) with keys:
+                    - enabled: Enable connection pooling (default: False, opt-in)
+                    - min_size: Minimum pool size (default: 1)
+                    - max_size: Maximum pool size (default: 10)
+                    - timeout: Connection acquisition timeout in seconds (default: 30.0)
+                    - max_idle: Maximum idle time in seconds (default: 300.0)
+                  Ignored when `source` is an existing connection object.
         """
         super().__init__(source, **kwargs)
         self._cursor: Any = None
         self._column_names: list[str] | None = None
+        self._pool: Any = None
+        self._pooled_conn: Any = None
+        self._pooled_created_time: float | None = None
 
     def connect(self) -> None:
         """Establish SQL Server connection.
@@ -119,12 +141,32 @@ class MSSQLDriver(DBDriver):
         if pyodbc is None:
             raise ImportError("pyodbc is required for SQL Server support. Install it with: pip install pyodbc")
 
+        # Extract pool configuration (opt-in: disabled by default)
+        pool_config = self.kwargs.get("pool", {})
+        use_pool = pool_enabled(pool_config, default=False)
+
         # Extract connection arguments
         connect_args = self.kwargs.get("connect_args", {})
 
         try:
             connection_string = _build_connection_string(self.source, connect_args)
-            self.conn = pyodbc.connect(connection_string)
+
+            if use_pool:
+                # Use connection pool
+                pool_key = f"mssql:{self.source}"
+
+                def factory():
+                    """Factory function to create new SQL Server connection."""
+                    return pyodbc.connect(connection_string)
+
+                config_dict = pool_config if isinstance(pool_config, dict) else {}
+                self._pool, self._pooled_conn, self._pooled_created_time = pooled_acquire(
+                    pool_key, factory, config_dict, validate=_validate_connection
+                )
+                self.conn = self._pooled_conn
+            else:
+                # Direct connection (no pooling)
+                self.conn = pyodbc.connect(connection_string)
             self._connected = True
 
         except Exception as e:
@@ -275,8 +317,18 @@ class MSSQLDriver(DBDriver):
                 pass
             self._cursor = None
 
-        # Close connection
-        super().close()
+        # Return connection to pool if pooled, otherwise close directly
+        if self._pool is not None and self._pooled_conn is not None and self._pooled_created_time is not None:
+            pooled_release(self._pool, self._pooled_conn, self._pooled_created_time)
+            self._pool = None
+            self._pooled_conn = None
+            self._pooled_created_time = None
+            self.conn = None
+            self._connected = False
+            self._closed = True
+        else:
+            # Direct close (no pooling)
+            super().close()
 
     @staticmethod
     def list_tables(

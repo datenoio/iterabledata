@@ -586,6 +586,25 @@ iterableargs={
 
 **Note**: ClickHouse doesn't support explicit read-only transactions like PostgreSQL. Instead, queries are validated to ensure they only contain SELECT statements.
 
+#### `pool` (optional)
+
+Connection pooling configuration. Unlike PostgreSQL (pooling on by default), ClickHouse pooling is opt-in:
+
+```python
+iterableargs={
+    "query": "events",
+    "pool": {
+        "enabled": True,      # Enable pooling (default: False)
+        "min_size": 1,        # Minimum pool size (default: 1)
+        "max_size": 10,       # Maximum pool size (default: 10)
+        "timeout": 30.0,      # Connection acquisition timeout in seconds (default: 30.0)
+        "max_idle": 300.0,    # Maximum idle time before client closed (default: 300.0)
+    }
+}
+```
+
+Pooled clients are returned to the shared pool when the iterable is closed. See [Connection Pooling](#connection-pooling) for details.
+
 ### Examples
 
 #### Basic Table Query
@@ -698,11 +717,16 @@ Returns a list of dictionaries with keys:
 
 ## Connection Pooling
 
-Connection pooling is enabled by default for all database engines. It improves performance by reusing database connections across multiple queries to the same database.
+Connection pooling improves performance by reusing database connections across multiple queries to the same database. It uses the shared pooling machinery in `iterable.db.pooling` and is available for the PostgreSQL, MySQL, MongoDB, Elasticsearch, ClickHouse, and Microsoft SQL Server engines.
+
+- **PostgreSQL**: pooling is **enabled by default**; pass `pool={"enabled": False}` to opt out.
+- **MySQL, MSSQL, MongoDB, Elasticsearch, ClickHouse**: pooling is **opt-in** (disabled by default); pass `pool={"enabled": True}` (or `pool=True`) to enable it.
+
+Pooling only applies when the source is a connection string. Passing an existing connection/client object bypasses the pool entirely.
 
 ### Basic Usage
 
-Connection pooling works automatically - no configuration needed:
+For PostgreSQL, connection pooling works automatically - no configuration needed:
 
 ```python
 from iterable import open_iterable
@@ -728,9 +752,23 @@ with open_iterable(
 # Connection returned to pool again
 ```
 
+For the other engines, enable pooling explicitly:
+
+```python
+# MySQL: opt-in pooling
+with open_iterable(
+    "mysql://user:password@localhost/mydb",
+    engine="mysql",
+    iterableargs={"query": "users", "pool": {"enabled": True}}
+) as source:
+    for row in source:
+        process(row)
+# Connection returned to the pool for reuse
+```
+
 ### Custom Pool Configuration
 
-Configure pool size and behavior:
+Configure pool size and behavior (same keys for every engine):
 
 ```python
 with open_iterable(
@@ -739,6 +777,7 @@ with open_iterable(
     iterableargs={
         "query": "users",
         "pool": {
+            "enabled": True,  # Enable pooling (default: True for postgres, False for other engines)
             "min_size": 2,      # Pre-create 2 connections
             "max_size": 20,     # Allow up to 20 connections
             "timeout": 60.0,    # Wait up to 60s for connection

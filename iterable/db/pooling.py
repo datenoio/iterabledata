@@ -239,6 +239,72 @@ def get_pool(
         return _pools[pool_key]
 
 
+def pool_enabled(pool_option: Any, default: bool = False) -> bool:
+    """Interpret the ``pool`` driver kwarg.
+
+    Accepts either a config dict (with an ``enabled`` key) or a plain boolean.
+
+    Args:
+        pool_option: The raw ``pool`` kwarg value (dict, bool, or missing/None)
+        default: Default when ``pool_option`` is a dict without an ``enabled`` key
+
+    Returns:
+        True when pooling should be used
+    """
+    if isinstance(pool_option, dict):
+        return bool(pool_option.get("enabled", default))
+    return bool(pool_option)
+
+
+def pooled_acquire(
+    pool_key: str,
+    factory: Callable[[], Any],
+    pool_config: dict[str, Any],
+    validate: Callable[[Any], bool] | None = None,
+) -> tuple[ConnectionPool, Any, float]:
+    """Get or create a pool from a ``pool`` option dict and acquire a connection.
+
+    Args:
+        pool_key: Unique key identifying the pool (e.g., "mysql:mysql://...")
+        factory: Callable that creates a new connection
+        pool_config: Pool option dict; uses the min_size, max_size, timeout and
+            max_idle keys (same defaults as get_pool)
+        validate: Optional connection validation function
+
+    Returns:
+        Tuple of (pool, connection, created_time); pass these back to pooled_release
+    """
+    pool_cfg = {
+        "min_size": pool_config.get("min_size", 1),
+        "max_size": pool_config.get("max_size", 10),
+        "timeout": pool_config.get("timeout", 30.0),
+        "max_idle": pool_config.get("max_idle", 300.0),
+        "validate": validate,
+    }
+    pool = get_pool(pool_key, factory, pool_cfg)
+    conn, created_time = pool.acquire()
+    return pool, conn, created_time
+
+
+def pooled_release(pool: ConnectionPool, conn: Any, created_time: float) -> None:
+    """Release a pooled connection, closing it directly if release fails.
+
+    Args:
+        pool: Pool the connection was acquired from
+        conn: Connection object to release
+        created_time: Time when connection was created
+    """
+    try:
+        pool.release(conn, created_time)
+    except Exception:
+        # If release fails, try to close the connection directly
+        try:
+            if hasattr(conn, "close"):
+                conn.close()
+        except Exception:
+            pass
+
+
 def close_pool(pool_key: str) -> None:
     """Close a specific connection pool.
 

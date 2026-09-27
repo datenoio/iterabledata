@@ -51,7 +51,8 @@ def to_db(
         iterable: An iterable of row dictionaries, or a file path/stream
         db_url: Database connection URL or file path
         table: Table/collection name
-        dbtype: Database type - "postgresql", "mongodb", "duckdb", "mysql", "sqlite", "elasticsearch"
+        dbtype: Database type - "postgresql", "mongodb", "duckdb", "mysql", "sqlite", "elasticsearch",
+            "clickhouse", "mssql"
         mode: Ingestion mode - "insert" or "upsert" (default: "insert")
         upsert_key: Field name(s) to use for upsert matching (required if mode="upsert")
         batch: Batch size for bulk operations (default: 5000)
@@ -102,5 +103,13 @@ def to_db(
         from . import elasticsearch
 
         return elasticsearch.ingest(iterable, db_url, table, mode, upsert_key, batch, create_table, progress)
+    elif dbtype == "clickhouse":
+        from . import clickhouse
+
+        return clickhouse.ingest(iterable, db_url, table, mode, upsert_key, batch, create_table, progress)
+    elif dbtype == "mssql":
+        from . import mssql
+
+        return mssql.ingest(iterable, db_url, table, mode, upsert_key, batch, create_table, progress)
     else:
         raise ValueError(f"Unsupported database type: {dbtype}")

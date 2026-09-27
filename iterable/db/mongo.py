@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 
 from ..types import Row
 from .base import DBDriver
+from .pooling import pool_enabled, pooled_acquire, pooled_release
 
 # Imported at module level (guarded) so the optional dependency stays optional
 # while remaining patchable as ``iterable.db.mongo.MongoClient`` in tests.
@@ -19,6 +20,15 @@ try:
     from pymongo import MongoClient
 except ImportError:  # pragma: no cover - exercised when dependency is absent
     MongoClient = None
+
+
+def _validate_connection(conn: Any) -> bool:
+    """Validate that a pooled MongoDB client is still usable."""
+    try:
+        conn.admin.command("ping")
+        return True
+    except Exception:
+        return False
 
 
 class MongoDriver(DBDriver):
@@ -44,11 +54,23 @@ class MongoDriver(DBDriver):
                 - pipeline: Aggregation pipeline (alternative to filter)
                 - batch_size: Number of documents per batch (default: 10000)
                 - connect_args: Additional arguments for pymongo.MongoClient()
+                - pool: Pool configuration dict (or bool) with keys:
+                    - enabled: Enable connection pooling (default: False, opt-in)
+                    - min_size: Minimum pool size (default: 1)
+                    - max_size: Maximum pool size (default: 10)
+                    - timeout: Connection acquisition timeout in seconds (default: 30.0)
+                    - max_idle: Maximum idle time in seconds (default: 300.0)
+                  Ignored when `source` is an existing MongoClient object. Note that
+                  pymongo's MongoClient already maintains an internal connection pool;
+                  this option pools whole client objects.
         """
         super().__init__(source, **kwargs)
         self._cursor: Any = None
         self._database: Any = None
         self._collection: Any = None
+        self._pool: Any = None
+        self._pooled_conn: Any = None
+        self._pooled_created_time: float | None = None
 
     def connect(self) -> None:
         """Establish MongoDB connection.
@@ -77,6 +99,10 @@ class MongoDriver(DBDriver):
         # Extract connection arguments
         connect_args = self.kwargs.get("connect_args", {})
 
+        # Extract pool configuration (opt-in: disabled by default)
+        pool_config = self.kwargs.get("pool", {})
+        use_pool = pool_enabled(pool_config, default=False)
+
         try:
             # Parse connection string to extract database name if present
             parsed = urlparse(self.source)
@@ -85,8 +111,21 @@ class MongoDriver(DBDriver):
             # Get database name from kwargs or connection string
             database = self.kwargs.get("database") or db_name_from_url
 
-            # Create MongoDB client
-            self.conn = MongoClient(self.source, **connect_args)
+            # Create MongoDB client (pooled or direct)
+            if use_pool:
+                pool_key = f"mongo:{self.source}"
+
+                def factory():
+                    """Factory function to create new MongoDB client."""
+                    return MongoClient(self.source, **connect_args)
+
+                config_dict = pool_config if isinstance(pool_config, dict) else {}
+                self._pool, self._pooled_conn, self._pooled_created_time = pooled_acquire(
+                    pool_key, factory, config_dict, validate=_validate_connection
+                )
+                self.conn = self._pooled_conn
+            else:
+                self.conn = MongoClient(self.source, **connect_args)
             self._connected = True
 
             # Get database and collection
@@ -289,8 +328,18 @@ class MongoDriver(DBDriver):
                 pass
             self._cursor = None
 
-        # Close connection
-        super().close()
+        # Return client to pool if pooled, otherwise close directly
+        if self._pool is not None and self._pooled_conn is not None and self._pooled_created_time is not None:
+            pooled_release(self._pool, self._pooled_conn, self._pooled_created_time)
+            self._pool = None
+            self._pooled_conn = None
+            self._pooled_created_time = None
+            self.conn = None
+            self._connected = False
+            self._closed = True
+        else:
+            # Direct close (no pooling)
+            super().close()
 
     @staticmethod
     def list_collections(

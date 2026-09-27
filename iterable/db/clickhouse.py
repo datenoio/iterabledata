@@ -12,6 +12,7 @@ from typing import Any
 
 from ..types import Row
 from .base import DBDriver
+from .pooling import pool_enabled, pooled_acquire, pooled_release
 
 # Imported at module level (guarded) so the optional dependency stays optional
 # while remaining patchable as ``iterable.db.clickhouse.clickhouse_connect`` in tests.
@@ -19,6 +20,14 @@ try:
     import clickhouse_connect
 except ImportError:  # pragma: no cover - exercised when dependency is absent
     clickhouse_connect = None
+
+
+def _validate_connection(conn: Any) -> bool:
+    """Validate that a pooled ClickHouse client is still usable."""
+    try:
+        return bool(conn.ping())
+    except Exception:
+        return False
 
 
 class ClickHouseDriver(DBDriver):
@@ -44,9 +53,19 @@ class ClickHouseDriver(DBDriver):
                 - settings: ClickHouse query settings dict (e.g., {"max_threads": 4})
                 - format: Result format ("native" or "JSONEachRow", default: "native")
                 - connect_args: Additional arguments for clickhouse_connect.get_client()
+                - pool: Pool configuration dict (or bool) with keys:
+                    - enabled: Enable connection pooling (default: False, opt-in)
+                    - min_size: Minimum pool size (default: 1)
+                    - max_size: Maximum pool size (default: 10)
+                    - timeout: Connection acquisition timeout in seconds (default: 30.0)
+                    - max_idle: Maximum idle time in seconds (default: 300.0)
+                  Ignored when `source` is an existing client object.
         """
         super().__init__(source, **kwargs)
         self._column_names: list[str] | None = None
+        self._pool: Any = None
+        self._pooled_conn: Any = None
+        self._pooled_created_time: float | None = None
 
     def connect(self) -> None:
         """Establish ClickHouse connection.
@@ -70,6 +89,10 @@ class ClickHouseDriver(DBDriver):
                 "clickhouse-connect is required for ClickHouse support. Install it with: pip install clickhouse-connect"
             )
 
+        # Extract pool configuration (opt-in: disabled by default)
+        pool_config = self.kwargs.get("pool", {})
+        use_pool = pool_enabled(pool_config, default=False)
+
         # Extract connection arguments
         connect_args = self.kwargs.get("connect_args", {})
 
@@ -77,7 +100,22 @@ class ClickHouseDriver(DBDriver):
             # Parse connection string
             # clickhouse://user:pass@host:port/database
             # clickhouse-connect can parse this format
-            self.conn = clickhouse_connect.get_client(url=self.source, **connect_args)
+            if use_pool:
+                # Use connection pool
+                pool_key = f"clickhouse:{self.source}"
+
+                def factory():
+                    """Factory function to create new ClickHouse client."""
+                    return clickhouse_connect.get_client(url=self.source, **connect_args)
+
+                config_dict = pool_config if isinstance(pool_config, dict) else {}
+                self._pool, self._pooled_conn, self._pooled_created_time = pooled_acquire(
+                    pool_key, factory, config_dict, validate=_validate_connection
+                )
+                self.conn = self._pooled_conn
+            else:
+                # Direct connection (no pooling)
+                self.conn = clickhouse_connect.get_client(url=self.source, **connect_args)
             self._connected = True
         except Exception as e:
             self._connected = False
@@ -292,8 +330,18 @@ class ClickHouseDriver(DBDriver):
 
     def close(self) -> None:
         """Close ClickHouse connection and clean up resources."""
-        # Close connection
-        super().close()
+        # Return connection to pool if pooled, otherwise close directly
+        if self._pool is not None and self._pooled_conn is not None and self._pooled_created_time is not None:
+            pooled_release(self._pool, self._pooled_conn, self._pooled_created_time)
+            self._pool = None
+            self._pooled_conn = None
+            self._pooled_created_time = None
+            self.conn = None
+            self._connected = False
+            self._closed = True
+        else:
+            # Direct close (no pooling)
+            super().close()
 
     @staticmethod
     def list_tables(

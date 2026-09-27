@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Database ingest parity and pooling rollout** (OpenSpec `add-db-ingest-parity`): ClickHouse
+  and MSSQL gain ingest backends, so every database read driver now has a matching ingest path
+  through `ingest.to_db()` (`dbtype="clickhouse"` / `dbtype="mssql"`). Both are insert-only
+  (`mode="upsert"` raises a clear `ValueError`); `create_table=True` creates `Nullable(String)`
+  columns under `ENGINE = MergeTree ORDER BY tuple()` on ClickHouse and `NVARCHAR(MAX)` columns
+  behind an `OBJECT_ID` guard on MSSQL. Connection pooling (`iterable.db.pooling`) is now wired
+  into the mysql, mssql, mongo, clickhouse, and elasticsearch read drivers behind the opt-in
+  `pool={"enabled": True}` driver kwarg (postgres behavior unchanged: on by default); pooled
+  connections are acquired on `connect()` and released back on `close()`. Mocked-client tests
+  cover the new ingest backends and per-driver pool reuse/teardown; docker-gated
+  ingest→read round-trip tests live behind the `integration` marker.
 - **Genuine async iteration** (OpenSpec `add-genuine-async-iteration`): `aopen_iterable()` now
   offloads detection/open to a worker thread via `asyncio.to_thread()` (previously it blocked
   the event loop on a synchronous `open_iterable()` call) and is exported from the package root

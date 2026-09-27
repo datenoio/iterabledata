@@ -18,9 +18,12 @@ import iterable.db.mongo as mongo_mod
 import iterable.db.mssql as mssql_mod
 import iterable.db.mysql as mysql_mod
 import iterable.db.postgres as postgres_mod
+import iterable.ingest.clickhouse as clickhouse_ingest_mod
+import iterable.ingest.mssql as mssql_ingest_mod
 from iterable.db import get_driver, is_database_engine, list_drivers, register_driver
 from iterable.db.base import DBDriver
 from iterable.db.iterable import DatabaseIterable
+from iterable.db.pooling import close_all_pools, get_pool_stats
 from iterable.db.postgres import PostgresDriver
 
 try:
@@ -1831,3 +1834,587 @@ class TestElasticsearchDriver:
             rows = list(driver.iterate())
             assert len(rows) == 1
             assert rows[0] == {"id": 1, "name": "Alice"}
+
+
+class TestClickHouseIngest:
+    """Test ClickHouse ingest backend (mocked clickhouse-connect client)."""
+
+    def test_insert_batches(self):
+        """Test batched inserts via client.insert()."""
+        with patch.object(clickhouse_ingest_mod, "clickhouse_connect") as mock_ch:
+            client = MagicMock()
+            mock_ch.get_client.return_value = client
+
+            rows = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+            result = clickhouse_ingest_mod.ingest(rows, "clickhouse://u:p@h:9000/db", "events", batch=1)
+
+            assert result.rows_processed == 2
+            assert result.rows_inserted == 2
+            assert result.errors == []
+            mock_ch.get_client.assert_called_once_with(url="clickhouse://u:p@h:9000/db")
+            assert client.insert.call_count == 2
+            client.insert.assert_any_call("`events`", [[1, "Alice"]], column_names=["`id`", "`name`"])
+            client.insert.assert_any_call("`events`", [[2, "Bob"]], column_names=["`id`", "`name`"])
+            client.close.assert_called_once()
+
+    def test_create_table(self):
+        """Test auto-create emits a MergeTree table with Nullable(String) columns."""
+        with patch.object(clickhouse_ingest_mod, "clickhouse_connect") as mock_ch:
+            client = MagicMock()
+            mock_ch.get_client.return_value = client
+
+            result = clickhouse_ingest_mod.ingest([{"id": 1}], "clickhouse://h/db", "events", create_table=True)
+
+            assert result.errors == []
+            create_sql = client.command.call_args[0][0]
+            assert create_sql == (
+                "CREATE TABLE IF NOT EXISTS `events` (`id` Nullable(String)) ENGINE = MergeTree ORDER BY tuple()"
+            )
+
+    def test_create_table_database_qualified(self):
+        """Test database-qualified table names are quoted per part."""
+        with patch.object(clickhouse_ingest_mod, "clickhouse_connect") as mock_ch:
+            client = MagicMock()
+            mock_ch.get_client.return_value = client
+
+            result = clickhouse_ingest_mod.ingest(
+                [{"id": 1}], "clickhouse://h/db", "analytics.events", create_table=True
+            )
+
+            assert result.errors == []
+            create_sql = client.command.call_args[0][0]
+            assert "CREATE TABLE IF NOT EXISTS `analytics`.`events`" in create_sql
+            client.insert.assert_called_once_with("`analytics`.`events`", [[1]], column_names=["`id`"])
+
+    def test_upsert_not_supported(self):
+        """Test mode='upsert' raises a clear ValueError (ClickHouse has no row-level UPDATE)."""
+        with pytest.raises(ValueError, match="does not support mode='upsert'"):
+            clickhouse_ingest_mod.ingest([{"id": 1}], "clickhouse://h/db", "events", mode="upsert", upsert_key="id")
+
+    def test_import_error(self):
+        """Test ImportError when clickhouse-connect is not installed."""
+        with patch.object(clickhouse_ingest_mod, "clickhouse_connect", None):
+            with pytest.raises(ImportError, match="clickhouse-connect is required"):
+                clickhouse_ingest_mod.ingest([{"id": 1}], "clickhouse://h/db", "events")
+
+    def test_empty_iterable(self):
+        """Test empty iterable short-circuits without inserts."""
+        with patch.object(clickhouse_ingest_mod, "clickhouse_connect") as mock_ch:
+            client = MagicMock()
+            mock_ch.get_client.return_value = client
+
+            result = clickhouse_ingest_mod.ingest([], "clickhouse://h/db", "events")
+
+            assert result.rows_processed == 0
+            assert result.rows_inserted == 0
+            client.insert.assert_not_called()
+            client.close.assert_called_once()
+
+    def test_insert_error_captured(self):
+        """Test insert failures land in result.errors."""
+        with patch.object(clickhouse_ingest_mod, "clickhouse_connect") as mock_ch:
+            client = MagicMock()
+            client.insert.side_effect = Exception("insert failed")
+            mock_ch.get_client.return_value = client
+
+            result = clickhouse_ingest_mod.ingest([{"id": 1}], "clickhouse://h/db", "events")
+
+            assert len(result.errors) == 1
+            assert "insert failed" in result.errors[0]
+
+    def test_progress_callback(self):
+        """Test progress callback fires per flushed batch."""
+        with patch.object(clickhouse_ingest_mod, "clickhouse_connect") as mock_ch:
+            client = MagicMock()
+            mock_ch.get_client.return_value = client
+
+            calls = []
+            result = clickhouse_ingest_mod.ingest(
+                [{"id": i} for i in range(3)], "clickhouse://h/db", "events", batch=2, progress=calls.append
+            )
+
+            assert result.rows_processed == 3
+            assert calls == [{"rows_processed": 2, "rows_inserted": 2}]
+
+    def test_to_db_routes_clickhouse(self):
+        """Test to_db() routes dbtype='clickhouse' to the ClickHouse ingestor."""
+        with patch.object(clickhouse_ingest_mod, "ingest") as mock_ingest:
+            from iterable.ingest import to_db
+
+            to_db([{"a": 1}], db_url="clickhouse://h/db", table="t", dbtype="clickhouse")
+
+            mock_ingest.assert_called_once()
+
+
+class TestMSSQLIngest:
+    """Test MSSQL ingest backend (mocked pyodbc connection)."""
+
+    def test_insert(self):
+        """Test inserts use executemany with ? placeholders and bracket quoting."""
+        with patch.object(mssql_ingest_mod, "pyodbc") as mock_pyodbc:
+            conn = MagicMock()
+            mock_pyodbc.connect.return_value = conn
+            cursor = conn.cursor.return_value
+
+            rows = [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+            result = mssql_ingest_mod.ingest(rows, "mssql://u:p@h:1433/db", "users")
+
+            assert result.rows_processed == 2
+            assert result.rows_inserted == 2
+            assert result.errors == []
+            cursor.executemany.assert_called_once_with(
+                "INSERT INTO [users] ([id], [name]) VALUES (?, ?)", [[1, "Alice"], [2, "Bob"]]
+            )
+            conn.commit.assert_called()
+            cursor.close.assert_called_once()
+            conn.close.assert_called_once()
+
+    def test_connection_string_from_url(self):
+        """Test the URL is translated into a pyodbc connection string."""
+        with patch.object(mssql_ingest_mod, "pyodbc") as mock_pyodbc:
+            conn = MagicMock()
+            mock_pyodbc.connect.return_value = conn
+
+            mssql_ingest_mod.ingest([{"id": 1}], "mssql://u:p@h:1433/db", "users")
+
+            conn_str = mock_pyodbc.connect.call_args[0][0]
+            assert "UID=u" in conn_str
+            assert "PWD=p" in conn_str
+            assert "SERVER=h" in conn_str
+            assert "PORT=1433" in conn_str
+            assert "DATABASE=db" in conn_str
+            assert "DRIVER={ODBC Driver 17 for SQL Server}" in conn_str
+
+    def test_create_table(self):
+        """Test auto-create guards on OBJECT_ID (T-SQL has no CREATE TABLE IF NOT EXISTS)."""
+        with patch.object(mssql_ingest_mod, "pyodbc") as mock_pyodbc:
+            conn = MagicMock()
+            mock_pyodbc.connect.return_value = conn
+            cursor = conn.cursor.return_value
+
+            result = mssql_ingest_mod.ingest([{"id": 1}], "mssql://u:p@h/db", "dbo.users", create_table=True)
+
+            assert result.errors == []
+            create_sql = cursor.execute.call_args[0][0]
+            assert create_sql == (
+                "IF OBJECT_ID(N'dbo.users', N'U') IS NULL CREATE TABLE [dbo].[users] ([id] NVARCHAR(MAX))"
+            )
+            cursor.executemany.assert_called_once_with("INSERT INTO [dbo].[users] ([id]) VALUES (?)", [[1]])
+
+    def test_upsert_not_supported(self):
+        """Test mode='upsert' raises a clear ValueError (MERGE-based upsert not implemented)."""
+        with pytest.raises(ValueError, match="does not support mode='upsert'"):
+            mssql_ingest_mod.ingest([{"id": 1}], "mssql://u:p@h/db", "users", mode="upsert", upsert_key="id")
+
+    def test_import_error(self):
+        """Test ImportError when pyodbc is not installed."""
+        with patch.object(mssql_ingest_mod, "pyodbc", None):
+            with pytest.raises(ImportError, match="pyodbc is required"):
+                mssql_ingest_mod.ingest([{"id": 1}], "mssql://u:p@h/db", "users")
+
+    def test_empty_iterable(self):
+        """Test empty iterable short-circuits without inserts."""
+        with patch.object(mssql_ingest_mod, "pyodbc") as mock_pyodbc:
+            conn = MagicMock()
+            mock_pyodbc.connect.return_value = conn
+            cursor = conn.cursor.return_value
+
+            result = mssql_ingest_mod.ingest([], "mssql://u:p@h/db", "users")
+
+            assert result.rows_processed == 0
+            assert result.rows_inserted == 0
+            cursor.executemany.assert_not_called()
+            conn.close.assert_called_once()
+
+    def test_insert_error_captured(self):
+        """Test insert failures land in result.errors."""
+        with patch.object(mssql_ingest_mod, "pyodbc") as mock_pyodbc:
+            conn = MagicMock()
+            mock_pyodbc.connect.return_value = conn
+            cursor = conn.cursor.return_value
+            cursor.executemany.side_effect = Exception("insert failed")
+
+            result = mssql_ingest_mod.ingest([{"id": 1}], "mssql://u:p@h/db", "users")
+
+            assert len(result.errors) == 1
+            assert "insert failed" in result.errors[0]
+
+    def test_to_db_routes_mssql(self):
+        """Test to_db() routes dbtype='mssql' to the MSSQL ingestor."""
+        with patch.object(mssql_ingest_mod, "ingest") as mock_ingest:
+            from iterable.ingest import to_db
+
+            to_db([{"a": 1}], db_url="mssql://u:p@h/db", table="t", dbtype="mssql")
+
+            mock_ingest.assert_called_once()
+
+
+class TestMySQLPooling:
+    """Test MySQL driver connection pooling (mocked pymysql, real pool machinery)."""
+
+    @pytest.fixture(autouse=True)
+    def _cleanup_pools(self):
+        # Clean before and after: other tests (e.g. postgres, pooled by default)
+        # may leave entries in the global pool registry.
+        close_all_pools()
+        yield
+        close_all_pools()
+
+    def test_pooling_disabled_by_default(self):
+        """Test pooling is opt-in: direct connection is closed on close()."""
+        with patch.object(mysql_mod, "pymysql") as mock_pymysql:
+            conn = MagicMock()
+            mock_pymysql.connect.return_value = conn
+
+            driver = MySQLDriver("mysql://u:p@h/db", query="t")
+            driver.connect()
+            assert driver.conn is conn
+            driver.close()
+
+            conn.close.assert_called_once()
+            assert get_pool_stats() == {}
+
+    def test_pool_reuses_connection(self):
+        """Test a released connection is reused by the next driver for the same source."""
+        with patch.object(mysql_mod, "pymysql") as mock_pymysql:
+            mock_pymysql.connect.side_effect = lambda **kwargs: MagicMock()
+            url = "mysql://u:p@pool-host/db"
+
+            first = MySQLDriver(url, query="t", pool={"enabled": True})
+            first.connect()
+            pooled_conn = first.conn
+            first.close()
+            # Released back to the pool, not closed directly
+            pooled_conn.close.assert_not_called()
+
+            second = MySQLDriver(url, query="t", pool={"enabled": True})
+            second.connect()
+            assert second.conn is pooled_conn
+            assert mock_pymysql.connect.call_count == 1
+            second.close()
+
+    def test_pool_teardown_closes_connections(self):
+        """Test close_all_pools() closes pooled connections after release."""
+        with patch.object(mysql_mod, "pymysql") as mock_pymysql:
+            mock_pymysql.connect.side_effect = lambda **kwargs: MagicMock()
+            url = "mysql://u:p@pool-host/db"
+
+            driver = MySQLDriver(url, query="t", pool={"enabled": True})
+            driver.connect()
+            conn = driver.conn
+            driver.close()
+            conn.close.assert_not_called()
+
+            close_all_pools()
+            conn.close.assert_called_once()
+            assert get_pool_stats() == {}
+
+    def test_pool_bypassed_for_connection_objects(self):
+        """Test existing connection objects never touch the pool."""
+        conn = MagicMock()
+        conn.cursor = MagicMock()
+        conn.close = MagicMock()
+
+        driver = MySQLDriver(conn, query="t", pool={"enabled": True})
+        driver.connect()
+
+        assert driver.conn is conn
+        assert get_pool_stats() == {}
+
+
+class TestMSSQLPooling:
+    """Test MSSQL driver connection pooling (mocked pyodbc, real pool machinery)."""
+
+    @pytest.fixture(autouse=True)
+    def _cleanup_pools(self):
+        # Clean before and after: other tests (e.g. postgres, pooled by default)
+        # may leave entries in the global pool registry.
+        close_all_pools()
+        yield
+        close_all_pools()
+
+    def test_pooling_disabled_by_default(self):
+        """Test pooling is opt-in: direct connection is closed on close()."""
+        with patch.object(mssql_mod, "pyodbc") as mock_pyodbc:
+            conn = MagicMock()
+            mock_pyodbc.connect.return_value = conn
+
+            driver = MSSQLDriver("mssql://u:p@h/db", query="t")
+            driver.connect()
+            assert driver.conn is conn
+            driver.close()
+
+            conn.close.assert_called_once()
+            assert get_pool_stats() == {}
+
+    def test_pool_reuses_connection(self):
+        """Test a released connection is reused by the next driver for the same source."""
+        with patch.object(mssql_mod, "pyodbc") as mock_pyodbc:
+            mock_pyodbc.connect.side_effect = lambda *args, **kwargs: MagicMock()
+            url = "mssql://u:p@pool-host/db"
+
+            first = MSSQLDriver(url, query="t", pool={"enabled": True})
+            first.connect()
+            pooled_conn = first.conn
+            first.close()
+            pooled_conn.close.assert_not_called()
+
+            second = MSSQLDriver(url, query="t", pool={"enabled": True})
+            second.connect()
+            assert second.conn is pooled_conn
+            assert mock_pyodbc.connect.call_count == 1
+            second.close()
+
+    def test_pool_teardown_closes_connections(self):
+        """Test close_all_pools() closes pooled connections after release."""
+        with patch.object(mssql_mod, "pyodbc") as mock_pyodbc:
+            mock_pyodbc.connect.side_effect = lambda *args, **kwargs: MagicMock()
+            url = "mssql://u:p@pool-host/db"
+
+            driver = MSSQLDriver(url, query="t", pool={"enabled": True})
+            driver.connect()
+            conn = driver.conn
+            driver.close()
+            conn.close.assert_not_called()
+
+            close_all_pools()
+            conn.close.assert_called_once()
+
+    def test_pool_bypassed_for_connection_objects(self):
+        """Test existing connection objects never touch the pool."""
+        conn = MagicMock()
+        conn.cursor = MagicMock()
+        conn.close = MagicMock()
+
+        driver = MSSQLDriver(conn, query="t", pool={"enabled": True})
+        driver.connect()
+
+        assert driver.conn is conn
+        assert get_pool_stats() == {}
+
+
+@pytest.mark.skipif(ClickHouseDriver is None, reason="clickhouse-connect not installed")
+class TestClickHousePooling:
+    """Test ClickHouse driver connection pooling (mocked clickhouse-connect, real pool machinery)."""
+
+    @pytest.fixture(autouse=True)
+    def _cleanup_pools(self):
+        # Clean before and after: other tests (e.g. postgres, pooled by default)
+        # may leave entries in the global pool registry.
+        close_all_pools()
+        yield
+        close_all_pools()
+
+    def test_pooling_disabled_by_default(self):
+        """Test pooling is opt-in: direct client is closed on close()."""
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
+            client = MagicMock()
+            mock_ch.get_client.return_value = client
+
+            driver = ClickHouseDriver("clickhouse://h/db", query="t")
+            driver.connect()
+            assert driver.conn is client
+            driver.close()
+
+            client.close.assert_called_once()
+            assert get_pool_stats() == {}
+
+    def test_pool_reuses_connection(self):
+        """Test a released client is reused by the next driver for the same source."""
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
+            mock_ch.get_client.side_effect = lambda **kwargs: MagicMock()
+            url = "clickhouse://pool-host/db"
+
+            first = ClickHouseDriver(url, query="t", pool={"enabled": True})
+            first.connect()
+            pooled_client = first.conn
+            first.close()
+            pooled_client.close.assert_not_called()
+
+            second = ClickHouseDriver(url, query="t", pool={"enabled": True})
+            second.connect()
+            assert second.conn is pooled_client
+            assert mock_ch.get_client.call_count == 1
+            second.close()
+
+    def test_pool_accepts_plain_bool(self):
+        """Test pool=True enables pooling without a config dict."""
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
+            mock_ch.get_client.side_effect = lambda **kwargs: MagicMock()
+            url = "clickhouse://pool-host/db"
+
+            first = ClickHouseDriver(url, query="t", pool=True)
+            first.connect()
+            pooled_client = first.conn
+            first.close()
+            pooled_client.close.assert_not_called()
+            assert "clickhouse:clickhouse://pool-host/db" in get_pool_stats()
+
+    def test_pool_teardown_closes_connections(self):
+        """Test close_all_pools() closes pooled clients after release."""
+        with patch.object(clickhouse_mod, "clickhouse_connect") as mock_ch:
+            mock_ch.get_client.side_effect = lambda **kwargs: MagicMock()
+            url = "clickhouse://pool-host/db"
+
+            driver = ClickHouseDriver(url, query="t", pool={"enabled": True})
+            driver.connect()
+            client = driver.conn
+            driver.close()
+            client.close.assert_not_called()
+
+            close_all_pools()
+            client.close.assert_called_once()
+
+    def test_pool_bypassed_for_client_objects(self):
+        """Test existing client objects never touch the pool."""
+        client = MagicMock()
+        client.query = MagicMock()
+        client.close = MagicMock()
+
+        driver = ClickHouseDriver(client, query="t", pool={"enabled": True})
+        driver.connect()
+
+        assert driver.conn is client
+        assert get_pool_stats() == {}
+
+
+class TestMongoPooling:
+    """Test MongoDB driver connection pooling (mocked MongoClient, real pool machinery)."""
+
+    @pytest.fixture(autouse=True)
+    def _cleanup_pools(self):
+        # Clean before and after: other tests (e.g. postgres, pooled by default)
+        # may leave entries in the global pool registry.
+        close_all_pools()
+        yield
+        close_all_pools()
+
+    def test_pooling_disabled_by_default(self):
+        """Test pooling is opt-in: direct client is closed on close()."""
+        with patch.object(mongo_mod, "MongoClient") as mock_client:
+            client = MagicMock()
+            mock_client.return_value = client
+
+            driver = MongoDriver("mongodb://h:27017", database="d", collection="c")
+            driver.connect()
+            assert driver.conn is client
+            driver.close()
+
+            client.close.assert_called_once()
+            assert get_pool_stats() == {}
+
+    def test_pool_reuses_connection(self):
+        """Test a released client is reused by the next driver for the same source."""
+        with patch.object(mongo_mod, "MongoClient") as mock_client:
+            mock_client.side_effect = lambda *args, **kwargs: MagicMock()
+            url = "mongodb://pool-host:27017"
+
+            first = MongoDriver(url, database="d", collection="c", pool={"enabled": True})
+            first.connect()
+            pooled_client = first.conn
+            first.close()
+            pooled_client.close.assert_not_called()
+
+            second = MongoDriver(url, database="d", collection="c", pool={"enabled": True})
+            second.connect()
+            assert second.conn is pooled_client
+            assert mock_client.call_count == 1
+            second.close()
+
+    def test_pool_teardown_closes_connections(self):
+        """Test close_all_pools() closes pooled clients after release."""
+        with patch.object(mongo_mod, "MongoClient") as mock_client:
+            mock_client.side_effect = lambda *args, **kwargs: MagicMock()
+            url = "mongodb://pool-host:27017"
+
+            driver = MongoDriver(url, database="d", collection="c", pool={"enabled": True})
+            driver.connect()
+            client = driver.conn
+            driver.close()
+            client.close.assert_not_called()
+
+            close_all_pools()
+            client.close.assert_called_once()
+
+    def test_pool_bypassed_for_client_objects(self):
+        """Test existing MongoClient objects never touch the pool."""
+        client = MagicMock()
+        client.list_database_names = MagicMock()
+        client.close = MagicMock()
+
+        driver = MongoDriver(client, database="d", collection="c", pool={"enabled": True})
+        driver.connect()
+
+        assert driver.conn is client
+        assert get_pool_stats() == {}
+
+
+class TestElasticsearchPooling:
+    """Test Elasticsearch driver connection pooling (mocked Elasticsearch, real pool machinery)."""
+
+    @pytest.fixture(autouse=True)
+    def _cleanup_pools(self):
+        # Clean before and after: other tests (e.g. postgres, pooled by default)
+        # may leave entries in the global pool registry.
+        close_all_pools()
+        yield
+        close_all_pools()
+
+    def test_pooling_disabled_by_default(self):
+        """Test pooling is opt-in: direct client is closed on close()."""
+        with patch.object(elasticsearch_mod, "Elasticsearch") as mock_es:
+            client = MagicMock()
+            mock_es.return_value = client
+
+            driver = ElasticsearchDriver("http://h:9200", index="idx")
+            driver.connect()
+            assert driver.conn is client
+            driver.close()
+
+            client.close.assert_called_once()
+            assert get_pool_stats() == {}
+
+    def test_pool_reuses_connection(self):
+        """Test a released client is reused by the next driver for the same source."""
+        with patch.object(elasticsearch_mod, "Elasticsearch") as mock_es:
+            mock_es.side_effect = lambda *args, **kwargs: MagicMock()
+            url = "http://pool-host:9200"
+
+            first = ElasticsearchDriver(url, index="idx", pool={"enabled": True})
+            first.connect()
+            pooled_client = first.conn
+            first.close()
+            pooled_client.close.assert_not_called()
+
+            second = ElasticsearchDriver(url, index="idx", pool={"enabled": True})
+            second.connect()
+            assert second.conn is pooled_client
+            assert mock_es.call_count == 1
+            second.close()
+
+    def test_pool_teardown_closes_connections(self):
+        """Test close_all_pools() closes pooled clients after release."""
+        with patch.object(elasticsearch_mod, "Elasticsearch") as mock_es:
+            mock_es.side_effect = lambda *args, **kwargs: MagicMock()
+            url = "http://pool-host:9200"
+
+            driver = ElasticsearchDriver(url, index="idx", pool={"enabled": True})
+            driver.connect()
+            client = driver.conn
+            driver.close()
+            client.close.assert_not_called()
+
+            close_all_pools()
+            client.close.assert_called_once()
+
+    def test_pool_bypassed_for_client_objects(self):
+        """Test existing Elasticsearch client objects never touch the pool."""
+        client = MagicMock()
+        client.search = MagicMock()
+        client.close = MagicMock()
+
+        driver = ElasticsearchDriver(client, index="idx", pool={"enabled": True})
+        driver.connect()
+
+        assert driver.conn is client
+        assert get_pool_stats() == {}

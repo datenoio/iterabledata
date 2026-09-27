@@ -11,6 +11,7 @@ from typing import Any
 
 from ..types import Row
 from .base import DBDriver
+from .pooling import pool_enabled, pooled_acquire, pooled_release
 
 # Imported at module level (guarded) so the optional dependency stays optional
 # while remaining patchable as ``iterable.db.mysql.pymysql`` in tests.
@@ -18,6 +19,17 @@ try:
     import pymysql
 except ImportError:  # pragma: no cover - exercised when dependency is absent
     pymysql = None
+
+
+def _validate_connection(conn: Any) -> bool:
+    """Validate that a pooled MySQL connection is still usable."""
+    try:
+        if hasattr(conn, "open") and not conn.open:
+            return False
+        conn.ping(reconnect=False)
+        return True
+    except Exception:
+        return False
 
 
 class MySQLDriver(DBDriver):
@@ -40,10 +52,20 @@ class MySQLDriver(DBDriver):
                 - filter: WHERE clause fragment (e.g., "active = TRUE")
                 - server_side_cursor: Use server-side cursor (default: True)
                 - connect_args: Additional arguments for pymysql.connect()
+                - pool: Pool configuration dict (or bool) with keys:
+                    - enabled: Enable connection pooling (default: False, opt-in)
+                    - min_size: Minimum pool size (default: 1)
+                    - max_size: Maximum pool size (default: 10)
+                    - timeout: Connection acquisition timeout in seconds (default: 30.0)
+                    - max_idle: Maximum idle time in seconds (default: 300.0)
+                  Ignored when `source` is an existing connection object.
         """
         super().__init__(source, **kwargs)
         self._cursor: Any = None
         self._column_names: list[str] | None = None
+        self._pool: Any = None
+        self._pooled_conn: Any = None
+        self._pooled_created_time: float | None = None
 
     def connect(self) -> None:
         """Establish MySQL connection.
@@ -65,41 +87,65 @@ class MySQLDriver(DBDriver):
         if pymysql is None:
             raise ImportError("pymysql is required for MySQL support. Install it with: pip install pymysql")
 
+        # Extract pool configuration (opt-in: disabled by default)
+        pool_config = self.kwargs.get("pool", {})
+        use_pool = pool_enabled(pool_config, default=False)
+
         # Extract connection arguments
-        connect_args = self.kwargs.get("connect_args", {})
+        connect_args = self._parse_connect_args()
 
         try:
-            # Parse connection string if it's a URL
-            if self.source.startswith("mysql://") or self.source.startswith("mysql+pymysql://"):
-                # Parse URL format: mysql://user:pass@host:port/database
-                from urllib.parse import urlparse
+            if use_pool:
+                # Use connection pool
+                pool_key = f"mysql:{self.source}"
 
-                parsed = urlparse(self.source)
-                if parsed.username:
-                    connect_args["user"] = parsed.username
-                if parsed.password:
-                    connect_args["password"] = parsed.password
-                if parsed.hostname:
-                    connect_args["host"] = parsed.hostname
-                if parsed.port:
-                    connect_args["port"] = parsed.port
-                if parsed.path:
-                    db_name = parsed.path.lstrip("/")
-                    if db_name:
-                        connect_args["database"] = db_name
+                def factory():
+                    """Factory function to create new MySQL connection."""
+                    return pymysql.connect(**connect_args)
+
+                config_dict = pool_config if isinstance(pool_config, dict) else {}
+                self._pool, self._pooled_conn, self._pooled_created_time = pooled_acquire(
+                    pool_key, factory, config_dict, validate=_validate_connection
+                )
+                self.conn = self._pooled_conn
             else:
-                # Assume it's a DSN string or use as host
-                # For DSN strings, pymysql.connect() will parse them
-                # For simple host strings, use as host
-                if "://" not in self.source:
-                    connect_args["host"] = self.source
-
-            self.conn = pymysql.connect(**connect_args)
+                # Direct connection (no pooling)
+                self.conn = pymysql.connect(**connect_args)
             self._connected = True
 
         except Exception as e:
             self._connected = False
             raise ConnectionError(f"Failed to connect to MySQL: {e}") from e
+
+    def _parse_connect_args(self) -> dict[str, Any]:
+        """Build pymysql.connect() kwargs from connect_args and the connection URL."""
+        connect_args = dict(self.kwargs.get("connect_args", {}))
+
+        # Parse connection string if it's a URL
+        if self.source.startswith("mysql://") or self.source.startswith("mysql+pymysql://"):
+            # Parse URL format: mysql://user:pass@host:port/database
+            from urllib.parse import urlparse
+
+            parsed = urlparse(self.source)
+            if parsed.username:
+                connect_args["user"] = parsed.username
+            if parsed.password:
+                connect_args["password"] = parsed.password
+            if parsed.hostname:
+                connect_args["host"] = parsed.hostname
+            if parsed.port:
+                connect_args["port"] = parsed.port
+            if parsed.path:
+                db_name = parsed.path.lstrip("/")
+                if db_name:
+                    connect_args["database"] = db_name
+        elif "://" not in self.source:
+            # Assume it's a DSN string or use as host
+            # For DSN strings, pymysql.connect() will parse them
+            # For simple host strings, use as host
+            connect_args["host"] = self.source
+
+        return connect_args
 
     def _build_query(self) -> str:
         """Build SQL query from parameters.
@@ -287,8 +333,18 @@ class MySQLDriver(DBDriver):
                 pass
             self._cursor = None
 
-        # Close connection
-        super().close()
+        # Return connection to pool if pooled, otherwise close directly
+        if self._pool is not None and self._pooled_conn is not None and self._pooled_created_time is not None:
+            pooled_release(self._pool, self._pooled_conn, self._pooled_created_time)
+            self._pool = None
+            self._pooled_conn = None
+            self._pooled_created_time = None
+            self.conn = None
+            self._connected = False
+            self._closed = True
+        else:
+            # Direct close (no pooling)
+            super().close()
 
     @staticmethod
     def list_tables(
