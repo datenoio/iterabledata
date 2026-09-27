@@ -33,7 +33,7 @@ June 2026 plan (`IMPROVEMENT_PLAN.md`): all P0 housekeeping, P1 testing/CI, and 
 | 6.1 Write support for read-only formats | **Done (xlsx/xml/ods)** | Avro/Delta/Iceberg writable; xlsx/xml/ods writable since 2026-09-27 (`add-office-format-writes`); hdf5, netcdf still read-only |
 | 6.2 Async Phase 2 | **Done** | `aopen_iterable()` offloads open/detection via `asyncio.to_thread`, exported from `iterable/__init__.py`, documented in README + docs (`add-genuine-async-iteration`, archived 2026-09-27) |
 | 6.3 DB parity | **Done** | ClickHouse + MSSQL ingest backends added (insert-only); pooling opt-in for mysql/mssql/mongo/clickhouse/elasticsearch (`add-db-ingest-parity`, archived 2026-09-27) |
-| 6.4 Validation hooks everywhere | Partial | Hooks on ~8 formats of ~88 writable |
+| 6.4 Validation hooks everywhere | **Done** | Hooks on all 92 writable formats + registry-driven conformance guard (`add-validation-hooks-rollout`, archived 2026-09-27) |
 | 6.5 Plugin ecosystem | Partial | Loader/registry/docs exist; no published reference plugin |
 
 July 2026 review (`REPOSITORY_REVIEW_REPORT.md`): release engineering, packaging, fixture hermeticity, and placeholder docs are **fixed**; what remains is governance hygiene, the environment-sensitive mypy gate, and the stale catalog JSON.
@@ -100,7 +100,7 @@ Feature tracks from the June plan (each needs its own OpenSpec proposal when sch
 - [x] **6.1 Write support: xlsx, xml, ods** (highest-demand read-only formats; hdf5/netcdf later) — **DONE 2026-09-27** (`add-office-format-writes`, archived `2026-09-27-…`): buffered typed writers for XLSX/ODS, streaming XML writer mirroring reader conventions, validation hooks wired, registry/catalog/docs updated, convert round-trips tested (suite 3351 passed / 0 failed)
 - [x] **6.2 Async Phase 2** — **DONE 2026-09-27** (`add-genuine-async-iteration`, archived `2026-09-27-…`): `aopen_iterable()` offloads detection/open via `asyncio.to_thread` (event loop never blocked), false docstring claim fixed, exported from `iterable/__init__.py`, README + `docs/docs/api/async.md` updated, 6 parity/concurrency tests
 - [x] **6.3 Ingest parity** — ClickHouse + MSSQL backends; extend pooling beyond postgres — **DONE 2026-09-27** (`add-db-ingest-parity`, archived `2026-09-27-…`): insert-only backends with clear upsert errors, opt-in pooling across 5 drivers, 38 mocked tests + docker-gated integration tests
-- [ ] **6.4 Validation hooks rollout** — from ~8 to all writable formats (mechanical, registry-driven)
+- [x] **6.4 Validation hooks rollout** — from ~8 to all writable formats (mechanical, registry-driven) — **DONE 2026-09-27** (`add-validation-hooks-rollout`, archived `2026-09-27-…`): 77 formats wired, delegation-aware placement, conformance guard test, annotatedcsv all-skipped crash fix
 - [ ] **6.5 Reference plugin package** — publish one example plugin to validate the ecosystem story
 
 ## 7. P3 — Opportunistic / backlog
