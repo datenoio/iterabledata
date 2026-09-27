@@ -203,6 +203,15 @@ class DeltaIterable(BaseFileIterable):
         self.write_bulk([record])
 
     def write_bulk(self, records: list[Row]) -> None:
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:  # Not skipped
+                    validated_records.append(validated)
+            records = validated_records
+
         if self.mode != "w":
             raise WriteNotSupportedError("delta", "Delta Lake is open read-only")
         if not records:

@@ -176,6 +176,13 @@ class FlatGeobufIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write a single feature; the file is streamed, never buffered whole."""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         feature = self._to_feature(record)
         self._ensure_writer(feature)
         if self._writer is not None:

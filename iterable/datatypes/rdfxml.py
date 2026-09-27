@@ -204,6 +204,13 @@ class RDFXMLIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single RDF/XML record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         # This is a simplified writer - full RDF/XML writing is complex
         # For now, we'll write as XML with RDF structure
         import xml.etree.ElementTree as ET

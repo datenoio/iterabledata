@@ -236,6 +236,13 @@ class KMLIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single KML feature"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         # Convert GeoJSON-like feature to KML Placemark
         if "type" not in record or record["type"] != "Feature":
             # Assume it's a feature if it has geometry

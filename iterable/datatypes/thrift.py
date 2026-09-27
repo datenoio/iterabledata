@@ -99,6 +99,13 @@ class ThriftIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single Thrift record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         struct = self.struct_class()
         # Set struct fields from dict
         for key, value in record.items():

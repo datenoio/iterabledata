@@ -195,6 +195,13 @@ class SequenceFileIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single SequenceFile record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         # Extract key and value from record
         if self.key_name in record and self.value_name in record:
             key_obj = record[self.key_name]

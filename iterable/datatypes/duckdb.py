@@ -214,6 +214,13 @@ class DuckDBDatabaseIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single DuckDB record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         if self.mode not in ["w", "wr"]:
             raise ValueError("Write mode not enabled")
         if self.table is None:
@@ -262,6 +269,15 @@ class DuckDBDatabaseIterable(BaseFileIterable):
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk DuckDB records"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:  # Not skipped
+                    validated_records.append(validated)
+            records = validated_records
+
         if self.mode not in ["w", "wr"]:
             raise ValueError("Write mode not enabled")
         if self.table is None:

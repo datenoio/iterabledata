@@ -80,6 +80,13 @@ class TxtIterable(BaseFileIterable):
             record: If parser is None, expects a string. If parser is provided, expects a dict
                    that will be converted back to a line (implementation depends on parser)
         """
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         if self.parser is not None:
             # If parser is provided, we need to reverse the process
             # This is a limitation - we can't easily reverse parse

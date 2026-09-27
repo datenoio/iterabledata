@@ -152,6 +152,15 @@ class PDBIterable(BaseFileIterable):
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write basic ATOM/HETATM lines."""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:  # Not skipped
+                    validated_records.append(validated)
+            records = validated_records
+
         for record in records:
             self.fobj.write(self._format_atom_line(record))
 

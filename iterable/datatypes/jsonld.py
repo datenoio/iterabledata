@@ -178,6 +178,13 @@ class JSONLDIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single JSON-LD record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         # If this is the first write, initialize context if present
         if self.pos == 0 and isinstance(record, dict) and "@context" in record:
             self.context = record.get("@context")

@@ -208,6 +208,13 @@ class GeoJSONIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single GeoJSON feature"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         # Ensure it's a valid GeoJSON feature
         if "type" not in record:
             record["type"] = "Feature"
@@ -220,6 +227,15 @@ class GeoJSONIterable(BaseFileIterable):
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk GeoJSON features"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:  # Not skipped
+                    validated_records.append(validated)
+            records = validated_records
+
         # Write as FeatureCollection
         if HAS_GEOJSON:
             features = [geojson.Feature(**r) for r in records]

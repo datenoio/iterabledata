@@ -143,9 +143,8 @@ class BeamIterable(BaseFileIterable):
                 filename=self.filename,
             ) from e
 
-    def write(self, record: Row) -> None:
-        """Write single Beam record"""
-        # Extract key and value from record
+    def _extract_key_value(self, record: Row) -> tuple:
+        """Extract (key, value) from a record, inferring from structure if needed."""
         key_obj = record.get(self.key_name)
         value_obj = record.get(self.value_name)
 
@@ -159,6 +158,29 @@ class BeamIterable(BaseFileIterable):
                     value_obj = items[1][1]
             elif len(record) == 1:
                 value_obj = list(record.values())[0]
+        return key_obj, value_obj
+
+    @staticmethod
+    def _encode_field(obj: Any) -> bytes | None:
+        """Encode a Beam key/value field to bytes, or None if absent."""
+        if isinstance(obj, str):
+            return obj.encode("utf-8")
+        if isinstance(obj, (dict, list)):
+            return json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        if obj is not None:
+            return str(obj).encode("utf-8")
+        return None
+
+    def write(self, record: Row) -> None:
+        """Write single Beam record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
+        key_obj, value_obj = self._extract_key_value(record)
 
         # Get metadata
         window = record.get("window")
@@ -167,23 +189,8 @@ class BeamIterable(BaseFileIterable):
         # Convert to bytes
         window_bytes = window.encode("utf-8") if window else b""
 
-        key_data = None
-        if key_obj is not None:
-            if isinstance(key_obj, str):
-                key_data = key_obj.encode("utf-8")
-            elif isinstance(key_obj, (dict, list)):
-                key_data = json.dumps(key_obj, ensure_ascii=False).encode("utf-8")
-            else:
-                key_data = str(key_obj).encode("utf-8")
-
-        if isinstance(value_obj, str):
-            value_data = value_obj.encode("utf-8")
-        elif isinstance(value_obj, (dict, list)):
-            value_data = json.dumps(value_obj, ensure_ascii=False).encode("utf-8")
-        elif value_obj is not None:
-            value_data = str(value_obj).encode("utf-8")
-        else:
-            value_data = None
+        key_data = self._encode_field(key_obj)
+        value_data = self._encode_field(value_obj)
 
         # Write window length (4 bytes, int32, big-endian)
         self.fobj.write(struct.pack(">I", len(window_bytes)))

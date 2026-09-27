@@ -135,6 +135,13 @@ class EMLIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single EML record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         msg = email.message.EmailMessage()
 
         # Set headers

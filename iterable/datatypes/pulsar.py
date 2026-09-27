@@ -169,6 +169,13 @@ class PulsarIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single Pulsar message"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         # Extract key and value from record
         key_obj = record.get(self.key_name)
         value_obj = record.get(self.value_name)

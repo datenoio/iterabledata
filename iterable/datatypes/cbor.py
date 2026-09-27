@@ -114,6 +114,13 @@ class CBORIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single CBOR record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         if HAS_CBOR2:
             encoded = cbor2.dumps(record)
             self.fobj.write(encoded)

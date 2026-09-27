@@ -147,6 +147,13 @@ class CZMLIterable(BaseFileIterable):
         return rows
 
     def write(self, record: Row) -> None:
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         if not self._write_started:
             self.fobj.write("[")
             self._write_started = True

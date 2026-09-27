@@ -142,6 +142,15 @@ class TOMLIterable(BaseFileIterable):
         ``[[table]]`` blocks across multiple calls legally append to the same
         array, so incremental writes stay valid TOML.
         """
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:  # Not skipped
+                    validated_records.append(validated)
+            records = validated_records
+
         grouped: dict[str, list[dict]] = {}
         for record in records:
             item = dict(record)

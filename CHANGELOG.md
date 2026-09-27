@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Validation hooks for every writable format** (OpenSpec `add-validation-hooks-rollout`): all
+  92 writable formats now apply the standard write-time validation hooks
+  (`_apply_validation_hooks`) in their `write()`/`write_bulk()` paths, either directly or through
+  a hooked base/delegate method. A registry-driven conformance test
+  (`tests/test_validation_hooks_conformance.py`) writes a hook-rejected record through both write
+  paths of every writable format (skipping formats whose optional backends are unavailable) and a
+  static, delegation-aware source check guards formats that cannot be exercised behaviorally, so
+  future formats cannot regress. Default behavior is unchanged when no hook is configured.
 - **Database ingest parity and pooling rollout** (OpenSpec `add-db-ingest-parity`): ClickHouse
   and MSSQL gain ingest backends, so every database read driver now has a matching ingest path
   through `ingest.to_db()` (`dbtype="clickhouse"` / `dbtype="mssql"`). Both are insert-only

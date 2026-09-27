@@ -120,6 +120,15 @@ class BEDIterable(BaseFileIterable):
         self.write_bulk([record])
 
     def write_bulk(self, records: list[Row]) -> None:
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:  # Not skipped
+                    validated_records.append(validated)
+            records = validated_records
+
         if not self._headers_written:
             # Declared/collected track/browser/comment lines lead the output so
             # supported headers round-trip through a write/read cycle.

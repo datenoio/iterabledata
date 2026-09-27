@@ -117,6 +117,13 @@ class INIIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single INI record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         section = record.pop("_section", "DEFAULT")
 
         if not self.config.has_section(section):

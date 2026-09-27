@@ -194,6 +194,13 @@ class ASCIIGridIterable(BaseFileIterable):
         return rows
 
     def write(self, record: Row) -> None:
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         if self.mode == "r":
             raise WriteNotSupportedError("asc", "Opened in read mode")
         if self.cell_mode != "cell":

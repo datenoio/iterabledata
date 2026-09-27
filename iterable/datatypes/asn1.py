@@ -106,6 +106,13 @@ class ASN1Iterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single ASN.1 record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         # Convert dict to ASN.1 Sequence
         # This is a simplified conversion - real ASN.1 encoding requires schema
         from pyasn1.type import univ

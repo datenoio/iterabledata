@@ -100,6 +100,13 @@ class TurtleIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single Turtle/RDF record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         # Convert dict to RDF triples
         subject_uri = record.get("subject", record.get("@id"))
         if not subject_uri:

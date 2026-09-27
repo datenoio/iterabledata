@@ -88,6 +88,13 @@ class FixedWidthIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single fixed-width record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         if self.widths is None or self.names is None:
             raise ValueError("Fixed-width files require 'widths' and 'names' parameters")
 

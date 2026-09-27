@@ -416,6 +416,13 @@ class AnnotatedCSVIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single annotated CSV record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         # If this is the first write, write annotations
         if self.pos == 0:
             self._write_annotations()
@@ -425,6 +432,17 @@ class AnnotatedCSVIterable(BaseFileIterable):
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk annotated CSV records"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:  # Not skipped
+                    validated_records.append(validated)
+            records = validated_records
+        if not records:
+            return
+
         if self.pos == 0:
             self._write_annotations()
         self.writer.writerows(records)

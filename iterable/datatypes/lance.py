@@ -217,6 +217,15 @@ class LanceIterable(BaseFileIterable):
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk records"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:  # Not skipped
+                    validated_records.append(validated)
+            records = validated_records
+
         self.__buffer.extend(records)
         # Keep memory bounded and make single-row writes form sensible Lance
         # fragments instead of issuing one dataset mutation per call.

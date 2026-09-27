@@ -206,6 +206,13 @@ class LTSVIterable(BaseFileIterable):
         Args:
             record: Dictionary to write
         """
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         line = self._format_line(record)
         self.fobj.write(line)
 

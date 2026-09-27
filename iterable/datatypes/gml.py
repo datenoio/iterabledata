@@ -350,6 +350,13 @@ class GMLIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single GML feature"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         # Convert GeoJSON-like feature to GML
         if "type" not in record or record["type"] != "Feature":
             if "geometry" in record:

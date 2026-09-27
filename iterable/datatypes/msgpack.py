@@ -66,9 +66,25 @@ class MessagePackIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single MessagePack record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         self.fobj.write(self.packer.pack(record))
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk MessagePack records"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:  # Not skipped
+                    validated_records.append(validated)
+            records = validated_records
+
         for record in records:
             self.fobj.write(self.packer.pack(record))

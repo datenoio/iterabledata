@@ -125,6 +125,13 @@ class NQuadsIterable(NTriplesIterable):
 
     def write(self, record: Row) -> None:
         """Write single N-Quads record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         subject = record.get("subject", record.get("subject_value", ""))
         subject_type = record.get("subject_type", "uri")
         predicate = record.get("predicate", record.get("predicate_value", ""))

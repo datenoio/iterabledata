@@ -121,6 +121,13 @@ class BencodeIterable(BaseFileIterable):
 
     def write(self, record: Row) -> None:
         """Write single Bencode record"""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return  # Don't write invalid row
+            record = validated
+
         if HAS_BENCODE:
             bencode_data = bencode.bencode(record)
         else:

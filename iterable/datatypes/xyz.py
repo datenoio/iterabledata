@@ -146,6 +146,15 @@ class XYZIterable(BaseFileIterable):
 
     def write_bulk(self, records: list[Row]) -> None:
         """Buffer XYZ records; header is written on close once count is known."""
+        # Apply validation hooks if configured
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:  # Not skipped
+                    validated_records.append(validated)
+            records = validated_records
+
         self._write_buffer.extend(records)
 
     def _format_line(self, record: Row) -> str:
