@@ -3,11 +3,15 @@ from __future__ import annotations
 import typing
 from typing import Any
 
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
 
 _BLANK_HEADER_TOKENS = frozenset({"", "none", "null", "<na>", "nan"})
+
+# Cell value types openpyxl accepts natively; anything else is stringified
+# because XLSX rows are flat (``is_flatonly``).
+_SCALAR_WRITE_TYPES = (str, int, float, bool, type(None))
 
 
 def _is_blank_header(value: object) -> bool:
@@ -59,6 +63,14 @@ class XLSXIterable(BaseFileIterable):
 
     def reset(self):
         super().reset()
+        if self.mode in ("w", "wr"):
+            # Buffered writer: rows accumulate until close() materializes the
+            # workbook (spreadsheet documents are single-file containers).
+            self.workbook = None
+            self.sheet = None
+            self._write_rows: list[dict] = []
+            self._write_keys: list[str] = list(self.keys) if self.keys else []
+            return
         # read_only avoids loading the whole workbook into memory.
         self.workbook = load_workbook(self.filename, read_only=True)
         self.sheet = self.workbook[self.workbook.sheetnames[self.page]]
@@ -182,8 +194,60 @@ class XLSXIterable(BaseFileIterable):
             self.pos += 1
         return chunk
 
+    def _buffer_row(self, record: dict) -> None:
+        """Buffer one record for the workbook materialized on close()."""
+        for key in record:
+            if key not in self._write_keys:
+                self._write_keys.append(key)
+        self._write_rows.append(dict(record))
+
+    def _materialize_workbook(self) -> None:
+        """Write the buffered rows to an .xlsx workbook and save it."""
+        workbook = Workbook(write_only=True)
+        sheet = workbook.create_sheet()
+        if self._write_keys:
+            sheet.append(list(self._write_keys))
+        for record in self._write_rows:
+            row = []
+            for key in self._write_keys:
+                value = record.get(key)
+                if isinstance(value, _SCALAR_WRITE_TYPES) or hasattr(value, "isoformat"):
+                    row.append(value)
+                else:
+                    row.append(str(value))
+            sheet.append(row)
+        target = self.filename if self.filename is not None else self.fobj
+        workbook.save(target)
+        workbook.close()
+
+    def write(self, record: dict) -> None:
+        """Write single XLSX record (buffered until close)."""
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return
+            record = validated
+        self._buffer_row(record)
+
+    def write_bulk(self, records: list[dict]) -> None:
+        """Write bulk XLSX records (buffered until close)."""
+        if records is None:
+            raise TypeError("write_bulk() requires a list of records, got None")
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:  # Not skipped
+                    validated_records.append(validated)
+            records = validated_records
+        for record in records:
+            self._buffer_row(record)
+
     def close(self):
-        """Close the read-only workbook and the underlying file."""
+        """Materialize buffered writes, then close the workbook/file."""
+        if self.mode in ("w", "wr") and getattr(self, "_write_rows", None) is not None:
+            self._materialize_workbook()
+            self._write_rows = None
         if getattr(self, "workbook", None) is not None:
             self.workbook.close()
             self.workbook = None
