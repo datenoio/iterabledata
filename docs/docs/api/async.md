@@ -22,7 +22,7 @@ The async API mirrors the synchronous API but uses async/await patterns:
 
 ```python
 import asyncio
-from iterable.helpers.async_detect import aopen_iterable
+from iterable import aopen_iterable
 
 async def main():
     source = await aopen_iterable('data.csv')
@@ -52,7 +52,7 @@ One of the main benefits of async support is concurrent file processing:
 
 ```python
 import asyncio
-from iterable.helpers.async_detect import aopen_iterable
+from iterable import aopen_iterable
 
 async def process_file(filename: str):
     source = await aopen_iterable(filename)
@@ -132,27 +132,31 @@ async def main():
 
 ## Implementation Details
 
-### Phase 1: Foundation (Current)
+### Thread-pool offload (current)
 
-The current implementation (Phase 1) uses a **wrapper approach**:
+The async API wraps the synchronous implementation with thread-pool offload:
 
-- Wraps synchronous `open_iterable()` and iterable classes
-- Uses `asyncio.run_in_executor()` to run synchronous operations in thread pool
-- Provides async interface while reusing existing synchronous implementations
+- `aopen_iterable()` runs detection and open (blocking work: leading-byte
+  sniffing, codec wrapping) in a worker thread via `asyncio.to_thread()`
+- Each `aread()`/`aread_bulk()`/`awrite()` call runs in the default executor,
+  so concurrent sources interleave without stalling the event loop
+- `aopen_iterable` is exported from the package root (`from iterable import
+  aopen_iterable`)
 
 **Benefits**:
 - ✅ Minimal code changes
 - ✅ Reuses all existing format implementations
-- ✅ Easy to implement and maintain
+- ✅ Event loop stays responsive; multiple files process concurrently
 
 **Limitations**:
-- Uses thread pool (not true async I/O)
+- Uses a thread pool (not native async I/O)
 - Overhead of thread pool management
 - Best for I/O-bound operations
+- The `stream` parameter is not supported for async operations
 
 ### Future Phases
 
-**Phase 2: Native Async I/O** (Planned)
+**Native Async I/O** (Planned)
 - Native async I/O for network sources (S3, GCS, Azure)
 - Native async database drivers
 - True async operations without thread pool
@@ -183,7 +187,7 @@ Not beneficial for:
 
 ```python
 import asyncio
-from iterable.helpers.async_detect import aopen_iterable
+from iterable import aopen_iterable
 
 async def count_rows(filename: str) -> int:
     count = 0

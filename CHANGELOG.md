@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Genuine async iteration** (OpenSpec `add-genuine-async-iteration`): `aopen_iterable()` now
+  offloads detection/open to a worker thread via `asyncio.to_thread()` (previously it blocked
+  the event loop on a synchronous `open_iterable()` call) and is exported from the package root
+  (`from iterable import aopen_iterable`). Concurrent sources verifiably interleave; parity with
+  the sync API is pinned for csv/jsonl/parquet. README gains an Async API section and the async
+  docs page now documents the public import path and current behavior.
 - **Office format writes** (OpenSpec `add-office-format-writes`): XLSX, XML, and ODS are now
   writable through the uniform API. XLSX (openpyxl) and ODS (odfpy) buffer rows and save typed
   cells on `close()`; XML streams one `<tagname>` element per record under a configurable root,

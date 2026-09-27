@@ -28,6 +28,7 @@ from .exceptions import (
     WriteError,
     WriteNotSupportedError,
 )
+from .helpers.async_detect import aopen_iterable
 from .helpers.detect import open_iterable
 from .helpers.typed import as_dataclasses, as_pydantic
 from .ops import filter, inspect, schema, stats, transform
@@ -38,6 +39,7 @@ open_it = open_iterable
 __all__ = [
     "open_iterable",
     "open_it",
+    "aopen_iterable",
     "Row",
     "IterableArgs",
     "CodecArgs",

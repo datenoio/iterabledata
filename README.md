@@ -466,6 +466,28 @@ with open_iterable("output.jsonl.zst", mode="w") as dest:
         dest.write(item)
 ```
 
+### Async API
+
+`aopen_iterable()` is the async counterpart of `open_iterable()`. Detection,
+open, and every read run in the default thread-pool executor, so the event
+loop stays responsive and concurrent sources interleave:
+
+```python
+import asyncio
+from iterable import aopen_iterable
+
+async def main():
+    async with await aopen_iterable("data.csv") as source:
+        async for row in source:
+            print(row)
+
+asyncio.run(main())
+```
+
+Note: file and codec I/O underneath remains synchronous (offloaded to worker
+threads); this is not native async I/O. The `stream` parameter is not
+supported for async operations.
+
 ## Usage Examples
 
 ### Reading Compressed CSV Files
