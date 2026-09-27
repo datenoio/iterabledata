@@ -55,6 +55,11 @@ No format-specific `iterableargs`. A filesystem path is required (streams and co
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Read-only**: writing raises `WriteNotSupportedError`.
+- **Requires Fiona**: reading goes through Fiona's MapInfo File driver (`pip install iterabledata[geospatial]`); without it, opening raises `ImportError`.
+
 ## See also
 
 - [Shapefile](/formats/shapefile) — ESRI shapefiles

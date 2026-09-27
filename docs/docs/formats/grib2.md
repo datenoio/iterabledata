@@ -48,6 +48,11 @@ No format-specific `iterableargs`. A filesystem path is required (streams and co
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Read-only**: writing raises `WriteNotSupportedError`.
+- **Requires a GRIB engine**: prefers `cfgrib` + `xarray`, falling back to `pygrib` or `eccodes` (`pip install iterabledata[geophysical]`); without one, opening raises `ImportError`.
+
 ## See also
 
 - [NetCDF](/formats/nc) — gridded scientific data

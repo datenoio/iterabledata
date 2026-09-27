@@ -48,6 +48,11 @@ with open_iterable("molecule.xyz") as source:
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Tolerant parsing**: rows whose x/y/z coordinates don't parse as floats are skipped; non-numeric extra columns are kept as strings.
+- Stdlib-only; comment/atom-count header conventions vary across producers and are passed through rather than validated.
+
 ## See also
 
 - [CIF](/formats/cif) — crystallographic atom sites

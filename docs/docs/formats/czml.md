@@ -52,6 +52,11 @@ with open_iterable("out.czml", mode="w", format="czml") as dest:
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Streaming needs ijson**: array documents stream packet-by-packet only when `ijson` is installed; otherwise the document is loaded with `json.load` (full-file memory).
+- CZML packets are read and written as plain JSON documents; packet semantics beyond JSON structure are not validated.
+
 ## See also
 
 - [GeoJSON](/formats/geojson) — geospatial features

@@ -47,6 +47,11 @@ Install with `pip install iterabledata[access]`.
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Read-only**: writing raises `WriteNotSupportedError`.
+- **Requires a backend**: prefers the pure-Python `access_parser` package and falls back to `pyodbc` with a Jet/ACE driver for `.mdb` files (`pip install iterabledata[access]`).
+
 ## See also
 
 - [SQLite](/formats/sqlite) — embedded SQL databases

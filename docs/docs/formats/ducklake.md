@@ -64,6 +64,11 @@ with open_iterable(meta, iterableargs={
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Requires pyducklake and pyarrow**: install with `pip install iterabledata[ducklake]`; without them, opening raises `ImportError`.
+- Access goes through the DuckLake catalog, so a reachable catalog database is required rather than plain files.
+
 ## See Also
 
 - [DuckLake](https://ducklake.select/)

@@ -60,6 +60,12 @@ Install with `pip install iterabledata[geophysical]`.
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Read-only**: writing raises `WriteNotSupportedError`.
+- **Requires segyio**: install with `pip install iterabledata[geophysical]`; without it, opening raises `ImportError`.
+- Yields one record per trace with samples and header fields; no spatial/binning geometry processing is applied.
+
 ## See also
 
 - [miniSEED](/formats/mseed) — seismological waveforms

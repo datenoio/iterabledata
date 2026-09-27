@@ -75,6 +75,11 @@ GeoJSONSeq files can be compressed with all supported codecs:
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- Each record must be a complete GeoJSON Feature on one line; pretty-printed multi-line features are not supported.
+- The ASCII record-separator prefix (`\x1e`) is optional on read.
+
 ## Related Formats
 
 - [GeoJSON](geojson.md) - Document-oriented FeatureCollection format

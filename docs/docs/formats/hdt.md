@@ -63,6 +63,12 @@ Install the `hdt` package (see `pip install iterabledata[rdf]` for related RDF e
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Read-only**: writing raises `WriteNotSupportedError`.
+- **Requires the hdt package**: install with `pip install iterabledata[rdf]`; without it, opening raises `ImportError`.
+- Yields flattened `subject`/`predicate`/`object` triple dicts rather than a full RDF graph API.
+
 ## See also
 
 - [N-Triples](/formats/ntriples) — line-oriented triples

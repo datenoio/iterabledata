@@ -57,6 +57,11 @@ Install with `pip install iterabledata[mat]`.
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Read-only**: writing raises `WriteNotSupportedError`.
+- **Engine split**: files before MATLAB v7.3 are read via `scipy`; v7.3 (HDF5-based) files require `h5py`. Without the matching dependency, opening raises `ImportError`.
+
 ## See also
 
 - [HDF5](/formats/hdf5) — hierarchical scientific arrays

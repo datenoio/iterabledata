@@ -63,6 +63,12 @@ Pass via `iterableargs`, for example `iterableargs={"dataset": "/BAG_root/elevat
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Read-only**: writing raises `WriteNotSupportedError`; the registry marks BAG as non-writable.
+- **Requires h5py**: install with `pip install iterabledata[hdf5]`; without it, opening raises `ImportError`.
+- **One dataset per iterable**: the dataset path is fixed at open time via `iterableargs={"dataset": ...}`.
+
 ## See also
 
 - [ASCII Grid](/formats/asc) — Esri ASCII rasters

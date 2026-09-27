@@ -51,6 +51,12 @@ Install with `pip install iterabledata[xml]`.
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Read-only**: writing raises `WriteNotSupportedError`.
+- **Requires lxml**: install with `pip install iterabledata[xml]`.
+- Yields simplified activity dicts (identifier, title, attributes, flattened children); full XML fidelity is not preserved.
+
 ## See also
 
 - [XML](/formats/xml) — generic XML element streaming

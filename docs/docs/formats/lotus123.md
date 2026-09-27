@@ -53,6 +53,11 @@ with open_iterable("sheet.wk1", format="123") as source:
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Read-only**: writing raises `WriteNotSupportedError`.
+- **Minimal WK1 subset**: the pure-Python parser handles LABEL / INTEGER / NUMBER cells of `.wk1` / `.wks` / `.123` files; formulas, formatting, and later workbook formats are out of scope. An optional `pylotus` binding is used when installed.
+
 ## See also
 
 - [XLS](/formats/xls) / [XLSX](/formats/xlsx) — Excel workbooks

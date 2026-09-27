@@ -55,6 +55,11 @@ Install with `pip install iterabledata[fst]` (or install a compatible `fst` / `r
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Read-only**: writing raises `WriteNotSupportedError`.
+- **Requires an optional binding**: there is no pure-Python reader; an `fst`/`rfst` binding must be installed, otherwise construction raises `ImportError`. Subprocess invocation of R is intentionally not supported.
+
 ## See also
 
 - [RDS](/formats/rds) / [RData](/formats/rdata) — R serialized objects

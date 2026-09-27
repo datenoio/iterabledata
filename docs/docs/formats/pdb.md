@@ -67,6 +67,11 @@ with open_iterable("protein.pdb", iterableargs={"model": 1}) as source:
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Classic fixed-column layout**: stdlib-only support for traditional PDB records; mmCIF-style files belong to the [CIF](/formats/cif) format.
+- Numeric fields that fail to parse fall back to defaults rather than raising.
+
 ## See also
 
 - [CIF](/formats/cif) — crystallographic atom sites

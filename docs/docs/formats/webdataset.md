@@ -48,6 +48,11 @@ Plain `open_iterable("shard.tar")` without `format="webdataset"` continues to us
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Read-only**: writing raises `WriteNotSupportedError`.
+- Payloads are returned as bytes with optional JSON/text decoding; unlike the TAR format, members are not delegated to other format readers.
+
 ## See also
 
 - [TAR](/formats/tar) — member-oriented archive container

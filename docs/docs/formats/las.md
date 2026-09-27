@@ -63,6 +63,11 @@ Install with `pip install iterabledata[lidar]`.
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Read-only**: writing raises `WriteNotSupportedError`.
+- **Requires laspy**: install with `pip install iterabledata[lidar]`; without it, opening raises `ImportError`.
+
 ## See also
 
 - [ASCII Grid](/formats/asc) — raster grids

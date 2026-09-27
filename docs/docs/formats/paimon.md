@@ -69,6 +69,11 @@ with open_iterable(warehouse, iterableargs={
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Requires pypaimon**: install with `pip install iterabledata[paimon-table]`; without it, opening raises `ImportError`.
+- Access goes through a Paimon catalog, so a reachable catalog is required rather than plain files.
+
 ## See Also
 
 - [PyPaimon](https://paimon.apache.org/docs/master/pypaimon/)

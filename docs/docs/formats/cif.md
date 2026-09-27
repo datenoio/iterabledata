@@ -47,6 +47,11 @@ with open_iterable("structure.cif") as source:
 - **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
+## Limitations
+
+- **Read-only**: writing raises `WriteNotSupportedError`.
+- **Subset parser**: stdlib-only and centered on `_atom_site.` loop data; it does not implement full CIF/DDL conformance.
+
 ## See also
 
 - [XYZ](/formats/xyz) — molecular coordinate tables
