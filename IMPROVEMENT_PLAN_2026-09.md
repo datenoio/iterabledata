@@ -31,7 +31,7 @@ June 2026 plan (`IMPROVEMENT_PLAN.md`): all P0 housekeeping, P1 testing/CI, and 
 | 3.5 Typing/mypy rollout | Partial | Strict gate on 12 core modules; full-package mypy advisory with 1,369 errors |
 | 4.4 Coverage bar | Regressed scope | `fail_under` recalibrated to 50 (1.0.22) instead of raised toward 85 |
 | 6.1 Write support for read-only formats | **Done (xlsx/xml/ods)** | Avro/Delta/Iceberg writable; xlsx/xml/ods writable since 2026-09-27 (`add-office-format-writes`); hdf5, netcdf still read-only |
-| 6.2 Async Phase 2 | Not done | `aopen_iterable()` still a sync wrapper, not exported, absent from README |
+| 6.2 Async Phase 2 | **Done** | `aopen_iterable()` offloads open/detection via `asyncio.to_thread`, exported from `iterable/__init__.py`, documented in README + docs (`add-genuine-async-iteration`, archived 2026-09-27) |
 | 6.3 DB parity | Partial | 8 read drivers vs 6 ingest backends; pooling only used by postgres |
 | 6.4 Validation hooks everywhere | Partial | Hooks on ~8 formats of ~88 writable |
 | 6.5 Plugin ecosystem | Partial | Loader/registry/docs exist; no published reference plugin |
@@ -98,7 +98,7 @@ Ten OpenSpec changes are half-finished. **Decision first:** either schedule comp
 Feature tracks from the June plan (each needs its own OpenSpec proposal when scheduled):
 
 - [x] **6.1 Write support: xlsx, xml, ods** (highest-demand read-only formats; hdf5/netcdf later) — **DONE 2026-09-27** (`add-office-format-writes`, archived `2026-09-27-…`): buffered typed writers for XLSX/ODS, streaming XML writer mirroring reader conventions, validation hooks wired, registry/catalog/docs updated, convert round-trips tested (suite 3351 passed / 0 failed)
-- [ ] **6.2 Async Phase 2** — make `aopen_iterable()` genuinely async (today it calls sync `open_iterable()` inline in `iterable/helpers/async_detect.py`, and its docstring falsely claims a thread-pool executor — fix both), export from `iterable/__init__.py`, document in README
+- [x] **6.2 Async Phase 2** — **DONE 2026-09-27** (`add-genuine-async-iteration`, archived `2026-09-27-…`): `aopen_iterable()` offloads detection/open via `asyncio.to_thread` (event loop never blocked), false docstring claim fixed, exported from `iterable/__init__.py`, README + `docs/docs/api/async.md` updated, 6 parity/concurrency tests
 - [ ] **6.3 Ingest parity** — ClickHouse + MSSQL backends; extend pooling beyond postgres
 - [ ] **6.4 Validation hooks rollout** — from ~8 to all writable formats (mechanical, registry-driven)
 - [ ] **6.5 Reference plugin package** — publish one example plugin to validate the ecosystem story
