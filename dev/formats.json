@@ -1925,9 +1925,9 @@
       ],
       "streaming": true,
       "tables": false,
-      "totals": false,
-      "writable": false,
-      "write_memory": "unknown"
+      "totals": true,
+      "writable": true,
+      "write_memory": "bounded"
     },
     "class": "FlatGeobufIterable",
     "codec_support": [],
@@ -1938,7 +1938,8 @@
     "flat": false,
     "id": "flatgeobuf",
     "limitations": [
-      "Read-only; requires Fiona/GDAL"
+      "Requires Fiona/GDAL",
+      "Local filename required; streams are not supported"
     ],
     "maturity": "stable",
     "module": "iterable.datatypes.flatgeobuf",
@@ -1953,9 +1954,9 @@
     ],
     "tables": false,
     "text": false,
-    "totals": false,
-    "writable": false,
-    "write_memory": "unknown"
+    "totals": true,
+    "writable": true,
+    "write_memory": "bounded"
   },
   "flexbuf": {
     "aliases": [
@@ -4522,8 +4523,8 @@
       "streaming": false,
       "tables": true,
       "totals": true,
-      "writable": false,
-      "write_memory": "unknown"
+      "writable": true,
+      "write_memory": "whole_output"
     },
     "class": "ODSIterable",
     "codec_support": [],
@@ -4544,8 +4545,8 @@
     "tables": true,
     "text": false,
     "totals": true,
-    "writable": false,
-    "write_memory": "unknown"
+    "writable": true,
+    "write_memory": "whole_output"
   },
   "orc": {
     "aliases": [],
@@ -4608,13 +4609,13 @@
       "native_bulk_read": true,
       "native_bulk_write": true,
       "nested": true,
-      "read_memory": "whole_input",
+      "read_memory": "bounded",
       "readable": true,
       "selection": [
         "item_key"
       ],
       "source_constraints": [],
-      "streaming": false,
+      "streaming": true,
       "tables": false,
       "totals": true,
       "writable": true,
@@ -4635,7 +4636,7 @@
     "module": "iterable.datatypes.otlp",
     "native_bulk_read": true,
     "native_bulk_write": true,
-    "read_memory": "whole_input",
+    "read_memory": "bounded",
     "selection": [
       "item_key"
     ],
@@ -6643,20 +6644,20 @@
       "streaming": true,
       "tables": true,
       "totals": true,
-      "writable": false,
-      "write_memory": "unknown"
+      "writable": true,
+      "write_memory": "whole_output"
     },
     "class": "XLSXIterable",
     "codec_support": [],
-    "description": "Excel Open XML workbook; flat sheets, read-only in IterableData.",
+    "description": "Excel Open XML workbook; flat sheets.",
     "doc_url": "docs/docs/formats/xlsx.md",
     "example_args": null,
     "extra": "excel",
     "flat": true,
     "id": "xlsx",
     "limitations": [
-      "Read-only",
-      "Requires openpyxl"
+      "Requires openpyxl",
+      "Writes buffer the whole workbook until close"
     ],
     "maturity": "stable",
     "module": "iterable.datatypes.xlsx",
@@ -6670,8 +6671,8 @@
     "tables": true,
     "text": false,
     "totals": true,
-    "writable": false,
-    "write_memory": "unknown"
+    "writable": true,
+    "write_memory": "whole_output"
   },
   "xml": {
     "aliases": [],
@@ -6692,8 +6693,8 @@
       "streaming": true,
       "tables": true,
       "totals": false,
-      "writable": false,
-      "write_memory": "unknown"
+      "writable": true,
+      "write_memory": "bounded"
     },
     "class": "XMLIterable",
     "codec_support": [],
@@ -6706,7 +6707,6 @@
     "flat": false,
     "id": "xml",
     "limitations": [
-      "Read-only",
       "Requires tagname iterablearg"
     ],
     "maturity": "stable",
@@ -6719,8 +6719,8 @@
     "tables": true,
     "text": true,
     "totals": false,
-    "writable": false,
-    "write_memory": "unknown"
+    "writable": true,
+    "write_memory": "bounded"
   },
   "xyz": {
     "aliases": [],
@@ -6835,7 +6835,7 @@
         "directory"
       ],
       "streaming": true,
-      "tables": false,
+      "tables": true,
       "totals": true,
       "writable": true,
       "write_memory": "bounded"
@@ -6864,7 +6864,7 @@
     "source_constraints": [
       "directory"
     ],
-    "tables": false,
+    "tables": true,
     "text": false,
     "totals": true,
     "writable": true,

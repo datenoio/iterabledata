@@ -22,7 +22,7 @@ The XML implementation:
 
 ### Writing
 
-Writing is not currently supported for XML format.
+The XML implementation streams one `<tagname>` element per record under a root element (default `root`, override with `root_tag` iterablearg). Record keys become child elements; `@name` keys become attributes, `#text` becomes mixed text, list values become repeated elements, and `None` becomes an empty element — matching what the reader produces.
 
 ### Key Features
 
@@ -31,6 +31,7 @@ Writing is not currently supported for XML format.
 - **Attribute support**: XML attributes are included in records (prefixed with `@`)
 - **Text content**: Element text is included (key: `#text`)
 - **Iterative parsing**: Processes large files efficiently
+- **Streaming writes**: One element per record, no buffering
 - **Error recovery**: Handles malformed XML with recovery mode
 
 ## Usage
@@ -62,6 +63,11 @@ try:
         print(row)
 finally:
     source.close()
+
+# Writing - one <item> element per record under <root>
+with open_iterable('out.xml', mode='w', iterableargs={'tagname': 'item'}) as target:
+    target.write({'name': 'alpha', '@id': 'a1', 'tags': ['x', 'y']})
+    target.write_bulk([{'name': 'beta'}])
 ```
 
 ### Discovering Available Tags
@@ -150,8 +156,8 @@ except Exception as e:
 
 ## Limitations
 
-1. **Read-only**: XML format does not support writing
-2. **Tag name required**: Must specify the tag name to extract
+1. **Tag name required**: Must specify the tag name to extract
+2. **Untyped values**: Scalars read back as text; write side accepts any record and stringifies scalars
 3. **Memory for large files**: Uses iterative parsing but may still use significant memory
 4. **Complex structures**: Very deeply nested structures may be difficult to work with
 5. **Namespace complexity**: Complex namespaces may require manual handling

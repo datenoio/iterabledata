@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Office format writes** (OpenSpec `add-office-format-writes`): XLSX, XML, and ODS are now
+  writable through the uniform API. XLSX (openpyxl) and ODS (odfpy) buffer rows and save typed
+  cells on `close()`; XML streams one `<tagname>` element per record under a configurable root,
+  mirroring the reader's `@attr` / `#text` / repeated-element conventions so round-trips hold.
+  All three wire the standard validation hooks; the registry marks them writable (write memory
+  profile: whole-output for the spreadsheets, bounded for XML). Convert round-trips
+  (csv→xlsx→csv, jsonl→xml→jsonl, csv→ods→csv) are covered by tests.
 - **Format hardening batch**: Zarr gains zarr 3.x compatibility, axis/slice/field selection with
   chunk-bounded streaming, and write-time mismatch guards; GeoParquet gains CRS/encoding/bbox
   metadata reads with a feature row mode; FlatGeobuf gains magic-byte detection and bounded

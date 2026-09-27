@@ -29,7 +29,7 @@ Writing is **not supported**. `write()` / `write_bulk()` raise `WriteNotSupporte
 - **Header detection**: Automatically extracts headers from the first row
 - **Open standard**: Not a proprietary Excel format
 - **Totals support**: Can count total rows
-- **Read-only**: No ODS writer in this release
+- **Writable**: Buffered writes with typed cells via odfpy
 
 ## Usage
 
@@ -47,6 +47,11 @@ with open_iterable("data.ods", iterableargs={"page": 1}) as source:
 
 sheets = ODSIterable("data.ods").list_tables("data.ods")
 print("Available sheets:", sheets)
+
+# Writing (buffered; the spreadsheet is saved on close)
+with open_iterable("out.ods", mode="w") as target:
+    target.write({"name": "alpha", "value": 1})
+    target.write_bulk([{"name": "beta", "value": 2}])
 ```
 
 ## Parameters
@@ -88,10 +93,10 @@ except ImportError as e:
 1. **Dependency**: Requires `odfpy` (`pip install iterabledata[ods]`)
 2. **File path required**: Filename, not a stream
 3. **Flat data only**
-4. **Read-only**
+4. **Buffered writes**: The whole spreadsheet is held in memory until `close()`
 
 ## Related Formats
 
-- [XLSX](xlsx.md) - Microsoft Excel (read-only)
+- [XLSX](xlsx.md) - Microsoft Excel
 - [XLS](xls.md) - Legacy Excel (read-only)
 - [CSV](csv.md) - Writable tabular text
