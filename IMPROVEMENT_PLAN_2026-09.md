@@ -34,7 +34,7 @@ June 2026 plan (`IMPROVEMENT_PLAN.md`): all P0 housekeeping, P1 testing/CI, and 
 | 6.2 Async Phase 2 | **Done** | `aopen_iterable()` offloads open/detection via `asyncio.to_thread`, exported from `iterable/__init__.py`, documented in README + docs (`add-genuine-async-iteration`, archived 2026-09-27) |
 | 6.3 DB parity | **Done** | ClickHouse + MSSQL ingest backends added (insert-only); pooling opt-in for mysql/mssql/mongo/clickhouse/elasticsearch (`add-db-ingest-parity`, archived 2026-09-27) |
 | 6.4 Validation hooks everywhere | **Done** | Hooks on all 92 writable formats + registry-driven conformance guard (`add-validation-hooks-rollout`, archived 2026-09-27) |
-| 6.5 Plugin ecosystem | Partial | Loader/registry/docs exist; no published reference plugin |
+| 6.5 Plugin ecosystem | **Done** | Reference plugin published at `examples/plugins/iterabledata-example/` with subprocess end-to-end test (`add-reference-plugin`, archived 2026-09-27) |
 
 July 2026 review (`REPOSITORY_REVIEW_REPORT.md`): release engineering, packaging, fixture hermeticity, and placeholder docs are **fixed**; what remains is governance hygiene, the environment-sensitive mypy gate, and the stale catalog JSON.
 
@@ -92,7 +92,7 @@ Ten OpenSpec changes are half-finished. **Decision first:** either schedule comp
 2. ~~**`add-native-batch-conversion`** (10/17)~~ — **DONE 2026-09-21** (`fffd6b4`, archived `2026-09-21-…`): ORC dual backend, projection/predicate pushdown (Parquet + Delta/Iceberg/Lance), table/variable/slice pushdown (NumPy/HDF5/NetCDF), 46 equivalence tests, benchmarks — native path cuts peak memory 16× (2.6 MB vs 42 MB at 50k rows); write-path flush amortization noted as follow-up for `optimize-format-io-hot-paths`.
 3. ~~**`optimize-format-io-hot-paths`** (14/17) + **`add-codec-performance-profiles`** (11/16)~~ — **DONE 2026-09-21/22** (`2b43c56`, `0cc0a9c`, both archived `2026-09-22-…`): 75 interleaved cursor conformance tests across all 37 custom bulk readers; perf gate 5/5 with baselines untouched; codec benchmark suite (162 tests) + 121 precedence/round-trip/threshold tests with deterministic fixtures. (The batch write-flush amortization finding remains available as a future optimization; not needed by the archived change.)
 4. ~~**Format hardening batch**~~ — **DONE 2026-09-22** (all four archived `2026-09-22-…`): `add-zarr-format` (15/15, `b561d56` — zarr 3.x compat, chunk-bounded selection reads, write mismatch guards, v2/v3 golden fixtures), `add-geoparquet-flatgeobuf-formats` (16/16, `db31a4b` — geo metadata reads, FlatGeobuf magic/writes, fixed silently-broken bbox path), `extend-bioinformatics-formats` (17/17, `5ab9d60` — 47 tests; exposed and fixed 4 real bugs: CRAM error wrapping, GFF3 FASTA-tail crash, BED error locations, BED writer header loss), `add-otlp-format-profiles` (18/18, `b83a37b` — ijson streaming reads, write-time metric validation, conservative detection, official-proto fixtures). Also fixed a latent GeoPackage overwrite bug exposed by the fiona install (`3016a63`). Suite now fully green: 3,023 passed / 0 failed.
-5. **`harden-release-artifacts`** (15/17) — one clean-checkout build exercise + one approved release run.
+5. **`harden-release-artifacts`** (16/17) — clean-checkout build exercise DONE 2026-09-26 (twine + check-wheel-contents + wheel smoke all green); only one approved real release run remains (owner action).
 6. **`strengthen-repository-quality-gates`** (12/23) — progressed during P1 (ratchet, radon gate, coverage floors, 3.13 leg checked off); remaining: per-family coverage, per-package mypy burn-down, making advisory gates blocking.
 
 Feature tracks from the June plan (each needs its own OpenSpec proposal when scheduled):
@@ -101,7 +101,7 @@ Feature tracks from the June plan (each needs its own OpenSpec proposal when sch
 - [x] **6.2 Async Phase 2** — **DONE 2026-09-27** (`add-genuine-async-iteration`, archived `2026-09-27-…`): `aopen_iterable()` offloads detection/open via `asyncio.to_thread` (event loop never blocked), false docstring claim fixed, exported from `iterable/__init__.py`, README + `docs/docs/api/async.md` updated, 6 parity/concurrency tests
 - [x] **6.3 Ingest parity** — ClickHouse + MSSQL backends; extend pooling beyond postgres — **DONE 2026-09-27** (`add-db-ingest-parity`, archived `2026-09-27-…`): insert-only backends with clear upsert errors, opt-in pooling across 5 drivers, 38 mocked tests + docker-gated integration tests
 - [x] **6.4 Validation hooks rollout** — from ~8 to all writable formats (mechanical, registry-driven) — **DONE 2026-09-27** (`add-validation-hooks-rollout`, archived `2026-09-27-…`): 77 formats wired, delegation-aware placement, conformance guard test, annotatedcsv all-skipped crash fix
-- [ ] **6.5 Reference plugin package** — publish one example plugin to validate the ecosystem story
+- [x] **6.5 Reference plugin package** — **DONE 2026-09-27** (`add-reference-plugin`, archived `2026-09-27-…`): installable example plugin at `examples/plugins/iterabledata-example/` registering an `example-jsonl` format via entry points, plugin-ecosystem spec added, subprocess end-to-end test proves loader→registry→`open_iterable` dispatch
 
 ## 7. P3 — Opportunistic / backlog
 
