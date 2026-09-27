@@ -3,6 +3,7 @@ from __future__ import annotations
 import typing
 from collections import defaultdict
 from typing import Any
+from xml.sax.saxutils import escape, quoteattr
 
 from ..base import BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
@@ -10,6 +11,38 @@ from ..helpers.xmlsec import safe_iterparse
 
 PREFIX_STRIP = False
 PREFIX = ""
+
+
+def _emit_element(tag: str, value: Any, out: list[str]) -> None:
+    """Serialize one ``tag: value`` pair following the reader's conventions.
+
+    Scalars become text children, dicts become nested elements (``@name``
+    keys become attributes, ``#text`` becomes mixed text), lists become
+    repeated elements, and ``None`` becomes an empty element — matching what
+    :func:`etree_to_dict` yields on read.
+    """
+    if isinstance(value, dict):
+        attribs = "".join(f" {k[1:]}={quoteattr(str(v))}" for k, v in value.items() if k.startswith("@"))
+        children = [(k, v) for k, v in value.items() if not k.startswith("@") and k != "#text"]
+        text = escape(str(value["#text"])) if "#text" in value and value["#text"] is not None else ""
+        if not children and not text:
+            out.append(f"<{tag}{attribs}/>")
+            return
+        out.append(f"<{tag}{attribs}>")
+        if text:
+            out.append(text)
+        for child_tag, child_value in children:
+            _emit_element(child_tag, child_value, out)
+        out.append(f"</{tag}>")
+        return
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            _emit_element(tag, item, out)
+        return
+    if value is None:
+        out.append(f"<{tag}/>")
+        return
+    out.append(f"<{tag}>{escape(str(value))}</{tag}>")
 
 
 def etree_to_dict(t, prefix_strip=True):
@@ -62,6 +95,14 @@ class XMLIterable(BaseFileIterable):
 
     def reset(self):
         super().reset()
+        if self.mode in ("w", "wr"):
+            # Streaming writer: the document header/root opens lazily on the
+            # first write and the root closes in close().
+            self.reader = None
+            self._write_root = getattr(self, "root_tag", None) or "root"
+            self._write_started = False
+            self.pos = 0
+            return
         self.reader = safe_iterparse(self.fobj)
         self.pos = 0
         # Track position for error context
@@ -131,6 +172,59 @@ class XMLIterable(BaseFileIterable):
             return None
 
         return sorted(list(tag_names)) if tag_names else []
+
+    def _write_chunk(self, text: str) -> None:
+        """Write text to the binary target."""
+        self.fobj.write(text.encode("utf-8"))
+
+    def _start_document(self) -> None:
+        """Emit the XML declaration and root element once."""
+        if self._write_started:
+            return
+        root = self._write_root
+        self._write_chunk(f'<?xml version="1.0" encoding="utf-8"?><{root}>')
+        self._write_started = True
+
+    def _emit_record(self, record: dict) -> None:
+        """Serialize one record dict as a ``<tagname>`` element."""
+        tagname = getattr(self, "tagname", None) or "item"
+        parts: list[str] = []
+        _emit_element(tagname, dict(record), parts)
+        self._write_chunk("".join(parts))
+
+    def write(self, record: dict) -> None:
+        """Write single XML record as a ``<tagname>`` element."""
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return
+            record = validated
+        self._start_document()
+        self._emit_record(record)
+
+    def write_bulk(self, records: list[dict]) -> None:
+        """Write bulk XML records as ``<tagname>`` elements."""
+        if records is None:
+            raise TypeError("write_bulk() requires a list of records, got None")
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:  # Not skipped
+                    validated_records.append(validated)
+            records = validated_records
+        if not records:
+            return
+        self._start_document()
+        for record in records:
+            self._emit_record(record)
+
+    def close(self):
+        """Close the root element, then the underlying file."""
+        if self.mode in ("w", "wr") and getattr(self, "_write_started", False):
+            self._write_chunk(f"</{self._write_root}>")
+            self._write_started = False
+        super().close()
 
     def read(self, skip_empty: bool = True) -> dict:
         """Read single XML record"""
