@@ -99,6 +99,15 @@ with open_iterable("data.custom") as source:
         print(row)
 ```
 
+### Reference example
+
+The repository ships a complete, installable example at
+[`examples/plugins/iterabledata-example/`](https://github.com/commondataio/iterabledata/tree/main/examples/plugins/iterabledata-example):
+a minimal `.journal` (`key=value;` lines) format with full packaging
+metadata. The test suite installs it into a throwaway location the way pip
+would and verifies discovery plus an `open_iterable()` round-trip with no
+core changes — start from that example when building your own plugin.
+
 ## Creating a Codec Plugin
 
 ```python

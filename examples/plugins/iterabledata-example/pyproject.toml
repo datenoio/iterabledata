@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iterabledata-example"
+version = "0.1.0"
+description = "Reference IterableData plugin: a minimal .journal key=value format"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["iterabledata>=1.0"]
+
+[project.entry-points."iterabledata.formats"]
+journal = "iterabledata_example.journal:JournalIterable"
+
+[tool.setuptools.packages.find]
+where = ["src"]

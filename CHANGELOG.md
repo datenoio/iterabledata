@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Reference plugin package** (OpenSpec `add-reference-plugin`):
+  `examples/plugins/iterabledata-example/` is a complete installable plugin (a minimal
+  `.journal` `key=value` format) with entry-point metadata. An end-to-end test installs it
+  into a throwaway location pip-style and verifies entry-point discovery plus an
+  `open_iterable()` round-trip against the unmodified library, proving the loader contract
+  is sufficient. The plugin author guide now points at the example.
 - **Validation hooks for every writable format** (OpenSpec `add-validation-hooks-rollout`): all
   92 writable formats now apply the standard write-time validation hooks
   (`_apply_validation_hooks`) in their `write()`/`write_bulk()` paths, either directly or through
