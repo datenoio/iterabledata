@@ -2,15 +2,15 @@
 
 This document is a dated snapshot of OpenSpec proposals that are not yet complete. A proposal is considered unfinished if it has unchecked tasks in its `tasks.md` file.
 
-**Last Updated**: 2026-09-26
+**Last Updated**: 2026-09-27
 
 > **Note**: This file is a point-in-time snapshot. `openspec list` is the live source of truth for active changes; `openspec list --specs` lists capability specs.
 
 ## Summary
 
-- **Total Active Proposals**: 2
-- **Archived since the last snapshot**: 8 proposals — 6 under `openspec/changes/archive/2026-09-22-*` (the format-hardening batch plus `add-codec-performance-profiles` and `optimize-format-io-hot-paths`) and 2 more in the 2026-09-21 batch (`unify-format-capability-metadata`, `add-native-batch-conversion`)
-- **Validation**: `openspec validate --all --strict` passes (69 items, 0 failures)
+- **Total Active Proposals**: 1
+- **Archived since the last snapshot**: 6 proposals under `openspec/changes/archive/2026-09-27-*` (`strengthen-repository-quality-gates` plus the five September feature tracks)
+- **Validation**: `openspec validate --all --strict` passes (72 items, 0 failures)
 
 ---
 
@@ -18,8 +18,24 @@ This document is a dated snapshot of OpenSpec proposals that are not yet complet
 
 | Change ID | Tasks complete | Created |
 |---|---|---|
-| `strengthen-repository-quality-gates` | 18/23 | 7/16/2026 |
-| `harden-release-artifacts` | 15/17 | 7/16/2026 |
+| `harden-release-artifacts` | 16/17 | 7/16/2026 |
+
+The one remaining task is a single owner-approved real release run; all local release-artifact verification (clean-checkout build, twine, check-wheel-contents, wheel smoke test) is complete.
+
+---
+
+## Archived 2026-09-27 (6 proposals)
+
+All archived with their spec deltas applied (`openspec archive <id> --yes`):
+
+- `strengthen-repository-quality-gates` → new spec: `repository-quality`; spec update: `test-suite`
+- `add-office-format-writes` → new spec: `office-format-writes` (XLSX/ODS/XML writers)
+- `add-genuine-async-iteration` → new spec: `async-iteration` (`aopen_iterable` with `asyncio.to_thread` offload)
+- `add-db-ingest-parity` → spec update: `ingest` (ClickHouse/MSSQL backends, opt-in pooling)
+- `add-validation-hooks-rollout` → spec update: `validation-consistency` (hooks on all writable formats)
+- `add-reference-plugin` → new spec: `plugin-ecosystem` (reference plugin under `examples/plugins/`)
+
+After this batch there are **71 capability specs** (`openspec list --specs`).
 
 ---
 
@@ -74,7 +90,7 @@ After this batch there are **63 capability specs** (`openspec list --specs`).
 
 - Proposals are considered "finished" when all tasks in `tasks.md` are checked
 - Finished proposals should be archived using `openspec archive <change-id> --yes` (add `--skip-specs` for tooling-only changes with no spec deltas)
-- The remaining 2 active proposals are partially implemented; see their `tasks.md` files for open work
+- The remaining active proposal is partially implemented; see its `tasks.md` file for open work
 
 ---
 
@@ -118,4 +134,7 @@ After this batch there are **63 capability specs** (`openspec list --specs`).
 **Twelfth batch (2026-09-22):**
 - 6 proposals listed in the "Archived 2026-09-22" section above
 
-**Total archived**: 54 proposals across 12 batches (74 dated archive directories including pre-OpenSpec-tracked entries)
+**Thirteenth batch (2026-09-27):**
+- 6 proposals listed in the "Archived 2026-09-27" section above
+
+**Total archived**: 60 proposals across 13 batches (80 dated archive directories including pre-OpenSpec-tracked entries)
