@@ -3,7 +3,7 @@ from __future__ import annotations
 import typing
 
 try:
-    from odf.opendocument import load
+    from odf.opendocument import OpenDocumentSpreadsheet, load
     from odf.table import Table, TableCell, TableRow
     from odf.text import P
 
@@ -21,7 +21,7 @@ except ImportError:
 from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
-from ..exceptions import ReadError, WriteNotSupportedError
+from ..exceptions import ReadError
 from ..types import Row
 
 
@@ -58,6 +58,12 @@ class ODSIterable(BaseFileIterable):
         """Reset iterable"""
         super().reset()
         self.pos = self.start_line
+        if self.mode in ("w", "wr"):
+            # Buffered writer: rows accumulate until close() materializes the
+            # spreadsheet document (ODS is a single-file container).
+            self._write_rows: list[Row] = []
+            self._write_keys: list[str] = list(self.keys) if self.keys else []
+            return
 
         if HAS_ODF:
             # Using odfpy library
@@ -203,10 +209,87 @@ class ODSIterable(BaseFileIterable):
             self.pos += 1
             return result
 
+    def _buffer_row(self, record: Row) -> None:
+        """Buffer one record for the document materialized on close()."""
+        for key in record:
+            if key not in self._write_keys:
+                self._write_keys.append(key)
+        self._write_rows.append(dict(record))
+
+    def _materialize_document(self) -> None:
+        """Write the buffered rows to an .ods document and save it."""
+        if HAS_ODF:
+            doc = OpenDocumentSpreadsheet()
+            table = Table(name="Sheet1")
+            doc.spreadsheet.addElement(table)
+            if self._write_keys:
+                header = TableRow()
+                table.addElement(header)
+                for key in self._write_keys:
+                    cell = TableCell(valuetype="string")
+                    cell.addElement(P(text=str(key)))
+                    header.addElement(cell)
+            for record in self._write_rows:
+                row = TableRow()
+                table.addElement(row)
+                for key in self._write_keys:
+                    row.addElement(self._make_cell(record.get(key)))
+            target = self.filename if self.filename is not None else self.fobj
+            doc.save(target)
+        else:
+            # pyexcel_ods3 fallback: string cells only
+            rows = [list(self._write_keys)] if self._write_keys else []
+            for record in self._write_rows:
+                rows.append([record.get(key) for key in self._write_keys])
+            pyexcel_ods3.save_data(self.filename, {"Sheet1": rows})
+
+    @staticmethod
+    def _make_cell(value: Any) -> TableCell:
+        """Build a typed ODS cell; text paragraphs keep own-reader round-trips."""
+        if value is None:
+            return TableCell(valuetype="string")
+        if isinstance(value, bool):
+            cell = TableCell(valuetype="boolean", booleanvalue=value)
+            cell.addElement(P(text="TRUE" if value else "FALSE"))
+            return cell
+        if isinstance(value, (int, float)):
+            cell = TableCell(valuetype="float", value=value)
+            cell.addElement(P(text=str(value)))
+            return cell
+        if hasattr(value, "isoformat"):
+            cell = TableCell(valuetype="date", datevalue=value.isoformat())
+            cell.addElement(P(text=value.isoformat()))
+            return cell
+        cell = TableCell(valuetype="string")
+        cell.addElement(P(text=str(value)))
+        return cell
+
     def write(self, record: Row) -> None:
-        """Write single ODS record"""
-        raise WriteNotSupportedError("ods", "ODS writing is not yet implemented")
+        """Write single ODS record (buffered until close)."""
+        if self._validation_hooks:
+            validated = self._apply_validation_hooks(record)
+            if validated is None:  # Skipped
+                return
+            record = validated
+        self._buffer_row(record)
 
     def write_bulk(self, records: list[Row]) -> None:
-        """Write bulk ODS records"""
-        raise WriteNotSupportedError("ods", "ODS writing is not yet implemented")
+        """Write bulk ODS records (buffered until close)."""
+        if records is None:
+            raise TypeError("write_bulk() requires a list of records, got None")
+        if self._validation_hooks:
+            validated_records = []
+            for record in records:
+                validated = self._apply_validation_hooks(record)
+                if validated is not None:  # Not skipped
+                    validated_records.append(validated)
+            records = validated_records
+        for record in records:
+            self._buffer_row(record)
+
+    def close(self):
+        """Materialize buffered writes, then close the underlying file."""
+        if self.mode in ("w", "wr") and getattr(self, "_write_rows", None) is not None:
+            self._materialize_document()
+            self._write_rows = None
+        super().close()
