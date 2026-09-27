@@ -25,13 +25,13 @@
 
 ## 4. Documentation and repository status
 
-- [ ] 4.1 Replace all format-page template placeholders with verified examples, install extras, capabilities, memory behavior, and limitations.
+- [x] 4.1 Replace all format-page template placeholders with verified examples, install extras, capabilities, memory behavior, and limitations.
 - [x] 4.2 Refresh or retire stale improvement/unfinished-proposal status documents.
 - [x] 4.3 Add or update contributor guidance for OpenSpec triggers, fixture immutability, minimal/family test commands, and artifact checks.
 - [x] 4.4 Archive completed OpenSpec changes through the standard archive workflow before merging overlapping deltas.
 
 ## 5. Verification
 
-- [ ] 5.1 Run core checks and representative family jobs from clean environments.
-- [ ] 5.2 Confirm the test run leaves the worktree clean.
-- [ ] 5.3 Confirm blocking type/static/coverage gates are green and documented.
+- [x] 5.1 Run core checks and representative family jobs from clean environments.
+- [x] 5.2 Confirm the test run leaves the worktree clean.
+- [x] 5.3 Confirm blocking type/static/coverage gates are green and documented.

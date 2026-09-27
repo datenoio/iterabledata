@@ -36,6 +36,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and source constraints. Legacy hand-maintained classification tables are derived from
   descriptors instead of drifting (the old tables missed up to 32 formats). Capability reporting
   is descriptor-driven with 18 new conformance tests; catalog schema 1.2 adds totals/tables.
+- **Repository quality gates**: per-family CI jobs run under serial coverage and publish
+  term-missing reports plus coverage artifacts; CONTRIBUTING documents staged coverage floors
+  (global 50 enforced, advisory per-family targets, aspiration toward 60). An advisory mypy
+  gate fails on typing errors in files changed vs the base branch
+  (`dev/scripts/mypy_changed_files.py`), and the blocking mypy core gate grows from 12 to 17
+  zero-error modules. Pydocstyle and vulture findings are cleared to zero (protocol-required
+  parameter names whitelisted in `dev/vulture_whitelist.py`) and both gates are now blocking.
+  All D/E/F cyclomatic-complexity functions repo-wide (39 total) were refactored into typed
+  helpers with pinned behavior tests, so the "no D-or-worse" radon gate is now blocking.
+  Format doc pages missing them (20 pages) gained verified Limitations sections; the June
+  improvement plan and July review report are marked superseded.
 
 ### Fixed
 - **GeoPackage writes**: mode="w" now overwrites an existing file (GDAL's GPKG driver refuses to
