@@ -19,7 +19,7 @@
 - [x] 3.1 Fix the three errors in the current core Mypy CI command.
 - [x] 3.2 Centralize local/CI Mypy targets and record package-scoped historical baselines.
 - [x] 3.3 Enforce no new typing errors in changed files and expand zero-error blocking packages incrementally.
-- [ ] 3.4 Clear actionable Pydocstyle and Vulture findings, then enable reviewed blocking thresholds.
+- [x] 3.4 Clear actionable Pydocstyle and Vulture findings, then enable reviewed blocking thresholds.
 - [x] 3.5 Refactor the seven E/F complexity hotspots with focused behavior tests.
 - [x] 3.6 Add an advisory Radon `--min D` complexity gate to CI; flip to blocking once 3.5 lands.
 
