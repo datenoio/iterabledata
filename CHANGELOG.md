@@ -121,6 +121,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unless `extra_fields="ignore"`. `bulk_convert()` accepts and forwards both options.
   **Behavior change:** callers that relied on `convert()` returning normally after write errors
   now get an exception.
+- **ORC writes apply validation hooks on the pyorc backend**: `write()` wrote straight to the
+  pyorc writer and skipped the hooks; it now goes through `write_bulk()` like the pyarrow backend.
+- **Format descriptors match their implementations**: `totals` was declared for `sql` and `copy`
+  (which have no `totals()`) and not declared for `jsonld` and `gpkg` (which have one);
+  `dev/formats.json` is regenerated.
+- **CI and test tooling**: `tests/conftest.py` rewrote `InvocationParams` with `_replace`/`__replace__`,
+  which neither pytest 8.4 nor Python < 3.13 provides, so every test job failed at configure;
+  it now uses `dataclasses.replace`. The dev extra requires `pytest>=9.0.3,<9.2` (PYSEC-2026-1845)
+  and no longer installs `safety`, whose `filelock<4` pin kept vulnerable filelock 3.x in the
+  environment pip-audit scans (the scheduled security workflow installs `safety` itself).
+  Fixture generator scripts are excluded from collection, and the DBF fixture overwritten in
+  1.0.16 is restored to the `ID`/`NAME` version the DBF tests expect.
 - **GeoPackage writes**: mode="w" now overwrites an existing file (GDAL's GPKG driver refuses to
   create over one), matching every other writer's truncate semantics.
 - **Bioinformatics robustness**: opaque htslib errors for missing references/truncated CRAM now

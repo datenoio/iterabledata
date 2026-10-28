@@ -3,6 +3,7 @@ Pytest configuration for iterable tests.
 Ensures tests can find fixtures regardless of where pytest is run from.
 """
 
+import dataclasses
 import os
 import shutil
 import sys
@@ -90,14 +91,14 @@ def pytest_configure(config):
     # the tokens pytest itself parsed as positional paths and preserve every
     # option verbatim: dropping flags here breaks plugins that re-parse the
     # raw args on the worker (e.g. pytest-cov's --no-cov detection).
-    # ``_replace`` was renamed to ``__replace__`` in Python 3.13, so support
-    # both spellings.
-    rewritten = tuple(_absolutize(arg) if arg in positional else arg for arg in config.invocation_params.args)
-    try:
-        _params_replace = config.invocation_params._replace
-    except AttributeError:
-        _params_replace = config.invocation_params.__replace__
-    config.invocation_params = _params_replace(args=rewritten)
+    # ``InvocationParams`` is a frozen dataclass (pytest >= 7; it has no
+    # ``__replace__`` before Python 3.13) or a NamedTuple in older pytest.
+    params = config.invocation_params
+    rewritten = tuple(_absolutize(arg) if arg in positional else arg for arg in params.args)
+    if dataclasses.is_dataclass(params):
+        config.invocation_params = dataclasses.replace(params, args=rewritten)
+    else:
+        config.invocation_params = params._replace(args=rewritten)
     os.chdir(_RUNTIME_ROOT)
 
 

@@ -103,52 +103,54 @@ class CSVIterable(BaseFileIterable):
         if options is None:
             options = {}
         logging.debug(f"Params: encoding: {encoding}, options {options}")
-        self.encoding = None
         self.fileobj = stream
-        if encoding is not None:
-            self.encoding = encoding
-        elif "encoding" in options.keys() and options["encoding"] is not None:
-            self.encoding = options["encoding"]
-        if mode == "r":
-            if filename is not None and stream is None and self.encoding is None:
-                self.encoding = detect_encoding_raw(filename=filename)["encoding"]
-            elif stream is not None and self.encoding is None:
-                self.encoding = detect_encoding_raw(stream=stream)["encoding"]
-            elif self.encoding is None:
-                self.encoding = DEFAULT_ENCODING
-        elif self.encoding is None:
-            self.encoding = DEFAULT_ENCODING
+        self.encoding = self._resolve_encoding(encoding, options, filename, stream, mode)
         logging.debug(f"Final encoding {self.encoding}")
         # Constructor arguments win; otherwise take the dialect from ``options`` (that is,
         # ``open_iterable(iterableargs=...)``), then the extension default, then autodetection.
-        if keys is None:
-            keys = options.get("keys")
-        if delimiter is None:
-            delimiter = options.get("delimiter")
-        if quotechar is None:
-            quotechar = options.get("quotechar")
-        if not autodetect:
-            autodetect = bool(options.get("autodetect", False))
+        self.keys = keys if keys is not None else options.get("keys")
+        delimiter = delimiter if delimiter is not None else options.get("delimiter")
+        quotechar = quotechar if quotechar is not None else options.get("quotechar")
+        autodetect = autodetect or bool(options.get("autodetect", False))
         self.escapechar = options.get("escapechar")
         self.doublequote = options.get("doublequote", True)
-        self.keys = keys
 
         super().__init__(
             filename, stream, codec=codec, binary=False, encoding=self.encoding, mode=mode, options=options
         )
-        if not delimiter:
-            if self._is_tsv_source(filename, codec, options):
-                self.delimiter = TSV_DELIMITER
-            elif autodetect and mode == "r":
-                self.delimiter = detect_delimiter(filename, self.fobj, encoding=self.encoding)
-            else:
-                self.delimiter = DEFAULT_DELIMITER
-        else:
-            self.delimiter = delimiter
+        self.delimiter = delimiter or self._default_delimiter(filename, codec, options, autodetect and mode == "r")
         self.quotechar = quotechar or DEFAULT_QUOTECHAR
         logging.debug(f"Detected delimiter {self.delimiter}")
         self.reset()
-        pass
+
+    @staticmethod
+    def _resolve_encoding(
+        encoding: str | None,
+        options: dict[str, Any],
+        filename: str | None,
+        stream: typing.IO[Any] | None,
+        mode: str,
+    ) -> str:
+        """Explicit encoding, then ``options["encoding"]``, then detection when reading."""
+        if encoding is None:
+            encoding = options.get("encoding")
+        if encoding is not None:
+            return encoding
+        if mode == "r" and stream is not None:
+            return detect_encoding_raw(stream=stream)["encoding"]
+        if mode == "r" and filename is not None:
+            return detect_encoding_raw(filename=filename)["encoding"]
+        return DEFAULT_ENCODING
+
+    def _default_delimiter(
+        self, filename: str | None, codec: BaseCodec | None, options: dict[str, Any], autodetect: bool
+    ) -> str:
+        """Tab for TSV sources, the detected delimiter with ``autodetect``, else a comma."""
+        if self._is_tsv_source(filename, codec, options):
+            return TSV_DELIMITER
+        if autodetect:
+            return detect_delimiter(filename, self.fobj, encoding=self.encoding)
+        return DEFAULT_DELIMITER
 
     @staticmethod
     def _is_tsv_source(filename: str | None, codec: BaseCodec | None, options: dict[str, Any]) -> bool:
