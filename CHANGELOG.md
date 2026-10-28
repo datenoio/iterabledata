@@ -112,6 +112,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   streams.
 - **CSV totals**: `CSVIterable.totals()` no longer counts the header line and counts a last line
   without a trailing newline. Quoted fields with line breaks still make it an over-estimate.
+- **`convert()` no longer drops rows silently** (OpenSpec `fix-convert-silent-row-loss`): nested
+  JSON Lines converted to CSV without `is_flatten` wrote only the header, because rows were not
+  flattened to the dotted header keys and every batch write error was logged and swallowed.
+  Flat outputs now get dotted columns for nested objects and JSON text for lists. A failed batch
+  raises `WriteError` with its row range (`on_write_error="skip"` keeps going and reports
+  `ConversionResult.rows_skipped`), and a field first seen after `scan_limit` raises `WriteError`
+  unless `extra_fields="ignore"`. `bulk_convert()` accepts and forwards both options.
+  **Behavior change:** callers that relied on `convert()` returning normally after write errors
+  now get an exception.
 - **GeoPackage writes**: mode="w" now overwrites an existing file (GDAL's GPKG driver refuses to
   create over one), matching every other writer's truncate semantics.
 - **Bioinformatics robustness**: opaque htslib errors for missing references/truncated CRAM now
