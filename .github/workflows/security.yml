@@ -51,8 +51,11 @@ jobs:
         rm requirements-frozen.txt
       continue-on-error: true
 
+    # safety is not in the dev extra (it caps filelock<4.0; see pyproject.toml),
+    # so install it here, after the pip-audit step has scanned the dev env.
     - name: Run Safety check
       run: |
+        pip install safety
         pip freeze > requirements-frozen.txt
         safety check --file requirements-frozen.txt
         rm requirements-frozen.txt

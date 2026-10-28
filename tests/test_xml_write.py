@@ -4,6 +4,9 @@ import pytest
 
 from iterable import open_iterable
 
+# Writes need only the stdlib, but every test reads back through lxml.
+pytest.importorskip("lxml", reason="lxml is required for XML support")
+
 
 class TestXMLWrite:
     def test_roundtrip_honors_tagname(self, tmp_path):

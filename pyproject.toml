@@ -262,7 +262,11 @@ all = [
 ]
 
 dev = [
-    "pytest>=7.0.0,<9.0.0",
+    # >=9.0.3 fixes PYSEC-2026-1845 (flagged by the blocking pip-audit gate).
+    # The former <9 cap guarded against xdist worker crashes from
+    # pytest-benchmark 5.2.3; pytest-benchmark>=5.3 (below) runs cleanly under
+    # pytest 9 with pytest-xdist, so the cap is gone.
+    "pytest>=9.0.3",
     "pytest-benchmark>=5.3.0",
     "pytest-cov>=4.1.0",
     "memory-profiler>=0.61.0",
@@ -288,7 +292,10 @@ dev = [
     # Security tools
     "bandit[toml]>=1.7.5",
     "pip-audit>=2.6.1",
-    "safety>=2.3.0",
+    # safety is deliberately not listed: every release caps filelock<4.0, which
+    # holds filelock on a version with open CVEs (fixed in 4.2.1) and fails the
+    # blocking pip-audit gate. The advisory Safety step in
+    # .github/workflows/security.yml installs it on its own.
     # Code quality
     "vulture>=2.10",
     "radon>=6.0.0",

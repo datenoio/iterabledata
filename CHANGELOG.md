@@ -87,6 +87,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   improvement plan and July review report are marked superseded.
 
 ### Fixed
+- **CI test runs on Python 3.10–3.12**: `tests/conftest.py` rewrote `config.invocation_params`
+  with `_replace`/`__replace__`, but `InvocationParams` is a frozen dataclass, and dataclasses
+  only gain `__replace__` on Python 3.13. Every run below 3.13 aborted with an INTERNALERROR. It
+  now uses `dataclasses.replace`.
+- **Test collection without optional extras**: `--doctest-modules` no longer imports the fixture
+  generator scripts `tests/create_bio_fixtures.py` and
+  `tests/fixtures/otlp/generate_protobuf_fixtures.py` (also reachable through the
+  `tests/testdata` symlink), which need pysam and protobuf. `tests/test_xlsx_write.py` and
+  `tests/test_xml_write.py` skip when openpyxl or lxml is missing instead of erroring. The bulk
+  cursor interleave suite no longer treats every format whose module fails to import as a custom
+  bulk reader: modules without a `def read_bulk` (duckdb, GPX, KMZ, KML, GML without their
+  extras) are classified as base readers, so a dev-only install no longer fails coverage checks.
+  `tests/test_ai_doc_behavior.py` patches `iterable.ai.models` through `patch.object`: on Python
+  3.10, `mock.patch("iterable.ai.models...")` walks attributes and lands in `iterable.ai.doc`,
+  because `iterable/__init__.py` rebinds `iterable.ai` to that module.
+- **Dependency audit**: The dev extra now requires `pytest>=9.0.3` (PYSEC-2026-1845); the
+  former `<9` cap is unnecessary with `pytest-benchmark>=5.3`. `safety` is dropped from the dev
+  extra because every release caps `filelock<4.0`, which held filelock on a version with
+  CVE-2026-112940/112913/112907 (fixed in 4.2.1). The advisory Safety step in the Security
+  workflow installs it on its own.
 - **GeoPackage writes**: mode="w" now overwrites an existing file (GDAL's GPKG driver refuses to
   create over one), matching every other writer's truncate semantics.
 - **Bioinformatics robustness**: opaque htslib errors for missing references/truncated CRAM now
