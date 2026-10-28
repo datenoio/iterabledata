@@ -100,6 +100,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   10 MB streaming threshold were parsed by `ijson` into `Decimal`, which the JSONL writer then
   wrote as `null`. Every `ijson` reader (JSON, GeoJSON, TopoJSON, CZML, OTLP) now uses
   `use_float=True`, so a file yields the same types whatever its size.
+- **CSV dialect options from `iterableargs`** (OpenSpec `fix-csv-dialect-and-codec-options`):
+  `delimiter`, `quotechar`, `escapechar`, `doublequote`, `keys` and `autodetect` passed through
+  `open_iterable(iterableargs=...)` or `convert(toiterableargs=...)` were overwritten by the
+  defaults; they now apply to reading and writing. Constructor arguments still win.
+- **TSV is tab-separated**: `.tsv` (also `.tsv.gz` etc.) and `format="tsv"` read and write with a
+  tab delimiter by default; they previously used commas.
+- **Explicit format keeps the codec**: `open_iterable("x.csv.gz", iterableargs={"format": "csv"})`
+  and `data.zip` with `format="jsonl"` now decompress the file. A new `iterableargs["codec"]` hint
+  (`"gz"`, `"gzip"`, `"zstd"`, ...) selects the codec for names without a codec extension and for
+  streams.
+- **CSV totals**: `CSVIterable.totals()` no longer counts the header line and counts a last line
+  without a trailing newline. Quoted fields with line breaks still make it an over-estimate.
 - **GeoPackage writes**: mode="w" now overwrites an existing file (GDAL's GPKG driver refuses to
   create over one), matching every other writer's truncate semantics.
 - **Bioinformatics robustness**: opaque htslib errors for missing references/truncated CRAM now
