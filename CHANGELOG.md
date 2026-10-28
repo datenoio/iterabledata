@@ -87,6 +87,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   improvement plan and July review report are marked superseded.
 
 ### Fixed
+- **Time values in JSON Lines, GELF, and JSON-LD writes**: `datetime.time` values (e.g. TIME
+  columns from DuckDB or Parquet) are now written as ISO strings (`"10:30:00"`, with
+  microseconds when present) instead of `null`. The writers' `default=` handler only knew
+  `date`/`datetime`. The JSON writer already kept them; a round-trip regression test now covers
+  all four formats through both `write()` and `write_bulk()`.
 - **GeoPackage writes**: mode="w" now overwrites an existing file (GDAL's GPKG driver refuses to
   create over one), matching every other writer's truncate semantics.
 - **Bioinformatics robustness**: opaque htslib errors for missing references/truncated CRAM now

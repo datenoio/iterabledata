@@ -11,7 +11,7 @@ from ..types import Row
 
 
 def date_handler(obj):
-    return obj.isoformat() if isinstance(obj, (datetime.datetime, datetime.date)) else None
+    return obj.isoformat() if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)) else None
 
 
 class GELIterable(BaseFileIterable):
