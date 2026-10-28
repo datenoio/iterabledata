@@ -365,13 +365,16 @@ class BaseFileIterable(BaseIterable):
 
     def _codec_text_io(self) -> typing.IO[Any]:
         """Text wrapper over the codec stream, honoring the format's ``text_newline``."""
+        codec = self.codec
+        if codec is None:
+            raise ValueError("Cannot open a codec text stream: no codec is set")
         if self.text_newline is None:
-            return self.codec.textIO(encoding=self.encoding)
+            return codec.textIO(encoding=self.encoding)
         try:
-            return self.codec.textIO(encoding=self.encoding, newline=self.text_newline)
+            return codec.textIO(encoding=self.encoding, newline=self.text_newline)
         except TypeError:
             # Third-party codecs written against the older ``textIO(encoding)`` signature.
-            return self.codec.textIO(encoding=self.encoding)
+            return codec.textIO(encoding=self.encoding)
 
     def _init_error_handling(self, options: dict[str, Any]) -> None:
         """Initialize error handling configuration.
