@@ -21,6 +21,7 @@ except ImportError:
 from typing import Any
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..helpers.jsonvalues import encode_default
 from ..types import Row
 
 
@@ -78,7 +79,7 @@ class GeoJSONIterable(BaseFileIterable):
                 try:
                     # First, try to detect if it's a FeatureCollection
                     # We'll try to stream "features.item" path
-                    self._parser = ijson.items(self.fobj, "features.item")
+                    self._parser = ijson.items(self.fobj, "features.item", use_float=True)
                     # Pre-fetch first item to check if parser works
                     try:
                         self._first_item = next(self._parser)
@@ -89,7 +90,7 @@ class GeoJSONIterable(BaseFileIterable):
                         self.fobj.seek(0)
                         try:
                             # Try streaming as single object
-                            self._parser = ijson.items(self.fobj, "item")
+                            self._parser = ijson.items(self.fobj, "item", use_float=True)
                             self._first_item = next(self._parser)
                             self._items_buffer = [self._first_item]
                         except StopIteration:
@@ -220,9 +221,9 @@ class GeoJSONIterable(BaseFileIterable):
             record["type"] = "Feature"
         if HAS_GEOJSON:
             feature = geojson.Feature(**record)
-            geojson.dump(feature, self.fobj, ensure_ascii=False)
+            geojson.dump(feature, self.fobj, ensure_ascii=False, default=encode_default)
         else:
-            json.dump(record, self.fobj, ensure_ascii=False)
+            json.dump(record, self.fobj, ensure_ascii=False, default=encode_default)
         self.fobj.write("\n")
 
     def write_bulk(self, records: list[Row]) -> None:
@@ -240,7 +241,7 @@ class GeoJSONIterable(BaseFileIterable):
         if HAS_GEOJSON:
             features = [geojson.Feature(**r) for r in records]
             fc = geojson.FeatureCollection(features)
-            geojson.dump(fc, self.fobj, ensure_ascii=False)
+            geojson.dump(fc, self.fobj, ensure_ascii=False, default=encode_default)
         else:
             fc = {"type": "FeatureCollection", "features": records}
-            json.dump(fc, self.fobj, ensure_ascii=False)
+            json.dump(fc, self.fobj, ensure_ascii=False, default=encode_default)

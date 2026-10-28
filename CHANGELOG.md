@@ -87,6 +87,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   improvement plan and July review report are marked superseded.
 
 ### Fixed
+- **JSON writers no longer write `null` for non-`None` values** (OpenSpec
+  `fix-json-serialization-fidelity`): JSON Lines, GELF and JSON-LD wrote `null` for `time`,
+  `Decimal`, `UUID`, `bytes`, `timedelta` and `set` values. All JSON-family writers now share one
+  encoder (`iterable.helpers.jsonvalues`): ISO 8601 for dates, times and durations, `Decimal` as a
+  number when its shortest float form is exact (otherwise a string; `decimal="string"` forces
+  strings), base64 for bytes, arrays for sets, `.item()`/`.tolist()` for NumPy values, and
+  `str(value)` for anything else (`on_unknown_type="raise"` raises `WriteError` instead).
+  **Visible change:** the JSON writer now writes `Decimal` as a number and `bytes` as base64
+  instead of their Python string form.
+- **Large JSON files keep floats** (OpenSpec `fix-json-serialization-fidelity`): arrays above the
+  10 MB streaming threshold were parsed by `ijson` into `Decimal`, which the JSONL writer then
+  wrote as `null`. Every `ijson` reader (JSON, GeoJSON, TopoJSON, CZML, OTLP) now uses
+  `use_float=True`, so a file yields the same types whatever its size.
 - **GeoPackage writes**: mode="w" now overwrites an existing file (GDAL's GPKG driver refuses to
   create over one), matching every other writer's truncate semantics.
 - **Bioinformatics robustness**: opaque htslib errors for missing references/truncated CRAM now
