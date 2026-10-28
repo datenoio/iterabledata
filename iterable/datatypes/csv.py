@@ -87,6 +87,10 @@ def detect_delimiter(filename=None, stream=None, encoding="utf8"):
 
 
 class CSVIterable(BaseFileIterable):
+    # The csv module needs untranslated line endings, also through codecs (``.csv.gz``):
+    # universal-newline mode turns its ``\r\n`` into ``\r\r\n`` on Windows.
+    text_newline = ""
+
     def __init__(
         self,
         filename: str | None = None,
@@ -187,7 +191,7 @@ class CSVIterable(BaseFileIterable):
     def reset(self) -> None:
         super().reset()
         if self.fobj is None and self.codec is not None:
-            fobj = self.codec.textIO(self.encoding)
+            fobj = self._codec_text_io()
         else:
             fobj = self.fobj
         logging.debug(f"Detected delimiter {self.delimiter}")
