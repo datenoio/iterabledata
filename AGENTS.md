@@ -85,6 +85,8 @@ Instructions for AI coding agents working on the IterableData project.
   and commit the updated JSON (note the reference environment in `_meta`).
 - `tests/testdata` must be a symlink to `tests/fixtures`. Check out the repo with symlinks enabled (`git config core.symlinks true`); if it materialized as a plain file, restore it with `rm tests/testdata && ln -s fixtures tests/testdata`
 - Stress/slow/benchmark/integration tests are excluded from the default run; opt in with e.g. `pytest -m stress`
+- `tests/test_downstream_contract.py` guards the names undatum imports. If it fails after a rename,
+  keep a compatibility alias (or coordinate with undatum) instead of editing the test.
 
 ## Import patterns
 

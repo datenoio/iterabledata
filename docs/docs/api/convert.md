@@ -36,6 +36,8 @@ convert(
     strict_native: bool = False,
     extra_fields: str = "raise",
     on_write_error: str = "raise",
+    codecargs: dict | None = None,
+    tocodecargs: dict | None = None,
 ) -> ConversionResult
 ```
 
@@ -72,6 +74,18 @@ See [Database Engines](/api/database-engines) for detailed database-specific par
 ### `toiterableargs` (dict, optional)
 
 Format-specific arguments for **writing** the destination file (delimiter, quotechar, page, and so on).
+
+### `codecargs` / `tocodecargs` (dict, optional)
+
+Codec options for the source and the destination, passed to `open_iterable(codecargs=...)`.
+Use them to set the compression level or profile of a compressed output:
+
+```python
+convert("data.csv", "data.jsonl.gz", tocodecargs={"compression_level": 1})
+convert("data.csv", "data.jsonl.zst", tocodecargs={"profile": "fast"})
+```
+
+Both are ignored when the file has no codec.
 
 ### `progress_interval` (int, optional)
 
@@ -469,10 +483,18 @@ bulk_convert(
     is_flatten: bool = False,
     use_totals: bool = False,
     progress: Callable[[dict], None] | None = None,
+    progress_interval: int = 1000,
     show_progress: bool = False,
     atomic: bool = False,
     parallel: bool = False,
-    workers: int | None = None
+    workers: int | None = None,
+    extra_fields: str = "raise",
+    on_write_error: str = "raise",
+    codecargs: dict | None = None,
+    tocodecargs: dict | None = None,
+    use_native_batch: bool = False,
+    selection: BatchSelection | dict | None = None,
+    strict_native: bool = False,
 ) -> BulkConversionResult
 ```
 
@@ -533,7 +555,14 @@ Number of worker threads for parallel conversion. If `None`, uses `min(4, CPU co
 
 #### Other Parameters
 
-All other parameters (`iterableargs`, `batch_size`, `is_flatten`, etc.) are passed through to the underlying `convert()` function for each file.
+All other parameters (`iterableargs`, `batch_size`, `is_flatten`, `codecargs`, `tocodecargs`,
+`use_native_batch`, `selection`, `strict_native`, etc.) are passed through to the underlying
+`convert()` function for each file, in sequential and parallel mode:
+
+```python
+# Keep only the id column of every Parquet file
+bulk_convert("in/*.parquet", "out/", to_ext="jsonl", selection={"columns": ["id"]})
+```
 
 ### Return Value
 

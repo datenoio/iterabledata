@@ -33,6 +33,28 @@ Gzip, bzip2, LZMA/xz, and ZIP use the standard library and do not require the ex
 
 The DuckDB engine only supports **gzip** and **zstd** codecs. Use `engine="internal"` (the default) for other codecs and for [cloud storage](/api/cloud-storage).
 
+### Listing codecs
+
+`list_codecs()` returns every registered codec, including plugin codecs, without importing
+any optional dependency:
+
+```python
+from iterable.helpers.detect import list_codecs
+
+for codec in list_codecs():
+    print(codec["id"], codec["class_name"], codec["source"])  # gz GZIPCodec builtin ...
+```
+
+Each entry has `id` (the extension that selects the codec), `module` and `class_name`
+(where the class lives) and `source` (`"builtin"` or `"plugin"`). The `id` is also accepted
+as `iterableargs={"codec": ...}`, together with the aliases `gzip`, `bzip2`, `zstandard`
+and `brotli`.
+
+`CODEC_REGISTRY`, `DATATYPE_REGISTRY` and `TEXT_DATA_TYPES` in `iterable.helpers.detect`
+are read-only views of the built-in metadata and do not include plugins. Use
+`list_codecs()` and [`iterable.catalog`](/api/catalog) (`list_formats()`,
+`describe_format()`) instead of reading or changing them.
+
 ## Usage
 
 ```python
@@ -51,7 +73,8 @@ with open_iterable("out.jsonl.zst", mode="w") as dest:
 Codec constructors accept `options={"profile": "fast" | "balanced" | "max"}`.
 The high-level default is `balanced`; an explicit `compression_level` always
 overrides the profile. Effective settings are available on codec instances as
-`effective_settings` for diagnostics.
+`effective_settings` for diagnostics. Pass the same options through
+`open_iterable(..., codecargs=...)` or `convert(..., codecargs=..., tocodecargs=...)`.
 
 | Profile | Goal | Typical settings |
 | --- | --- | --- |

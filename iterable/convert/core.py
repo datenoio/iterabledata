@@ -20,7 +20,7 @@ from ..exceptions import WriteError
 from ..helpers.detect import is_flat, open_iterable
 from ..helpers.jsonvalues import encode_default
 from ..helpers.utils import make_flat
-from ..types import BulkConversionResult, ConversionResult, FileConversionResult, IterableArgs
+from ..types import BulkConversionResult, CodecArgs, ConversionResult, FileConversionResult, IterableArgs
 from .batch import BatchSelection, native_batch_supported, select_rows
 
 DEFAULT_BATCH_SIZE = 50000
@@ -561,6 +561,8 @@ def convert(
     strict_native: bool = False,
     extra_fields: str = "raise",
     on_write_error: str = "raise",
+    codecargs: CodecArgs | None = None,
+    tocodecargs: CodecArgs | None = None,
 ) -> ConversionResult:
     """
     Convert data between different file formats or from database sources to files.
@@ -602,6 +604,9 @@ def convert(
         on_write_error: ``"raise"`` (default) raises ``WriteError`` when a batch cannot be
                         written; ``"skip"`` records the error, counts the batch in
                         ``rows_skipped`` and continues.
+        codecargs: Codec options for reading the source (passed to ``open_iterable(codecargs=...)``).
+        tocodecargs: Codec options for writing the destination, e.g. ``{"compression_level": 1}``
+                     or ``{"profile": "fast"}``.
 
     Returns:
         ConversionResult: Object containing conversion metrics (rows_in, rows_out,
@@ -633,6 +638,9 @@ def convert(
         # Convert with atomic writes for production safety
         result = convert('input.csv', 'output.parquet', atomic=True)
 
+        # Fast gzip output
+        result = convert('input.csv', 'output.jsonl.gz', tocodecargs={'compression_level': 1})
+
         # Convert from PostgreSQL database to Parquet
         result = convert(
             'postgresql://user:pass@host:5432/dbname',
@@ -660,7 +668,9 @@ def convert(
     source_engine = source_iterableargs.pop("engine", "internal")
 
     def reopen_source() -> Any:
-        return open_iterable(fromfile, mode="r", engine=source_engine, iterableargs=source_iterableargs)
+        return open_iterable(
+            fromfile, mode="r", engine=source_engine, codecargs=dict(codecargs or {}), iterableargs=source_iterableargs
+        )
 
     try:
         it_in = reopen_source()
@@ -680,7 +690,7 @@ def convert(
         )
 
         args = _build_output_args(tofile, actual_tofile, is_flat_output, keys, toiterableargs)
-        it_out = open_iterable(actual_tofile, mode="w", iterableargs=args)
+        it_out = open_iterable(actual_tofile, mode="w", codecargs=dict(tocodecargs or {}), iterableargs=args)
 
         logging.debug("Converting data")
         native_eligible = _check_native_eligibility(it_in, it_out, native_requested, is_flatten, strict_native)
@@ -1048,6 +1058,11 @@ def bulk_convert(
     workers: int | None = None,
     extra_fields: str = "raise",
     on_write_error: str = "raise",
+    codecargs: CodecArgs | None = None,
+    tocodecargs: CodecArgs | None = None,
+    use_native_batch: bool = False,
+    selection: BatchSelection | dict[str, Any] | None = None,
+    strict_native: bool = False,
 ) -> BulkConversionResult:
     """
     Convert multiple files using glob patterns, directory paths, or file lists.
@@ -1085,6 +1100,12 @@ def bulk_convert(
         extra_fields: Passed to :func:`convert` for each file.
         on_write_error: Passed to :func:`convert` for each file; a file whose batch fails to
                         write is reported as failed unless this is ``"skip"``.
+        codecargs: Codec options for reading each source file, passed to :func:`convert`.
+        tocodecargs: Codec options for writing each output file, passed to :func:`convert`.
+        use_native_batch: Passed to :func:`convert` for each file.
+        selection: Columns, row range, slice or predicate applied to each file; passed to
+                   :func:`convert`.
+        strict_native: Passed to :func:`convert` for each file.
 
     Returns:
         BulkConversionResult: Object containing aggregated metrics and per-file results
@@ -1114,6 +1135,9 @@ def bulk_convert(
 
         # Convert with atomic writes for production safety
         result = bulk_convert('data/*.csv', 'output/', to_ext='parquet', atomic=True)
+
+        # Keep only the id column of every Parquet file
+        result = bulk_convert('in/*.parquet', 'out/', to_ext='jsonl', selection={'columns': ['id']})
     """
     if pattern is None and to_ext is None:
         raise ValueError("Either 'pattern' or 'to_ext' must be specified")
@@ -1140,7 +1164,15 @@ def bulk_convert(
     convert_kwargs = _build_convert_kwargs(
         iterableargs, toiterableargs, scan_limit, batch_size, is_flatten, use_totals, progress_interval, atomic
     )
-    convert_kwargs.update(extra_fields=extra_fields, on_write_error=on_write_error)
+    convert_kwargs.update(
+        extra_fields=extra_fields,
+        on_write_error=on_write_error,
+        codecargs=codecargs,
+        tocodecargs=tocodecargs,
+        use_native_batch=use_native_batch,
+        selection=selection,
+        strict_native=strict_native,
+    )
     dest_files = {f: _generate_output_filename(f, dest, pattern, to_ext) for f in source_files}
     tasks = [(f, dest_files[f], convert_kwargs) for f in source_files]
 
