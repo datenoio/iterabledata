@@ -24,7 +24,7 @@ This document is a dated snapshot of OpenSpec proposals that are not yet complet
 | `fix-convert-silent-row-loss` | 9/9 (ready to archive) | 10/28/2026 |
 | `fix-package-import-hygiene` | 11/11 (ready to archive) | 10/28/2026 |
 | `update-convert-api-parity` | 8/8 (ready to archive) | 10/28/2026 |
-| `optimize-json-csv-parquet-hot-paths` | 0/20 | 10/28/2026 |
+| `optimize-json-csv-parquet-hot-paths` | 20/20 (ready to archive) | 10/28/2026 |
 
 The one remaining task is a single owner-approved real release run; all local release-artifact verification (clean-checkout build, twine, check-wheel-contents, wheel smoke test) is complete.
 

@@ -20,17 +20,27 @@ JSONL (JSON Lines) or NDJSON (Newline-Delimited JSON) is a format where each lin
 
 The JSONL implementation:
 - Reads file line by line
-- Parses each line as a separate JSON object
+- Parses each line as a separate JSON object (with `msgspec` when installed, see below)
 - Supports streaming for large files
-- Handles datetime objects in JSON
+- Skips blank lines
 
 ### Writing
 
 Writing support:
-- Writes each record as a single line
+- Writes each record as a single line of compact JSON (`{"a":1,"b":[1,2]}`)
 - Serializes values JSON has no type for with a shared encoder (see the table below)
-- Supports Unicode characters
+- Keeps non-ASCII characters as they are (no `\uXXXX` escapes)
+- Writes NaN and infinities as `null`
 - Efficient for bulk writes
+
+### JSON backends
+
+`pip install 'iterabledata[fast]'` installs `msgspec` (used for parsing) and `orjson` (used for
+writing). Without them the standard library `json` module is used. Records and written bytes
+are the same either way, with one exception: floats below `1e-4` are written as `0.00001` by
+`orjson` and as `1e-05` by `json` (the same value). Lines that `msgspec` rejects but `json`
+accepts, such as `NaN` literals, are parsed by `json`; integers beyond 64 bits stay exact.
+Set `ITERABLEDATA_JSON_BACKEND=stdlib` to force the standard library.
 
 ### Key Features
 
@@ -103,6 +113,7 @@ The same encoder is used by the JSON, JSON Lines, GELF, JSON-LD, GeoJSON, TopoJS
 | `bytes`, `bytearray`, `memoryview` | base64 string |
 | `timedelta` | ISO 8601 duration (`"PT5S"`, `"-P1DT2H"`) |
 | `set`, `frozenset` | array (sorted when comparable) |
+| `Enum` member | its `value` |
 | NumPy scalar / array | `.item()` / `.tolist()` |
 | anything else | `str(value)`, or `WriteError` with `on_unknown_type="raise"` |
 
@@ -179,6 +190,7 @@ JSONL files can be compressed with all supported codecs:
   ```
 
 - **Batch processing**: For large files, process in batches of 10,000-50,000 records
+- **Install the `fast` extra**: `msgspec` parses about 2x and `orjson` writes about 4x faster than the standard library
 - **Compression**: Compressed JSONL files (`.jsonl.gz`, `.jsonl.zst`) are efficient and recommended for large datasets
 - **Streaming**: JSONL is processed line-by-line, making it memory-efficient for very large files
 - **DuckDB engine**: Use DuckDB engine for analytical queries on large JSONL files

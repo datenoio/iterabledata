@@ -18,18 +18,31 @@ CSV (Comma-Separated Values) is a simple text format for storing tabular data. E
 
 ### Reading
 
-The CSV implementation uses Python's built-in `csv.DictReader` for reading, which automatically:
+The CSV implementation reads with Python's `csv` module and returns the same records as
+`csv.DictReader`:
 - Detects encoding using `chardet` library
 - Supports automatic delimiter detection
 - Handles quoted fields and escaped characters
 - Converts each row to a dictionary with column names as keys
+- Short rows get `None` for the missing fields; extra values of long rows go to a list under the
+  `None` key; blank lines are skipped
 
 ### Writing
 
-Writing uses `csv.DictWriter` which:
-- Requires field names to be specified
+Writing follows `csv.DictWriter`:
+- Takes field names from `keys` or the first record
 - Supports custom delimiters and quote characters
 - Automatically handles special characters and escaping
+- Writes `""` for missing fields and raises `ValueError` for fields that are not in the header
+
+### Native batches
+
+With PyArrow installed, `convert(..., use_native_batch=True)` streams CSV into Parquet or Arrow
+IPC as Arrow record batches without building Python rows (plain, `.gz`, `.bz2` and `.zst`
+files). Every column is read as a string, so values equal the row path's and empty fields stay
+`""`. Column projection (`selection={"columns": [...]}`) is pushed down; predicates and row
+ranges use the row path. Every row must have as many fields as the header; read ragged files
+without `use_native_batch`.
 
 ### Key Features
 
@@ -188,6 +201,7 @@ CSV files can be compressed with all supported codecs:
   ```
 
 - **Batch processing**: For large files, process in batches of 10,000-50,000 records
+- **CSV to Parquet**: `convert("a.csv", "a.parquet", use_native_batch=True)` uses the native Arrow path above
 - **Compression**: Compressed CSV files (`.csv.gz`, `.csv.zst`) can be processed efficiently
 - **Encoding detection**: Auto-detection reads first 1MB - specify encoding explicitly for faster startup
 - **Delimiter detection**: Auto-detection has overhead - specify delimiter if known

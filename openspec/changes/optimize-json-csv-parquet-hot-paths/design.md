@@ -72,23 +72,45 @@ x86-64, so read backends need a per-platform benchmark before they become defaul
 
 ## Decisions
 
-- **orjson over msgspec.** Read speed is equal; msgspec's `encode_lines` writes 1.6x faster, but
-  orjson is already a dependency of undatum and many data stacks, its wheels cover the same
-  platforms, and one backend keeps the fallback matrix small. Revisit if write throughput becomes
-  the bottleneck.
+- **msgspec decodes, orjson encodes (revised during implementation).** `orjson.loads` turns
+  integers beyond 64 bits into floats without an error (`18446744073709551616` ->
+  `1.8446744073709552e+19`), which is silent data loss; detecting such lines costs more than the
+  parse. `msgspec.json.Decoder` keeps them exact at the same speed (0.27 s vs 0.26 s for 200k
+  lines) and parses floats identically to `json` (200k random doubles, 0 mismatches). For
+  encoding `msgspec` cannot route datetimes, sets or `Decimal` through the shared encoder (it
+  serializes them natively and differently), while `orjson` can (`OPT_PASSTHROUGH_DATETIME`,
+  `OPT_PASSTHROUGH_DATACLASS`; sets and `Decimal` reach `default`). Hence `fast` =
+  `orjson>=3.11.7`, `msgspec`, `isal`; orjson before 3.11.7 writes `1e16` instead of `1e+16`
+  and is ignored.
 - **Optional, auto-detected.** The base install stays `chardet` + `tqdm`. `iterabledata[fast]`
-  pulls `orjson` and `isal`; the stdlib path remains and produces identical bytes.
-- **Byte-identical output across backends.** The stdlib writer switches to
-  `separators=(",", ":")` and the shared encoder, so output does not depend on what is installed.
-  NaN and infinities are written as `null` by both backends (stdlib currently writes invalid
-  `NaN`); integers beyond 64 bits fall back to the stdlib encoder per record.
-- **Reader fallback.** When `orjson.loads` rejects a line, retry with `json.loads` before raising
+  pulls the accelerated libraries; the stdlib path remains and produces the same values.
+- **Near byte-identical output across backends.** The stdlib writer switches to
+  `separators=(",", ":")` and the shared encoder. NaN and infinities are written as `null` by
+  both backends (stdlib used to write invalid `NaN`). Records orjson cannot encode (integers
+  beyond 64 bits, non-string keys) fall back to the stdlib encoder per record. The one remaining
+  byte difference: floats below `1e-4` (`orjson` `0.00001`, `json` `1e-05`). `Enum` members are
+  encoded as their value by both (the shared encoder used to write `str(member)`).
+- **Reader fallback.** When `msgspec` rejects a line, retry with `json.loads` before raising
   `FormatParseError`, so inputs the stdlib accepts today (for example `NaN` literals) still load.
+- **JSON Lines stays a text stream.** Reading bytes would change `fobj` for subclasses
+  (`GeoJSONSeqIterable`) and callers that pass text streams; `msgspec` decodes `str` directly.
 - **CSV semantics.** Keep `DictReader` behavior exactly: missing trailing fields become `None`,
   extra fields go to the `None` key. The fast path handles rows whose length equals the header
   and defers to the general path otherwise.
 - **Native CSV batches read every column as a string**, matching row-path values (no type
   inference, empty fields stay `""`), the same rule undatum uses for its DuckDB COPY path.
+  They travel through a new optional Arrow protocol (`read_arrow_batches`/`write_arrow_batch`,
+  `arrow_batch_supported()`), implemented by CSV (reader) and Parquet and Arrow IPC (writers);
+  GeoParquet opts out because its schema metadata is added on the row path. ORC is written with
+  pyorc, not PyArrow, so it keeps the row path. The native path stays opt-in
+  (`use_native_batch=True`): PyArrow rejects ragged rows that the row path pads.
+- **Parquet writes convert once and normalize lazily.** A batch is converted with
+  `Table.from_pylist`; extended-JSON unwrapping runs only when that conversion fails or yields
+  nested types, because a flat result proves the batch had no dict or list values.
+- **gzip keeps zlib's ratios.** On this machine ISA-L level 3 is 1.3x faster than zlib 6 but its
+  output is 14% larger (ratio 0.193 vs 0.169); ISA-L level 1 matches zlib 1 (0.213 vs 0.216).
+  `backend="auto"` therefore uses ISA-L only at levels 1-2 (threaded for `profile="fast"`);
+  `backend="isal"` opts in at any level and for reads; read defaults are unchanged.
 - **Rejected:** `pysimdjson` (lazy proxies make full materialization 7x slower than stdlib),
   `pyarrow.json` and `pyarrow.csv` for dict rows (`to_pylist` dominates), DuckDB for row
   iteration (no faster than `DictReader` once rows are dicts), Polars (2.3x faster CSV-to-dict,

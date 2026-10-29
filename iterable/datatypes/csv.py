@@ -117,6 +117,10 @@ class _DictRowReader:
         self.line_num = self.reader.line_num
         return self._fieldnames
 
+    @fieldnames.setter
+    def fieldnames(self, value: typing.Sequence[str] | None) -> None:
+        self._fieldnames = value
+
     def __iter__(self) -> _DictRowReader:
         return self
 
@@ -127,6 +131,9 @@ class _DictRowReader:
         self.line_num = self.reader.line_num
         while row == []:
             row = next(self.reader)
+        fieldnames = self._fieldnames
+        if fieldnames is not None and len(row) == len(fieldnames):
+            return dict(zip(fieldnames, row, strict=False))
         return self._record(row)
 
     def _record(self, row: list[str]) -> dict[Any, Any]:

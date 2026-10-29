@@ -2,17 +2,25 @@
   "_meta": {
     "cpu_count": 14,
     "description": "Normalized performance baselines: workload wall time divided by a pure-Python calibration workload timed on the same machine. Regenerate with: pytest tests/test_performance_regression.py -m performance --no-cov --update-baselines",
-    "generated_at": "2026-10-29T04:01:58.511123+00:00",
+    "environment": "median of 5 runs; dev tools + PyArrow, no orjson/msgspec/isal (matches the CI performance-gate job)",
+    "generated_at": "2026-10-29T07:23:27.826462+00:00",
     "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
     "python": "3.13.7",
     "rows": 10000
   },
   "workloads": {
-    "csv_bulk_read_10k": 0.1757,
-    "csv_bulk_write_10k": 0.1519,
-    "csv_read_10k": 0.1931,
-    "import_iterable": 1.6647,
-    "jsonl_gz_to_parquet_convert_10k": 0.4125,
-    "jsonl_read_10k": 0.2434
+    "csv_bulk_read_10k": 0.092,
+    "csv_bulk_write_10k": 0.092,
+    "csv_read_10k": 0.1367,
+    "csv_to_jsonl_convert_10k": 0.5567,
+    "csv_to_parquet_convert_10k": 0.3501,
+    "import_iterable": 1.9072,
+    "json_read_10k": 0.1615,
+    "jsonl_bulk_read_10k": 0.2646,
+    "jsonl_bulk_write_10k": 0.313,
+    "jsonl_gz_to_parquet_convert_10k": 0.2625,
+    "jsonl_read_10k": 0.1786,
+    "jsonl_to_csv_convert_10k": 0.9043,
+    "parquet_bulk_write_10k": 0.089
   }
 }

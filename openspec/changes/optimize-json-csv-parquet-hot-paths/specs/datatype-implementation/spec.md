@@ -2,11 +2,11 @@
 
 ### Requirement: Backend-Independent JSON Output
 
-JSON and JSON Lines readers and writers SHALL use an accelerated JSON backend when it is installed and the standard library otherwise. Written bytes and returned records SHALL be identical for both backends.
+JSON and JSON Lines readers and writers SHALL use an accelerated JSON backend when it is installed and the standard library otherwise. Returned records SHALL be identical for both backends, and written bytes SHALL be identical except for floats below `1e-4`, which may be written in positional or exponent form with the same value.
 
 #### Scenario: Same output with and without orjson
 
-- **WHEN** the same records are written to JSON Lines once with `orjson` installed and once with the standard-library backend forced
+- **WHEN** the same records, without floats below `1e-4`, are written to JSON Lines once with `orjson` installed and once with the standard-library backend forced
 - **THEN** the two files SHALL be byte-identical
 
 #### Scenario: Input the accelerated parser rejects
@@ -14,6 +14,11 @@ JSON and JSON Lines readers and writers SHALL use an accelerated JSON backend wh
 - **WHEN** a JSON Lines record contains a literal the accelerated parser rejects but the standard library accepts (for example `NaN`)
 - **THEN** the reader SHALL return the standard library's result for that line
 - **AND** it SHALL NOT raise `FormatParseError`
+
+#### Scenario: Integers beyond 64 bits
+
+- **WHEN** a JSON Lines record contains an integer literal beyond the 64-bit range
+- **THEN** the reader SHALL return the exact integer, not a float
 
 ### Requirement: CSV Fast Path Preserves Record Semantics
 
