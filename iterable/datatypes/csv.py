@@ -182,13 +182,15 @@ class _DictRowWriter:
         self.fieldnames = list(fieldnames)
         self.writer = csv_writer(f, **dialect)
         self._keys = frozenset(self.fieldnames)
-        getter = itemgetter(*self.fieldnames) if self.fieldnames else None
-        if len(self.fieldnames) == 1:
-            self._project: typing.Callable[[Mapping[Any, Any]], Any] = lambda record: (getter(record),)
-        elif getter is None:
+        self._project: typing.Callable[[Mapping[Any, Any]], Any]
+        if not self.fieldnames:
             self._project = lambda record: ()
+        elif len(self.fieldnames) == 1:
+            # ``itemgetter`` with one key returns the value itself, not a 1-tuple.
+            key = self.fieldnames[0]
+            self._project = lambda record: (record[key],)
         else:
-            self._project = getter
+            self._project = itemgetter(*self.fieldnames)
 
     def _row(self, record: Mapping[Any, Any]) -> Any:
         if record.keys() == self._keys:
@@ -353,6 +355,11 @@ class CSVIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return True
 
+    def _row_reader(self) -> _DictRowReader:
+        if self.reader is None:
+            raise ValueError("CSV iterable is not open for reading")
+        return self.reader
+
     def _report_parse_error(self, exc: Exception) -> None:
         """Hand a row that failed to parse to the error policy (raises in ``raise`` mode)."""
         # The underlying ``csv.reader`` has already counted the line that failed.
@@ -415,7 +422,7 @@ class CSVIterable(BaseFileIterable):
         if self._on_error != "raise" or self._debug:
             return self._read_bulk_tracked(num)
         try:
-            chunk = self.reader.read_many(num)
+            chunk = self._row_reader().read_many(num)
         except Exception as e:
             self._report_parse_error(e)  # raises: on_error is "raise" here
             raise
@@ -495,7 +502,7 @@ class CSVIterable(BaseFileIterable):
             raise NotImplementedError("Native CSV batches support column projection only")
         if self.mode != "r" or self.pos != 0:
             raise NotImplementedError("Native CSV batches need a fresh reader")
-        names = list(self.keys) if self.keys is not None else list(self.reader.fieldnames or [])
+        names = list(self.keys) if self.keys is not None else list(self._row_reader().fieldnames or [])
         columns = list(selection.columns) if selection.columns is not None else None
         if not names or len(set(names)) != len(names) or not set(columns or ()) <= set(names):
             raise NotImplementedError("Native CSV batches need unique header names covering the selection")

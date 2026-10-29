@@ -438,6 +438,8 @@ module = [
     "orjson",
     "isal",
     "isal.*",
+    "pyarrow",
+    "pyarrow.*",
     "polars",
     "polars.*",
     "fsspec",

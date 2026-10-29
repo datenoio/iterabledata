@@ -178,9 +178,11 @@ class ParquetIterable(BaseFileIterable):
         if self.__buffer:
             self._write_records(self.__buffer)
             self.__buffer = []
-        if self.__tables:
+        writer = self.writer
+        # Arrow tables are only buffered once the writer (and its schema) exists.
+        if self.__tables and writer is not None:
             tables, self.__tables, self.__buffered_rows = self.__tables, [], 0
-            self.writer.write_table(tables[0] if len(tables) == 1 else pyarrow.concat_tables(tables))
+            writer.write_table(tables[0] if len(tables) == 1 else pyarrow.concat_tables(tables))
 
     def close(self):
         """Close iterable"""

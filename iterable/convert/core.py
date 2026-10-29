@@ -343,6 +343,7 @@ def _run_native_batch_loop(
     Endpoints that both speak Arrow exchange ``pyarrow.RecordBatch`` objects; others exchange
     lists of rows.
     """
+    count: Callable[[Any], int]
     if arrow_batch_supported(it_in, it_out):
         batches = it_in.read_arrow_batches(selection)
         write, count = it_out.write_arrow_batch, _arrow_rows

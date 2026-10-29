@@ -80,7 +80,7 @@ class GZIPCodec(BaseCodec):
             return igzip.IGzipFile(fileobj=underlying, mode=mode, compresslevel=level)
         return igzip.IGzipFile(filename=self.filename, mode=mode, compresslevel=level)
 
-    def open(self) -> IO[Any]:
+    def open(self) -> Any:
         underlying = get_underlying_fileobj(self, self._wrapper_types())
         if underlying is None and self.filename is None:
             raise ValueError("GZIPCodec requires either filename or fileobj")
