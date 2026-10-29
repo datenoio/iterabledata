@@ -8,12 +8,9 @@ import chardet
 from ..base import BaseCodec, BaseIterable
 
 # Database driver registry helpers — re-exported for tests patching
-# ``iterable.helpers.detect.get_driver`` / ``is_database_engine``.
+# ``iterable.helpers.detect.get_driver`` / ``is_database_engine``. The driver
+# classes themselves are resolved lazily in ``__getattr__`` below.
 from ..db import get_driver, is_database_engine  # noqa: F401
-
-# Re-exported driver classes for patching as ``iterable.helpers.detect.<Driver>``.
-from ..db.clickhouse import ClickHouseDriver  # noqa: F401
-from ..db.postgres import PostgresDriver  # noqa: F401
 from .content_detection import detect_file_type_from_content
 from .debug import format_detection_logger, is_debug_enabled
 from .format_registry import (
@@ -539,6 +536,12 @@ _LAZY_OPEN_NAMES = frozenset(
     }
 )
 _LAZY_CONVERT_NAMES = frozenset({"bulk_convert", "convert"})
+# Driver classes kept importable as ``iterable.helpers.detect.<Driver>`` without
+# importing their client libraries when the module loads.
+_LAZY_DRIVER_NAMES = {
+    "ClickHouseDriver": "iterable.db.clickhouse",
+    "PostgresDriver": "iterable.db.postgres",
+}
 
 
 def __getattr__(name: str) -> Any:
@@ -550,11 +553,13 @@ def __getattr__(name: str) -> Any:
         from ..convert.core import bulk_convert, convert
 
         return bulk_convert if name == "bulk_convert" else convert
+    if name in _LAZY_DRIVER_NAMES:
+        return getattr(importlib.import_module(_LAZY_DRIVER_NAMES[name]), name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def __dir__() -> list[str]:
-    return sorted(set(globals()) | _LAZY_OPEN_NAMES | _LAZY_CONVERT_NAMES)
+    return sorted(set(globals()) | _LAZY_OPEN_NAMES | _LAZY_CONVERT_NAMES | set(_LAZY_DRIVER_NAMES))
 
 
 __all__ = ["open_iterable", "detect_file_type", "detect_file_type_from_content", "convert", "bulk_convert"]  # noqa: F822

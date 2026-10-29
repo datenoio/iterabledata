@@ -325,7 +325,9 @@ include = ["iterable", "iterable.*"]
 exclude = ["tests", "tests.*"]
 
 [tool.setuptools.package-data]
-iterable = ["py.typed"]
+# Every non-Python file the package reads at runtime; dev/scripts/verify_dist.py checks
+# that built distributions contain all of them.
+iterable = ["py.typed", "ai/prompts/*.txt"]
 
 [tool.ruff]
 line-length = 120

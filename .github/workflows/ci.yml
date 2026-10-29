@@ -247,6 +247,13 @@ jobs:
               jsonl_path.write_text(json.dumps({"id": 1}) + "\n", encoding="utf-8")
               assert list(open_iterable(str(csv_path))) == [{"id": "1", "name": "one"}]
               assert list(open_iterable(str(jsonl_path))) == [{"id": 1}]
+
+          # Runtime resources must be installed with the package (not only *.py files).
+          from importlib import resources
+
+          prompts = resources.files("iterable") / "ai" / "prompts"
+          names = sorted(p.name for p in prompts.iterdir() if p.name.endswith(".txt"))
+          assert names, "iterable/ai/prompts/*.txt missing from the installed package"
           PY
 
   optional-family-smoke:
