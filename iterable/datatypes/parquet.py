@@ -30,6 +30,7 @@ def fields_to_pyarrow_schema(keys):
 class ParquetIterable(BaseFileIterable):
     datamode = "binary"
     supports_native_batch = True
+    supports_arrow_batches = True
 
     def __init__(
         self,
@@ -333,3 +334,26 @@ class ParquetIterable(BaseFileIterable):
     def write_batch(self, records: list[Row]) -> None:
         """Native batch writer hook used by columnar conversion."""
         self.write_bulk(records)
+
+    def write_arrow_batch(self, batch: Any) -> None:
+        """Native Arrow hook: buffer a ``RecordBatch`` or ``Table`` without building rows."""
+        table = batch if isinstance(batch, pyarrow.Table) else pyarrow.Table.from_batches([batch])
+        if self.__buffer:
+            self.flush()
+        if self.writer is None:
+            self.writer = pyarrow.parquet.ParquetWriter(
+                self.fobj, table.schema, compression=self.compression, use_dictionary=False
+            )
+        elif table.schema != self.writer.schema:
+            try:
+                table = table.select(self.writer.schema.names).cast(self.writer.schema)
+            except (pyarrow.ArrowException, KeyError, ValueError) as exc:
+                raise WriteError(
+                    f"Failed to align an Arrow batch to the Parquet schema ({self.writer.schema.names}): {exc}",
+                    filename=getattr(self, "filename", None),
+                    error_code="SCHEMA_ALIGNMENT_FAILED",
+                ) from exc
+        self.__tables.append(table)
+        self.__buffered_rows += table.num_rows
+        if self.__buffered_rows >= self.row_group_size:
+            self.flush()

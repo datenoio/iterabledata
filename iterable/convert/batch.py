@@ -70,6 +70,34 @@ class NativeBatchWriter(Protocol):
     def write_batch(self, records: list[dict[str, Any]]) -> None: ...
 
 
+@runtime_checkable
+class ArrowBatchReader(Protocol):
+    """Optional reader protocol: ``pyarrow.RecordBatch`` objects, no Python rows."""
+
+    supports_arrow_batches: bool
+
+    def read_arrow_batches(self, selection: BatchSelection | None = None) -> Iterable[Any]: ...
+
+
+@runtime_checkable
+class ArrowBatchWriter(Protocol):
+    """Optional writer protocol: accepts ``pyarrow.RecordBatch`` or ``pyarrow.Table`` objects."""
+
+    supports_arrow_batches: bool
+
+    def write_arrow_batch(self, batch: Any) -> None: ...
+
+
+def arrow_batch_supported(reader: Any, writer: Any) -> bool:
+    """Return whether both endpoints can exchange Arrow batches directly."""
+    return bool(
+        getattr(reader, "supports_arrow_batches", False)
+        and getattr(writer, "supports_arrow_batches", False)
+        and callable(getattr(reader, "read_arrow_batches", None))
+        and callable(getattr(writer, "write_arrow_batch", None))
+    )
+
+
 def native_batch_supported(reader: Any, writer: Any) -> bool:
     """Return whether both endpoints explicitly opt into native batches."""
     return bool(

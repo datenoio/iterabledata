@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import importlib.util
 import logging
+import os
 import typing
 from collections.abc import Iterable, Mapping
 from csv import reader as csv_reader
@@ -11,7 +13,7 @@ from typing import Any
 
 import chardet
 
-from ..base import DEFAULT_BULK_NUMBER, ITERABLE_TYPE_FILE, BaseCodec, BaseFileIterable
+from ..base import DEFAULT_BULK_NUMBER, ITERABLE_TYPE_CODEC, ITERABLE_TYPE_FILE, BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
 from ..helpers.utils import rowincount
 from ..types import Row
@@ -21,6 +23,8 @@ DEFAULT_DELIMITER = ","
 DEFAULT_QUOTECHAR = '"'
 TSV_DELIMITER = "\t"
 TSV_EXTENSIONS = ("tsv",)
+# Codec extensions whose streams PyArrow decompresses itself on the native batch path.
+ARROW_COMPRESSION = {"gz": "gzip", "bz2": "bz2", "zst": "zstd", "zstd": "zstd"}
 
 
 def _rewind_stream(stream, pos) -> None:
@@ -201,6 +205,8 @@ class CSVIterable(BaseFileIterable):
     # The csv module needs untranslated line endings, also through codecs (``.csv.gz``):
     # universal-newline mode turns its ``\r\n`` into ``\r\r\n`` on Windows.
     text_newline = ""
+    # Native batches: rows via ``read_batches``; Arrow batches when PyArrow is installed.
+    supports_native_batch = True
 
     def __init__(
         self,
@@ -422,6 +428,99 @@ class CSVIterable(BaseFileIterable):
     def is_streaming(self) -> bool:
         """Returns True - CSV always streams row by row"""
         return True
+
+    def read_batches(self, selection: Any = None) -> typing.Iterator[list[Row]]:
+        """Native row-batch hook: the row reader with the selection applied row-wise."""
+        from ..convert.batch import BatchSelection, chunk_rows, select_rows
+
+        selection = selection or BatchSelection()
+        if selection.table is not None:
+            raise NotImplementedError("CSV has no tables")
+        yield from chunk_rows(select_rows(self, selection), selection.batch_size or DEFAULT_BULK_NUMBER)
+
+    @property
+    def supports_arrow_batches(self) -> bool:
+        """Arrow batches need PyArrow."""
+        return importlib.util.find_spec("pyarrow") is not None
+
+    def _arrow_source(self) -> Any:
+        """A PyArrow input stream over the file, decompressing ``.gz``/``.bz2``/``.zst`` itself."""
+        import pyarrow
+
+        if self.stype == ITERABLE_TYPE_FILE and self.filename:
+            return pyarrow.input_stream(self.filename, compression=None)
+        codec_file = getattr(self.codec, "filename", None)
+        if self.stype == ITERABLE_TYPE_CODEC and codec_file and os.path.isfile(codec_file):
+            compression = ARROW_COMPRESSION.get(str(codec_file).rsplit(".", 1)[-1].lower())
+            if compression is not None:
+                return pyarrow.input_stream(codec_file, compression=compression)
+        raise NotImplementedError("Native CSV batches need a local file, plain or .gz/.bz2/.zst")
+
+    def _arrow_options(self, names: list[str], columns: list[str] | None) -> dict[str, Any]:
+        """``pyarrow.csv.open_csv`` options matching the row reader: every column a string."""
+        import pyarrow
+        import pyarrow.csv as pacsv
+
+        return {
+            "read_options": pacsv.ReadOptions(
+                column_names=names, skip_rows=0 if self.keys is not None else 1, encoding=self.encoding
+            ),
+            "parse_options": pacsv.ParseOptions(
+                delimiter=self.delimiter,
+                quote_char=self.quotechar or False,
+                double_quote=self.doublequote,
+                escape_char=self.escapechar or False,
+                newlines_in_values=True,
+                ignore_empty_lines=True,
+            ),
+            "convert_options": pacsv.ConvertOptions(
+                column_types={name: pyarrow.string() for name in names},
+                strings_can_be_null=False,
+                quoted_strings_can_be_null=False,
+                include_columns=columns,
+            ),
+        }
+
+    def _arrow_columns(self, selection: Any) -> tuple[list[str], list[str] | None]:
+        """Header names and projected columns, or ``NotImplementedError`` for the row path."""
+        unsupported = (selection.predicate, selection.table, selection.row_range, selection.slice)
+        if any(value is not None for value in unsupported):
+            raise NotImplementedError("Native CSV batches support column projection only")
+        if self.mode != "r" or self.pos != 0:
+            raise NotImplementedError("Native CSV batches need a fresh reader")
+        names = list(self.keys) if self.keys is not None else list(self.reader.fieldnames or [])
+        columns = list(selection.columns) if selection.columns is not None else None
+        if not names or len(set(names)) != len(names) or not set(columns or ()) <= set(names):
+            raise NotImplementedError("Native CSV batches need unique header names covering the selection")
+        return names, columns
+
+    def read_arrow_batches(self, selection: Any = None) -> typing.Iterator[Any]:
+        """Yield ``pyarrow.RecordBatch`` objects with every column typed as string.
+
+        Values equal the row reader's (no type inference; empty fields stay ``""``). Column
+        projection is pushed down; predicates and row windows raise ``NotImplementedError``
+        so ``convert()`` uses the row path. Every row must have as many fields as the header.
+        """
+        import pyarrow
+        import pyarrow.csv as pacsv
+
+        from ..convert.batch import BatchSelection
+
+        names, columns = self._arrow_columns(selection or BatchSelection())
+        source = self._arrow_source()
+        try:
+            for batch in pacsv.open_csv(source, **self._arrow_options(names, columns)):
+                self.pos += batch.num_rows
+                yield batch
+        except pyarrow.ArrowInvalid as e:
+            raise FormatParseError(
+                format_id="csv",
+                message=f"{e}. The native batch path needs every row to have the header's fields; "
+                "read ragged files with use_native_batch=False.",
+                filename=self.filename,
+            ) from e
+        finally:
+            source.close()
 
     def _ensure_writer(self, record: Row) -> None:
         """Create writer on first write when keys were not set at open."""
