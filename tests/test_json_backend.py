@@ -5,6 +5,7 @@ import decimal
 import enum
 import json
 import math
+import os
 import sys
 import types
 import uuid
@@ -61,10 +62,15 @@ def backend(request):
     jsonbackend.configure()
 
 
+def _written_bytes(path):
+    # Text mode writes the platform line separator (``\r\n`` on Windows).
+    return path.read_bytes().replace(os.linesep.encode(), b"\n")
+
+
 def _write_jsonl(path, records):
     with JSONLinesIterable(str(path), mode="w") as dest:
         dest.write_bulk(records)
-    return path.read_bytes()
+    return _written_bytes(path)
 
 
 def _read_jsonl(path, **options):
@@ -106,7 +112,7 @@ def test_jsonl_bytes_identical_across_backends(tmp_path):
     with JSONLinesIterable(str(tmp_path / "single.jsonl"), mode="w") as dest:
         for record in RECORDS:
             dest.write(record)
-    assert (tmp_path / "single.jsonl").read_bytes() == stdlib_bytes
+    assert _written_bytes(tmp_path / "single.jsonl") == stdlib_bytes
 
 
 @pytest.mark.parametrize("backend", BACKENDS, indirect=True)
