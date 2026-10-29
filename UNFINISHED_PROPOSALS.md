@@ -2,14 +2,14 @@
 
 This document is a dated snapshot of OpenSpec proposals that are not yet complete. A proposal is considered unfinished if it has unchecked tasks in its `tasks.md` file.
 
-**Last Updated**: 2026-10-28
+**Last Updated**: 2026-10-29
 
 > **Note**: This file is a point-in-time snapshot. `openspec list` is the live source of truth for active changes; `openspec list --specs` lists capability specs.
 
 ## Summary
 
-- **Total Active Proposals**: 7 (six added 2026-10-28 from the undatum integration review, see `IMPROVEMENT_PLAN_2026-10.md`)
-- **Archived since the last snapshot**: 6 proposals under `openspec/changes/archive/2026-09-27-*` (`strengthen-repository-quality-gates` plus the five September feature tracks)
+- **Total Active Proposals**: 1
+- **Archived since the last snapshot**: 6 proposals under `openspec/changes/archive/2026-10-29-*` (the undatum integration review, see `IMPROVEMENT_PLAN_2026-10.md`)
 - **Validation**: `openspec validate --all --strict` passes (72 items, 0 failures)
 
 ---
@@ -19,14 +19,23 @@ This document is a dated snapshot of OpenSpec proposals that are not yet complet
 | Change ID | Tasks complete | Created |
 |---|---|---|
 | `harden-release-artifacts` | 16/17 | 7/16/2026 |
-| `fix-json-serialization-fidelity` | 9/9 (ready to archive) | 10/28/2026 |
-| `fix-csv-dialect-and-codec-options` | 12/12 (ready to archive) | 10/28/2026 |
-| `fix-convert-silent-row-loss` | 9/9 (ready to archive) | 10/28/2026 |
-| `fix-package-import-hygiene` | 11/11 (ready to archive) | 10/28/2026 |
-| `update-convert-api-parity` | 8/8 (ready to archive) | 10/28/2026 |
-| `optimize-json-csv-parquet-hot-paths` | 20/20 (ready to archive) | 10/28/2026 |
 
 The one remaining task is a single owner-approved real release run; all local release-artifact verification (clean-checkout build, twine, check-wheel-contents, wheel smoke test) is complete.
+
+---
+
+## Archived 2026-10-29 (6 proposals)
+
+Merged in PRs #28, #30, #31 and #32, then archived with their spec deltas applied (`openspec archive <id> --yes`):
+
+- `fix-convert-silent-row-loss` → spec update: `convert` (flat output rows match the header, no silent write failures)
+- `fix-csv-dialect-and-codec-options` → spec updates: `datatype-implementation`, `open-iterable-structure` (CSV dialect options, `.tsv` defaults, totals without the header, explicit `format=` keeps the codec)
+- `fix-json-serialization-fidelity` → spec update: `datatype-implementation` (shared JSON value encoding, large JSON keeps floats)
+- `fix-package-import-hygiene` → spec updates: `performance-regression`, `repository-quality` (light `import iterable`, stable subpackage bindings, AI prompts in the wheel)
+- `update-convert-api-parity` → spec updates: `convert`, `open-iterable-structure` (`codecargs`/`tocodecargs`, `bulk_convert` options, public helpers)
+- `optimize-json-csv-parquet-hot-paths` → spec updates: `compression-codecs`, `datatype-implementation`, `native-batch-io`, `performance-regression` (`[fast]` JSON backend, CSV/Parquet fast paths, Arrow batches, gzip `backend`)
+
+No new capability specs; there are still **71 capability specs** (`openspec list --specs`).
 
 ---
 
@@ -143,4 +152,7 @@ After this batch there are **63 capability specs** (`openspec list --specs`).
 **Thirteenth batch (2026-09-27):**
 - 6 proposals listed in the "Archived 2026-09-27" section above
 
-**Total archived**: 60 proposals across 13 batches (80 dated archive directories including pre-OpenSpec-tracked entries)
+**Fourteenth batch (2026-10-29):**
+- 6 proposals listed in the "Archived 2026-10-29" section above
+
+**Total archived**: 66 proposals across 14 batches (86 dated archive directories including pre-OpenSpec-tracked entries)
