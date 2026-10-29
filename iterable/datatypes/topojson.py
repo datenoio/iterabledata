@@ -22,6 +22,7 @@ from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
+from ..helpers.jsonvalues import encode_default
 from ..types import Row
 
 
@@ -80,7 +81,7 @@ class TopoJSONIterable(BaseFileIterable):
                     # Stream objects from TopoJSON "objects" key
                     # TopoJSON structure: {"type": "Topology", "objects": {"obj1": {...}, "obj2": {...}}, "arcs": [...]}
                     # We'll stream individual objects from the objects dictionary
-                    self._parser = ijson.items(self.fobj, "objects.item")
+                    self._parser = ijson.items(self.fobj, "objects.item", use_float=True)
                     # Pre-fetch first item to check if parser works
                     try:
                         self._first_item = next(self._parser)
@@ -211,6 +212,6 @@ class TopoJSONIterable(BaseFileIterable):
                 "arcs": [],
             }
             if self.fobj is not None:
-                json.dump(topo_data, self.fobj, ensure_ascii=False)
+                json.dump(topo_data, self.fobj, ensure_ascii=False, default=encode_default)
             self._write_buffer = []
         super().close()

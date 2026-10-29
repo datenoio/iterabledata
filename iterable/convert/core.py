@@ -1,4 +1,5 @@
 import glob
+import json
 import logging
 import os
 import time
@@ -15,14 +16,18 @@ try:
 except ImportError:
     TQDM_AVAILABLE = False
 
+from ..exceptions import WriteError
 from ..helpers.detect import is_flat, open_iterable
-from ..helpers.utils import dict_generator, make_flat
+from ..helpers.jsonvalues import encode_default
+from ..helpers.utils import make_flat
 from ..types import BulkConversionResult, ConversionResult, FileConversionResult, IterableArgs
 from .batch import BatchSelection, native_batch_supported, select_rows
 
 DEFAULT_BATCH_SIZE = 50000
 DEFAULT_HEADERS_DETECT_LIMIT = 1000
 DEFAULT_PROGRESS_INTERVAL = 1000  # Call progress callback every N rows
+EXTRA_FIELDS_POLICIES = ("raise", "ignore")
+WRITE_ERROR_POLICIES = ("raise", "skip")
 
 
 def _atomic_write(target_file: str, temp_file: str) -> None:
@@ -88,6 +93,7 @@ class _ConvertMetrics:
     bytes_written: int | None = None
     estimated_total: int | None = None
     totals_evaluated: bool = False
+    rows_skipped: int = 0
     errors: list[Exception] = field(default_factory=list)
 
 
@@ -145,20 +151,40 @@ def _safe_reset(it_in: Any) -> None:
         pass
 
 
+def _flatten_nested(row: dict[str, Any], prefix: str = "") -> dict[str, Any]:
+    """Flatten nested objects into dotted keys for flat outputs.
+
+    Non-empty dicts become ``parent.child`` columns; lists, tuples and empty dicts are
+    written as JSON text so no value is dropped.
+    """
+    out: dict[str, Any] = {}
+    for key, value in row.items():
+        name = f"{prefix}{key}"
+        if isinstance(value, dict) and value:
+            out.update(_flatten_nested(value, name + "."))
+        elif isinstance(value, (dict, list, tuple)):
+            out[name] = json.dumps(value, ensure_ascii=False, default=encode_default)
+        else:
+            out[name] = value
+    return out
+
+
+def _flat_row_function(is_flatten: bool) -> Callable[[dict[str, Any]], dict[str, Any]]:
+    """Row transform shared by the schema scan and the write loop for flat outputs."""
+    return make_flat if is_flatten else _flatten_nested
+
+
 def _scan_schema_keys(it_in: Any, scan_limit: int | None, is_flatten: bool, silent: bool) -> set[str]:
     """Scan up to ``scan_limit`` rows to collect the flat output key set."""
     keys: set[str] = set()
+    flatten = _flat_row_function(is_flatten)
     n = 0
     it = tqdm(it_in, total=scan_limit, desc="Schema analysis") if not silent else it_in
     for item in it:
         if scan_limit is not None and n >= scan_limit:
             break
         n += 1
-        if not is_flatten:
-            for i in dict_generator(item):
-                keys.add(".".join(i[:-1]))
-        else:
-            keys.update(make_flat(item).keys())
+        keys.update(flatten(item).keys())
     return keys
 
 
@@ -210,14 +236,61 @@ def _wrap_progress_iter(
     return tqdm(it_in, desc="Converting") if should_show_progress else it_in
 
 
-def _flush_batch(it_out: Any, batch: list[Any], metrics: _ConvertMetrics, err_msg: str) -> None:
-    """Write one batch, recording any write error without aborting."""
+def _flush_batch(it_out: Any, batch: list[Any], metrics: _ConvertMetrics, first_row: int, on_write_error: str) -> None:
+    """Write one batch; raise ``WriteError`` on failure unless ``on_write_error="skip"``."""
     try:
         it_out.write_bulk(batch)
         metrics.rows_written += len(batch)
     except Exception as e:
-        metrics.errors.append(e)
-        logging.error(f"{err_msg}: {e}")
+        last_row = first_row + len(batch) - 1
+        error = WriteError(
+            f"Failed to write rows {first_row}-{last_row}: {e}",
+            filename=getattr(it_out, "filename", None),
+            error_code="BATCH_WRITE_FAILED",
+        )
+        error.__cause__ = e
+        if on_write_error != "skip":
+            raise error from e
+        metrics.errors.append(error)
+        metrics.rows_skipped += len(batch)
+        logging.error(str(error))
+
+
+def _unknown_fields_error(row: dict[str, Any], key_set: frozenset[str], row_number: int) -> WriteError:
+    """Build the error for a flat-output row with fields missing from the header."""
+    extra = sorted(str(k) for k in row.keys() - key_set)
+    return WriteError(
+        f"Row {row_number} has fields not in the output header: {', '.join(extra)}. "
+        "They were not among the first scan_limit rows; increase scan_limit or pass extra_fields='ignore'.",
+        error_code="UNKNOWN_OUTPUT_FIELDS",
+    )
+
+
+@dataclass(frozen=True)
+class _RowPolicy:
+    """How rows are shaped and checked before they reach the writer."""
+
+    is_flat_output: bool
+    is_flatten: bool
+    flatten_nested: bool
+    extra_fields: str = "raise"
+    on_write_error: str = "raise"
+
+
+def _shape_row(row: dict[str, Any], keys: list[str], key_set: frozenset[str], policy: _RowPolicy, n: int) -> Any:
+    """Apply flattening and the header check for flat outputs."""
+    if policy.is_flatten:
+        for k in keys:
+            if k not in row:
+                row[k] = None
+        row = make_flat(row)
+    elif policy.flatten_nested:
+        row = _flatten_nested(row)
+    if policy.is_flat_output and keys and not key_set.issuperset(row):
+        if policy.extra_fields == "ignore":
+            return {k: row[k] for k in keys if k in row}
+        raise _unknown_fields_error(row, key_set, n)
+    return row
 
 
 def _run_write_loop(
@@ -225,7 +298,7 @@ def _run_write_loop(
     it_out: Any,
     keys: list[str],
     *,
-    is_flatten: bool,
+    policy: _RowPolicy,
     batch_size: int,
     progress_interval: int,
     metrics: _ConvertMetrics,
@@ -235,27 +308,23 @@ def _run_write_loop(
 ) -> None:
     """Read rows in batches and write them to the destination iterable."""
     batch: list[Any] = []
+    key_set = frozenset(keys)
+    shape = policy.is_flat_output or policy.is_flatten
     n = 0
     for row in it:
         n += 1
         metrics.rows_read = n
-        if is_flatten:
-            for k in keys:
-                if k not in row:
-                    row[k] = None
-            batch.append(make_flat(row))
-        else:
-            batch.append(row)
+        batch.append(_shape_row(row, keys, key_set, policy, n) if shape else row)
 
         if n % batch_size == 0:
-            _flush_batch(it_out, batch, metrics, "Error writing batch")
+            _flush_batch(it_out, batch, metrics, n - len(batch) + 1, policy.on_write_error)
             batch = []
 
         if n % progress_interval == 0:
             _report_progress(progress, metrics, it_in, use_totals)
 
     if batch:
-        _flush_batch(it_out, batch, metrics, "Error writing final batch")
+        _flush_batch(it_out, batch, metrics, n - len(batch) + 1, policy.on_write_error)
 
     metrics.rows_read = n
 
@@ -278,6 +347,14 @@ def _run_native_batch_loop(
         metrics.rows_written += len(batch)
         if metrics.rows_read % progress_interval < len(batch):
             _report_progress(progress, metrics, it_in, use_totals)
+
+
+def _is_flat_source(it_in: Any) -> bool:
+    """Whether the source format only yields flat records."""
+    try:
+        return bool(it_in.is_flatonly())
+    except Exception:
+        return False
 
 
 def _validate_convert_args(scan_limit: int | None, batch_size: int) -> None:
@@ -372,7 +449,7 @@ def _run_row_conversion(
     use_totals: bool,
     progress_interval: int,
     should_show_progress: bool,
-    is_flatten: bool,
+    policy: _RowPolicy,
     batch_size: int,
 ) -> None:
     """Run the row/bulk write loop, applying a row-wise selection when requested."""
@@ -385,7 +462,7 @@ def _run_row_conversion(
         it,
         it_out,
         keys,
-        is_flatten=is_flatten,
+        policy=policy,
         batch_size=batch_size,
         progress_interval=progress_interval,
         metrics=metrics,
@@ -406,7 +483,7 @@ def _run_native_with_row_fallback(
     use_totals: bool,
     progress_interval: int,
     should_show_progress: bool,
-    is_flatten: bool,
+    policy: _RowPolicy,
     batch_size: int,
     strict_native: bool,
 ) -> None:
@@ -438,7 +515,7 @@ def _run_native_with_row_fallback(
             use_totals,
             progress_interval,
             should_show_progress,
-            is_flatten,
+            policy,
             batch_size,
         )
 
@@ -482,6 +559,8 @@ def convert(
     use_native_batch: bool = False,
     selection: BatchSelection | dict[str, Any] | None = None,
     strict_native: bool = False,
+    extra_fields: str = "raise",
+    on_write_error: str = "raise",
 ) -> ConversionResult:
     """
     Convert data between different file formats or from database sources to files.
@@ -498,7 +577,9 @@ def convert(
         scan_limit: Number of records to scan for schema detection (for flat formats)
         batch_size: Number of records to process in each batch
         silent: If False, shows progress bars during conversion
-        is_flatten: If True, flattens nested structures when converting to flat formats
+        is_flatten: If True, flattens nested structures with ``make_flat`` (nested values become
+                   their string form). Without it, flat outputs get dotted columns for nested
+                   objects and JSON text for lists.
         use_totals: If True, uses total count for progress tracking (if available)
         progress: Optional callback function that receives progress stats dictionary
                  with keys: rows_read, rows_written, elapsed, estimated_total,
@@ -515,6 +596,12 @@ def convert(
                           advertise the protocol; otherwise the row/bulk path is used.
         selection: Optional columns, row range, slice, or backend predicate request.
         strict_native: Raise when the requested native path or selection is unsupported.
+        extra_fields: For flat outputs, what to do with a field that was not seen in the
+                      first ``scan_limit`` rows: ``"raise"`` (default) raises ``WriteError``,
+                      ``"ignore"`` drops the field and writes the row.
+        on_write_error: ``"raise"`` (default) raises ``WriteError`` when a batch cannot be
+                        written; ``"skip"`` records the error, counts the batch in
+                        ``rows_skipped`` and continues.
 
     Returns:
         ConversionResult: Object containing conversion metrics (rows_in, rows_out,
@@ -522,7 +609,9 @@ def convert(
 
     Raises:
         FileNotFoundError: If source file doesn't exist
-        ValueError: If scan_limit or batch_size are invalid
+        ValueError: If scan_limit, batch_size, extra_fields or on_write_error are invalid
+        WriteError: If a batch cannot be written (unless on_write_error="skip") or a flat-output
+                    row has fields outside the header (unless extra_fields="ignore")
         OSError: If atomic write fails (e.g., cross-filesystem rename)
         Exception: Various exceptions from file I/O operations
 
@@ -554,6 +643,10 @@ def convert(
     iterableargs = iterableargs or {}
     toiterableargs = toiterableargs or {}
     _validate_convert_args(scan_limit, batch_size)
+    if extra_fields not in EXTRA_FIELDS_POLICIES:
+        raise ValueError(f"extra_fields must be one of {EXTRA_FIELDS_POLICIES}, got {extra_fields!r}")
+    if on_write_error not in WRITE_ERROR_POLICIES:
+        raise ValueError(f"on_write_error must be one of {WRITE_ERROR_POLICIES}, got {on_write_error!r}")
 
     metrics = _ConvertMetrics(start_time=time.time())
     should_show_progress = show_progress and not silent and TQDM_AVAILABLE
@@ -591,6 +684,14 @@ def convert(
 
         logging.debug("Converting data")
         native_eligible = _check_native_eligibility(it_in, it_out, native_requested, is_flatten, strict_native)
+        policy = _RowPolicy(
+            is_flat_output=is_flat_output,
+            is_flatten=is_flatten,
+            # Rows from flat-only sources (CSV, ...) have no nested values to expand.
+            flatten_nested=is_flat_output and not is_flatten and not _is_flat_source(it_in),
+            extra_fields=extra_fields,
+            on_write_error=on_write_error,
+        )
 
         if native_eligible:
             logging.debug("Using native batch conversion path")
@@ -605,7 +706,7 @@ def convert(
                 use_totals,
                 progress_interval,
                 should_show_progress,
-                is_flatten,
+                policy,
                 batch_size,
                 strict_native,
             )
@@ -621,7 +722,7 @@ def convert(
                 use_totals,
                 progress_interval,
                 should_show_progress,
-                is_flatten,
+                policy,
                 batch_size,
             )
 
@@ -646,6 +747,7 @@ def convert(
         bytes_read=metrics.bytes_read,
         bytes_written=metrics.bytes_written,
         errors=metrics.errors,
+        rows_skipped=metrics.rows_skipped,
     )
 
 
@@ -944,6 +1046,8 @@ def bulk_convert(
     atomic: bool = False,
     parallel: bool = False,
     workers: int | None = None,
+    extra_fields: str = "raise",
+    on_write_error: str = "raise",
 ) -> BulkConversionResult:
     """
     Convert multiple files using glob patterns, directory paths, or file lists.
@@ -978,6 +1082,9 @@ def bulk_convert(
                  Recommended for I/O-bound operations. Default: False.
         workers: Number of worker threads for parallel conversion.
                 If None, uses min(4, CPU count). Default: None.
+        extra_fields: Passed to :func:`convert` for each file.
+        on_write_error: Passed to :func:`convert` for each file; a file whose batch fails to
+                        write is reported as failed unless this is ``"skip"``.
 
     Returns:
         BulkConversionResult: Object containing aggregated metrics and per-file results
@@ -1033,6 +1140,7 @@ def bulk_convert(
     convert_kwargs = _build_convert_kwargs(
         iterableargs, toiterableargs, scan_limit, batch_size, is_flatten, use_totals, progress_interval, atomic
     )
+    convert_kwargs.update(extra_fields=extra_fields, on_write_error=on_write_error)
     dest_files = {f: _generate_output_filename(f, dest, pattern, to_ext) for f in source_files}
     tasks = [(f, dest_files[f], convert_kwargs) for f in source_files]
 

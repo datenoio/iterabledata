@@ -14,6 +14,7 @@ except ImportError:
     HAS_IJSON = False
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..helpers.jsonvalues import encode_default
 from ..types import Row
 
 
@@ -86,7 +87,7 @@ class CZMLIterable(BaseFileIterable):
             self._streaming = True
             if hasattr(self.fobj, "seek"):
                 self.fobj.seek(0)
-            self._parser = ijson.items(self.fobj, "item")
+            self._parser = ijson.items(self.fobj, "item", use_float=True)
             try:
                 first_item = next(self._parser)
                 self._items_buffer = [first_item]
@@ -161,7 +162,7 @@ class CZMLIterable(BaseFileIterable):
         if not self._first_write:
             self.fobj.write(",")
         self._first_write = False
-        json.dump(record, self.fobj, ensure_ascii=False)
+        json.dump(record, self.fobj, ensure_ascii=False, default=encode_default)
         self.pos += 1
 
     def write_bulk(self, records: list[Row]) -> None:

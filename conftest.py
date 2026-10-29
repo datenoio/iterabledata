@@ -32,6 +32,11 @@ _OPTIONAL_DIRS = (
 # imported as module 'conftest' and clash with tests/conftest.py.
 collect_ignore: list[str] = ["conftest.py"]
 
+# Fixture generator scripts (``tests/create_*.py``, ``tests/fixtures/**/generate_*.py``) are run
+# by hand with optional extras such as pysam or opentelemetry-proto and hold no tests or
+# doctests; ``tests/testdata`` is a symlink to ``tests/fixtures``.
+collect_ignore_glob: list[str] = ["tests/create_*.py", "tests/fixtures/*", "tests/testdata/*"]
+
 for _rel_dir in _OPTIONAL_DIRS:
     _dir = _ROOT / _rel_dir
     if not _dir.is_dir():

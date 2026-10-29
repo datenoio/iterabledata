@@ -476,7 +476,7 @@ class OTLPJSONIterable(BaseFileIterable):
             self.fobj.seek(0)
             reader = _CountingReader(self.fobj, self.max_message_bytes)
             try:
-                for resource_item in ijson.items(reader, prefix):
+                for resource_item in ijson.items(reader, prefix, use_float=True):
                     yield from _iter_signal_envelope(resource_item, signal_by_root[root_key])
             except ValueError:
                 raise

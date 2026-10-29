@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-import datetime
 import typing
 from json import dumps, loads
 from typing import Any
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
+from ..helpers.jsonvalues import encode_default, json_default_from_options
 from ..helpers.utils import rowincount
 from ..types import Row
 
-
-def date_handler(obj):
-    return obj.isoformat() if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)) else None
+# Kept for backward compatibility; the shared encoder never returns ``None`` for a value.
+date_handler = encode_default
 
 
 class JSONLinesIterable(BaseFileIterable):
@@ -28,6 +27,7 @@ class JSONLinesIterable(BaseFileIterable):
         if options is None:
             options = {}
         self.pos = 0
+        self._json_default = json_default_from_options(options)
         super().__init__(filename, stream, codec=codec, binary=False, mode=mode, encoding=encoding, options=options)
         # Track line number and byte offset for error context
         self._current_line_number = 0
@@ -166,7 +166,7 @@ class JSONLinesIterable(BaseFileIterable):
             if validated is None:
                 return
             record = validated
-        self.fobj.write(dumps(record, ensure_ascii=False, default=date_handler) + "\n")
+        self.fobj.write(dumps(record, ensure_ascii=False, default=self._json_default) + "\n")
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk JSON lines records"""
@@ -180,5 +180,6 @@ class JSONLinesIterable(BaseFileIterable):
         if not records:
             return
         # Minimize per-record I/O by writing a single concatenated batch.
-        batch = "\n".join(dumps(r, ensure_ascii=False, default=date_handler) for r in records)
+        default = self._json_default
+        batch = "\n".join(dumps(r, ensure_ascii=False, default=default) for r in records)
         self.fobj.write(batch + "\n")

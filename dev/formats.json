@@ -952,7 +952,7 @@
       "source_constraints": [],
       "streaming": true,
       "tables": false,
-      "totals": true,
+      "totals": false,
       "writable": true,
       "write_memory": "bounded"
     },
@@ -974,7 +974,7 @@
     "source_constraints": [],
     "tables": false,
     "text": true,
-    "totals": true,
+    "totals": false,
     "writable": true,
     "write_memory": "bounded"
   },
@@ -2543,7 +2543,7 @@
       "source_constraints": [],
       "streaming": true,
       "tables": true,
-      "totals": false,
+      "totals": true,
       "writable": true,
       "write_memory": "bounded"
     },
@@ -2565,7 +2565,7 @@
     "source_constraints": [],
     "tables": true,
     "text": false,
-    "totals": false,
+    "totals": true,
     "writable": true,
     "write_memory": "bounded"
   },
@@ -3444,7 +3444,7 @@
       "source_constraints": [],
       "streaming": true,
       "tables": false,
-      "totals": false,
+      "totals": true,
       "writable": true,
       "write_memory": "bounded"
     },
@@ -3466,7 +3466,7 @@
     "source_constraints": [],
     "tables": false,
     "text": true,
-    "totals": false,
+    "totals": true,
     "writable": true,
     "write_memory": "bounded"
   },
@@ -5858,7 +5858,7 @@
       "source_constraints": [],
       "streaming": true,
       "tables": false,
-      "totals": true,
+      "totals": false,
       "writable": true,
       "write_memory": "bounded"
     },
@@ -5880,7 +5880,7 @@
     "source_constraints": [],
     "tables": false,
     "text": true,
-    "totals": true,
+    "totals": false,
     "writable": true,
     "write_memory": "bounded"
   },
