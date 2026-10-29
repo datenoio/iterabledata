@@ -14,24 +14,28 @@ SequenceFile is a flat file format used by Apache Hadoop for storing key-value p
 ### Reading
 
 The SequenceFile implementation:
-- Parses SequenceFile format
-- Reads file header with metadata
-- Extracts key-value pairs
-- Handles sync markers
+- Parses the Hadoop header (`SEQ` magic, versions 4-6): key/value class names, compression flags, metadata and sync marker
+- Extracts key-value pairs and verifies sync markers between records
+- Decodes `Text`, `BytesWritable`, `IntWritable`, `LongWritable` and `NullWritable` keys and values; other classes are decoded from their raw bytes
+- Parses text payloads as JSON when possible, otherwise returns them as strings (non-UTF-8 bytes as base64)
 - Converts records to dictionaries
+- Reads files without the `SEQ` magic as the headerless `[key length][value length][key][value]` layout that earlier iterabledata releases wrote
 
 ### Writing
 
 Writing support:
-- Writes Hadoop-style key/value records from `key` / `value` fields
+- Writes uncompressed Hadoop SequenceFile version 6 files: header, then `[record length][key length][key][value]` records with `org.apache.hadoop.io.Text` keys and values
+- Writes a sync marker every 100 KB, like Hadoop
+- Takes key and value from the `key` / `value` fields (or `key_name` / `value_name`); a record with other fields is written as the value
 - Nested values are JSON-encoded; values without a JSON type use the [shared value encoding](jsonl.md#value-encoding-when-writing)
+- A file written with no records still holds a valid header, so it reads back as empty
 
 ### Key Features
 
 - **Hadoop format**: Designed for Hadoop
 - **Key-value pairs**: Stores key-value data
 - **Sync markers**: Supports random access
-- **Compression**: Supports compression
+- **Compression**: File-level codecs (`.seq.gz`, `.seq.zst`, ...); built-in record/block compression is not supported
 - **Nested data**: Supports complex data structures
 
 ## Usage
@@ -62,14 +66,15 @@ with open_iterable('output.seq', mode='w') as dest:
 1. **Binary format**: Not human-readable
 2. **Hadoop-specific**: Designed for Hadoop
 3. **Format complexity**: SequenceFile format can be complex
-4. **Simplified implementation**: May not support all SequenceFile features
+4. **No built-in compression**: record- and block-compressed SequenceFiles raise `FormatParseError`; versions older than 4 are not supported
+5. **Text output only**: written keys and values are always `org.apache.hadoop.io.Text`
 
 ## Compression Support
 
-SequenceFile has built-in compression support (separate from file-level compression):
+The SequenceFile format defines built-in compression (separate from file-level compression):
 - None, Record, Block compression
 
-SequenceFile files can also be compressed with file-level codecs:
+Only uncompressed SequenceFiles are read and written. SequenceFile files can be compressed with file-level codecs:
 - GZip (`.seq.gz`)
 - BZip2 (`.seq.bz2`)
 - LZMA (`.seq.xz`)
@@ -90,7 +95,7 @@ SequenceFile files can also be compressed with file-level codecs:
 
 - **Missing dependency**: optional libraries raise `ImportError` with an install hint (`pip install 'iterabledata[<extra>]'` when an extra exists).
 - **Write mode**: read-only formats raise `WriteNotSupportedError` or `ValueError` when opened with `mode="w"`.
-- **Bad or unsupported input**: may raise `ValueError`, `OSError`, or library-specific errors.
+- **Bad or unsupported input**: a truncated or malformed header or record, an unsupported version, built-in compression or a sync marker that does not match the header raise `FormatParseError` (a `ValueError` subclass) with the row number where the record failed; rows read before it are kept.
 - See [Troubleshooting](/getting-started/troubleshooting) for decoding, detection, and engine issues.
 
 ## Related Formats

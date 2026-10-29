@@ -144,6 +144,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `UNFINISHED_PROPOSALS.md`.
 
 ### Fixed
+- **SequenceFile output reads back**: the SequenceFile writer wrote bare
+  `[key length][value length][key][value]` records with no header, while the reader always
+  consumed a header first, so files written by iterabledata lost their first record or read as
+  empty. The writer now emits uncompressed Hadoop SequenceFile version 6 files (`SEQ` header with
+  `org.apache.hadoop.io.Text` key/value classes, `[record length][key length][key][value]`
+  records, sync markers every 100 KB). The reader parses Hadoop headers (versions 4-6, metadata,
+  sync markers; `Text`, `BytesWritable`, `IntWritable`, `LongWritable` and `NullWritable`
+  payloads) and reads input without the `SEQ` magic as the headerless layout of earlier
+  releases. Truncated or malformed headers and records, unsupported versions and record/block
+  compression raise `FormatParseError` instead of being skipped silently.
 - **Light `import iterable`** (OpenSpec `fix-package-import-hygiene`): the package root imported
   every database driver (elasticsearch, pymongo, ...) through `iterable.helpers.detect`, plus
   the AI stack (requests, provider SDKs). Built-in drivers are now imported on the first
