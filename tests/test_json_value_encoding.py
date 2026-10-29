@@ -4,7 +4,6 @@ import datetime
 import decimal
 import enum
 import json
-import struct
 import uuid
 
 import pytest
@@ -82,10 +81,6 @@ RECORD_PAYLOAD_FORMATS = ("recordio", "tfrecord", "flink")
 # Binary containers that JSON-encode the ``value`` of a key/value record.
 KEY_VALUE_PAYLOAD_FORMATS = ("kafka", "pulsar", "sequencefile", "beam")
 
-# Smallest header the SequenceFile reader accepts (version, empty key/value class names,
-# compression flags, no metadata, sync marker); the writer does not emit one.
-SEQUENCEFILE_HEADER = b"\x06" + struct.pack(">II", 0, 0) + b"\x00\x00" + struct.pack(">I", 0) + b"\x00" * 16
-
 
 def _binary_class(fmt):
     module_path, symbol = DATATYPE_REGISTRY[fmt]
@@ -100,8 +95,6 @@ def _binary_round_trip(fmt, path, record, **options):
     with cls(str(path), mode="w", options=options) as dest:
         dest.write(record)
     raw = path.read_bytes()
-    if fmt == "sequencefile":
-        path.write_bytes(SEQUENCEFILE_HEADER + raw)
     with cls(str(path)) as source:
         return raw, list(source)
 

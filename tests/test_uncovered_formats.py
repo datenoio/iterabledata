@@ -26,6 +26,7 @@ UNCOVERED_FORMAT_KEYS = (
 ROUND_TRIP_FORMATS = (
     "tfrecord",
     "recordio",
+    "sequencefile",
     "kafka",
     "pulsar",
     "flink",
@@ -90,19 +91,6 @@ class TestUncoveredFormatRoundTrip:
             read_back = _read_all(source)
 
         _assert_key_value_roundtrip(SAMPLE_ROWS, read_back)
-
-
-class TestSequenceFileReadContract:
-    def test_write_then_read_yields_no_rows_without_header(self, tmp_path):
-        """Document current SequenceFile behavior: files written without a header do not read back."""
-        cls = _load_class("sequencefile")
-        target = tmp_path / "sample.seq"
-
-        with cls(str(target), mode="w") as dest:
-            dest.write({"key": "k1", "value": {"id": 1}})
-
-        with cls(str(target), mode="r") as source:
-            assert _read_all(source) == []
 
 
 class TestFlexBuffersRoundTrip:
