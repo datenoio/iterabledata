@@ -97,4 +97,6 @@ Python object creation is the floor; larger wins need columnar paths that never 
 - The worktree checkout materialized `tests/testdata` as a file (`core.symlinks=false`); restored
   per `AGENTS.md`.
 
-These are outside the six changes; fix them in the next housekeeping pass.
+These were outside the six changes. All are fixed in `5a0dff8` (PR #28): the DBF fixture is
+restored, ORC `write()` runs validation hooks through `write_bulk()`, the `jsonld` totals
+declaration matches the class, and fixture generator scripts are no longer collected.
