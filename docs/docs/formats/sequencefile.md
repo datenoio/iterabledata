@@ -24,7 +24,7 @@ The SequenceFile implementation:
 
 Writing support:
 - Writes Hadoop-style key/value records from `key` / `value` fields
-- Nested values are JSON-encoded
+- Nested values are JSON-encoded; values without a JSON type use the [shared value encoding](jsonl.md#value-encoding-when-writing)
 
 ### Key Features
 

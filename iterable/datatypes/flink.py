@@ -3,10 +3,13 @@ from __future__ import annotations
 import json
 import struct
 import typing
+from collections.abc import Callable
 from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
+from ..helpers.jsonbackend import make_encoder
+from ..helpers.jsonvalues import json_default_from_options
 from ..types import Row
 
 
@@ -36,6 +39,8 @@ class FlinkIterable(BaseFileIterable):
         """
         if options is None:
             options = {}
+        # JSON payloads go through the shared value encoder (see helpers.jsonvalues).
+        self._dumps: Callable[[Any], str] = make_encoder(json_default_from_options(options))
         super().__init__(filename, stream, codec=codec, binary=True, mode=mode, options=options)
         self.include_metadata = include_metadata
         if "include_metadata" in options:
@@ -145,11 +150,11 @@ class FlinkIterable(BaseFileIterable):
 
         # Convert to bytes
         if isinstance(state_data, dict):
-            state_bytes = json.dumps(state_data, ensure_ascii=False).encode("utf-8")
+            state_bytes = self._dumps(state_data).encode("utf-8")
         elif isinstance(state_data, str):
             state_bytes = state_data.encode("utf-8")
         else:
-            state_bytes = json.dumps({"data": state_data}, ensure_ascii=False).encode("utf-8")
+            state_bytes = self._dumps({"data": state_data}).encode("utf-8")
 
         # Write checkpoint ID (8 bytes, int64, big-endian)
         self.fobj.write(struct.pack(">q", checkpoint_id))

@@ -139,6 +139,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `str(value)` for anything else (`on_unknown_type="raise"` raises `WriteError` instead).
   **Visible change:** the JSON writer now writes `Decimal` as a number and `bytes` as base64
   instead of their Python string form.
+- **Binary containers encode JSON payloads with the shared encoder**: the RecordIO, TFRecord,
+  Kafka, Pulsar, SequenceFile, Beam and Flink writers raised `TypeError` for records containing
+  `datetime`/`date`/`time`, `Decimal`, `UUID`, `bytes`, `timedelta`, `set` or `Enum` values. Their
+  JSON payloads now use the same encoder as the JSON writers (`iterable.helpers.jsonvalues`, with
+  orjson when `iterabledata[fast]` is installed) and honor the `decimal` and `on_unknown_type`
+  options. Payloads stay UTF-8. **Visible change:** payloads are written with compact separators
+  and NaN/infinity as `null`. The readers are unchanged and still read payloads written before.
 - **Large JSON files keep floats** (OpenSpec `fix-json-serialization-fidelity`): arrays above the
   10 MB streaming threshold were parsed by `ijson` into `Decimal`, which the JSONL writer then
   wrote as `null`. Every `ijson` reader (JSON, GeoJSON, TopoJSON, CZML, OTLP) now uses

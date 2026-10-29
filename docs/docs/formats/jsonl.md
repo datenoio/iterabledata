@@ -103,7 +103,9 @@ finally:
 
 ### Value encoding when writing
 
-The same encoder is used by the JSON, JSON Lines, GELF, JSON-LD, GeoJSON, TopoJSON and CZML writers.
+The same encoder is used by the JSON, JSON Lines, GELF, JSON-LD, GeoJSON, TopoJSON and CZML writers,
+and for the JSON payloads of the RecordIO, TFRecord, Kafka, Pulsar, SequenceFile, Beam and Flink writers.
+The `decimal` and `on_unknown_type` options apply to all of them.
 
 | Python value | Written as |
 |---|---|

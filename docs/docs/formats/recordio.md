@@ -23,7 +23,7 @@ The RecordIO implementation:
 ### Writing
 
 Writing support:
-- Writes length-prefixed JSON records with CRC32 checksums
+- Writes length-prefixed JSON records with CRC32 checksums; values without a JSON type use the [shared value encoding](jsonl.md#value-encoding-when-writing)
 - Same framing as the reader
 
 ### Key Features

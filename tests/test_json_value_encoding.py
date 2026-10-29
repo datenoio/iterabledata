@@ -2,7 +2,9 @@
 
 import datetime
 import decimal
+import enum
 import json
+import struct
 import uuid
 
 import pytest
@@ -11,6 +13,7 @@ from iterable import open_iterable
 from iterable.convert import convert
 from iterable.datatypes.json import JSONIterable
 from iterable.exceptions import WriteError
+from iterable.helpers.detect import DATATYPE_REGISTRY, _load_symbol
 from iterable.helpers.jsonvalues import encode_default, iso_duration, make_json_default
 
 UTC = datetime.timezone.utc
@@ -65,6 +68,61 @@ def test_json_and_jsonl_agree(tmp_path):
     with open_iterable(str(tmp_path / "a.jsonl"), mode="w") as it:
         it.write_bulk([dict(RECORD)])
     assert _written_objects(tmp_path / "a.json", "json") == _written_objects(tmp_path / "a.jsonl", "jsonl")
+
+
+class _Color(enum.Enum):
+    RED = "red"
+
+
+PAYLOAD = {**RECORD, "enum": _Color.RED, "text": "naïve 日本"}
+PAYLOAD_EXPECTED = {**EXPECTED, "enum": "red", "text": "naïve 日本"}
+
+# Binary containers that store the whole record as one JSON document.
+RECORD_PAYLOAD_FORMATS = ("recordio", "tfrecord", "flink")
+# Binary containers that JSON-encode the ``value`` of a key/value record.
+KEY_VALUE_PAYLOAD_FORMATS = ("kafka", "pulsar", "sequencefile", "beam")
+
+# Smallest header the SequenceFile reader accepts (version, empty key/value class names,
+# compression flags, no metadata, sync marker); the writer does not emit one.
+SEQUENCEFILE_HEADER = b"\x06" + struct.pack(">II", 0, 0) + b"\x00\x00" + struct.pack(">I", 0) + b"\x00" * 16
+
+
+def _binary_class(fmt):
+    module_path, symbol = DATATYPE_REGISTRY[fmt]
+    try:
+        return _load_symbol(module_path, symbol)
+    except ImportError as exc:
+        pytest.skip(f"Optional dependency missing for {fmt!r}: {exc}")
+
+
+def _binary_round_trip(fmt, path, record, **options):
+    cls = _binary_class(fmt)
+    with cls(str(path), mode="w", options=options) as dest:
+        dest.write(record)
+    raw = path.read_bytes()
+    if fmt == "sequencefile":
+        path.write_bytes(SEQUENCEFILE_HEADER + raw)
+    with cls(str(path)) as source:
+        return raw, list(source)
+
+
+@pytest.mark.parametrize("fmt", RECORD_PAYLOAD_FORMATS + KEY_VALUE_PAYLOAD_FORMATS)
+def test_binary_json_payloads_keep_every_value(tmp_path, fmt):
+    record = dict(PAYLOAD) if fmt in RECORD_PAYLOAD_FORMATS else {"key": "k1", "value": dict(PAYLOAD)}
+    raw, (row,) = _binary_round_trip(fmt, tmp_path / f"out.{fmt}", record)
+    payload = row if fmt in RECORD_PAYLOAD_FORMATS else row["value"]
+    for key, value in PAYLOAD_EXPECTED.items():
+        assert payload[key] == value, key
+    assert "naïve 日本".encode() in raw
+
+
+@pytest.mark.parametrize("fmt", RECORD_PAYLOAD_FORMATS + KEY_VALUE_PAYLOAD_FORMATS)
+def test_binary_json_payloads_honor_writer_options(tmp_path, fmt):
+    value = {"dec": decimal.Decimal("1.50")}
+    record = dict(value) if fmt in RECORD_PAYLOAD_FORMATS else {"key": "k1", "value": value}
+    _, (row,) = _binary_round_trip(fmt, tmp_path / f"out.{fmt}", record, decimal="string")
+    payload = row if fmt in RECORD_PAYLOAD_FORMATS else row["value"]
+    assert payload["dec"] == "1.50"
 
 
 def test_numpy_scalars_and_arrays():
