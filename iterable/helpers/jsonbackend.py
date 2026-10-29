@@ -138,9 +138,10 @@ def make_encoder(default: Default = None) -> Encoder:
 
     def dumps(obj: Any) -> str:
         try:
-            return orjson_dumps(obj, default=default, option=option).decode("utf-8")
+            text: str = orjson_dumps(obj, default=default, option=option).decode("utf-8")
         except encode_error:
             return stdlib_dumps(obj)
+        return text
 
     return dumps
 
@@ -159,10 +160,10 @@ def make_lines_encoder(default: Default = None) -> LinesEncoder:
     def dumps_lines(records: Iterable[Any]) -> str:
         records = records if isinstance(records, list) else list(records)
         try:
-            return b"".join([orjson_dumps(record, default=default, option=option) for record in records]).decode(
-                "utf-8"
-            )
+            encoded = b"".join([orjson_dumps(record, default=default, option=option) for record in records])
         except encode_error:
             return "".join([dumps(record) + "\n" for record in records])
+        text: str = encoded.decode("utf-8")
+        return text
 
     return dumps_lines
