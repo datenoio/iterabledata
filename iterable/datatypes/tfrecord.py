@@ -3,10 +3,13 @@ from __future__ import annotations
 import json
 import struct
 import typing
+from collections.abc import Callable
 from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
+from ..helpers.jsonbackend import make_encoder
+from ..helpers.jsonvalues import json_default_from_options
 from ..types import Row
 
 
@@ -35,6 +38,8 @@ class TFRecordIterable(BaseFileIterable):
         """
         if options is None:
             options = {}
+        # JSON payloads go through the shared value encoder (see helpers.jsonvalues).
+        self._dumps: Callable[[Any], str] = make_encoder(json_default_from_options(options))
         super().__init__(filename, stream, codec=codec, binary=True, mode=mode, options=options)
         self.value_key = value_key
         if "value_key" in options:
@@ -133,9 +138,9 @@ class TFRecordIterable(BaseFileIterable):
 
         # Convert record to JSON bytes
         if isinstance(record, dict):
-            data = json.dumps(record, ensure_ascii=False).encode("utf-8")
+            data = self._dumps(record).encode("utf-8")
         else:
-            data = json.dumps({self.value_key: record}, ensure_ascii=False).encode("utf-8")
+            data = self._dumps({self.value_key: record}).encode("utf-8")
 
         length = len(data)
 

@@ -23,7 +23,7 @@ The Flink implementation:
 
 Writing support:
 - Writes a simplified checkpoint dump (not a live Flink job)
-- Stores `checkpoint_id`, `timestamp`, and remaining fields as state JSON
+- Stores `checkpoint_id`, `timestamp`, and remaining fields as state JSON; values without a JSON type use the [shared value encoding](jsonl.md#value-encoding-when-writing)
 
 ### Key Features
 

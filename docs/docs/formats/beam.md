@@ -24,6 +24,7 @@ The Beam implementation:
 Writing support:
 - Writes a simplified on-disk Beam record dump (not a Beam runner)
 - Uses `key` / `value` plus optional `window` and `timestamp`
+- Nested values (dict/list) are JSON-encoded; values without a JSON type use the [shared value encoding](jsonl.md#value-encoding-when-writing)
 
 ### Key Features
 

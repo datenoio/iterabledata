@@ -3,10 +3,13 @@ from __future__ import annotations
 import json
 import struct
 import typing
+from collections.abc import Callable
 from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
+from ..helpers.jsonbackend import make_encoder
+from ..helpers.jsonvalues import json_default_from_options
 from ..types import Row
 
 
@@ -54,6 +57,8 @@ class BeamIterable(BaseFileIterable):
         """
         if options is None:
             options = {}
+        # JSON payloads go through the shared value encoder (see helpers.jsonvalues).
+        self._dumps: Callable[[Any], str] = make_encoder(json_default_from_options(options))
         super().__init__(filename, stream, codec=codec, binary=True, mode=mode, options=options)
         self.key_name = key_name
         self.value_name = value_name
@@ -160,13 +165,12 @@ class BeamIterable(BaseFileIterable):
                 value_obj = list(record.values())[0]
         return key_obj, value_obj
 
-    @staticmethod
-    def _encode_field(obj: Any) -> bytes | None:
+    def _encode_field(self, obj: Any) -> bytes | None:
         """Encode a Beam key/value field to bytes, or None if absent."""
         if isinstance(obj, str):
             return obj.encode("utf-8")
         if isinstance(obj, (dict, list)):
-            return json.dumps(obj, ensure_ascii=False).encode("utf-8")
+            return self._dumps(obj).encode("utf-8")
         if obj is not None:
             return str(obj).encode("utf-8")
         return None

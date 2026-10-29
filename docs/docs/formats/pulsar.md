@@ -21,7 +21,7 @@ This reader/writer stores a **simplified on-disk dump** of Pulsar-like messages 
 ### Writing
 
 - Writes the same dump format
-- Nested values (dict/list) are JSON-encoded
+- Nested values (dict/list) are JSON-encoded; values without a JSON type use the [shared value encoding](jsonl.md#value-encoding-when-writing)
 - `message_id` defaults to `msg_{pos}` when omitted; `publish_time` defaults to `0`
 
 ### Key Features

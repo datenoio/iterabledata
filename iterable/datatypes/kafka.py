@@ -3,10 +3,13 @@ from __future__ import annotations
 import json
 import struct
 import typing
+from collections.abc import Callable
 from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
+from ..helpers.jsonbackend import make_encoder
+from ..helpers.jsonvalues import json_default_from_options
 from ..types import Row
 
 
@@ -54,6 +57,8 @@ class KafkaIterable(BaseFileIterable):
         """
         if options is None:
             options = {}
+        # JSON payloads go through the shared value encoder (see helpers.jsonvalues).
+        self._dumps: Callable[[Any], str] = make_encoder(json_default_from_options(options))
         super().__init__(filename, stream, codec=codec, binary=True, mode=mode, options=options)
         self.key_name = key_name
         self.value_name = value_name
@@ -198,14 +203,14 @@ class KafkaIterable(BaseFileIterable):
             if isinstance(key_obj, str):
                 key_data = key_obj.encode("utf-8")
             elif isinstance(key_obj, (dict, list)):
-                key_data = json.dumps(key_obj, ensure_ascii=False).encode("utf-8")
+                key_data = self._dumps(key_obj).encode("utf-8")
             else:
                 key_data = str(key_obj).encode("utf-8")
 
         if isinstance(value_obj, str):
             value_data = value_obj.encode("utf-8")
         elif isinstance(value_obj, (dict, list)):
-            value_data = json.dumps(value_obj, ensure_ascii=False).encode("utf-8")
+            value_data = self._dumps(value_obj).encode("utf-8")
         elif value_obj is not None:
             value_data = str(value_obj).encode("utf-8")
         else:

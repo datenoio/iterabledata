@@ -24,7 +24,7 @@ The TFRecord implementation:
 
 Writing support:
 - Writes length-prefixed JSON records with CRC32 checksums
-- Nested dictionaries are JSON-encoded into each record
+- Nested dictionaries are JSON-encoded into each record; values without a JSON type use the [shared value encoding](jsonl.md#value-encoding-when-writing)
 
 ### Key Features
 

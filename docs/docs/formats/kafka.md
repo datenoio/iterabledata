@@ -21,7 +21,7 @@ This reader/writer stores a **simplified on-disk dump** of Kafka-like messages (
 ### Writing
 
 - Writes the same dump format
-- Nested values (dict/list) are JSON-encoded
+- Nested values (dict/list) are JSON-encoded; values without a JSON type use the [shared value encoding](jsonl.md#value-encoding-when-writing)
 - Offset defaults to previous + 1 when omitted; timestamp defaults to `0`
 
 ### Key Features
