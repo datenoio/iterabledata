@@ -1,4 +1,4 @@
-"""Verify that built distributions contain only intended package paths."""
+"""Verify that built distributions contain only intended package paths and every runtime resource."""
 
 from __future__ import annotations
 
@@ -38,6 +38,25 @@ def _allowed(name: str) -> bool:
     return "/" not in normalized and normalized.startswith("iterabledata-")
 
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def runtime_resources(root: Path = REPO_ROOT) -> list[str]:
+    """Non-Python files under ``iterable/`` that the installed package reads at runtime."""
+    package = root / "iterable"
+    return sorted(
+        path.relative_to(root).as_posix()
+        for path in package.rglob("*")
+        if path.is_file() and path.suffix not in (".py", ".pyc") and "__pycache__" not in path.parts
+    )
+
+
+def _missing_resources(names: list[str]) -> list[str]:
+    # sdist members live under one ``iterabledata-<version>/`` directory; wheel members do not.
+    present = {name.partition("/")[2] if name.startswith("iterabledata-") else name for name in names}
+    return [resource for resource in runtime_resources() if resource not in present]
+
+
 def verify(path: Path) -> None:
     if path.suffix == ".whl":
         with zipfile.ZipFile(path) as archive:
@@ -51,6 +70,9 @@ def verify(path: Path) -> None:
     unexpected = [name for name in names if not _allowed(name)]
     if unexpected:
         raise SystemExit(f"Unexpected top-level distribution paths in {path}: {unexpected[:10]}")
+    missing = _missing_resources(names)
+    if missing:
+        raise SystemExit(f"Runtime resources missing from {path}: {missing}")
 
 
 def main() -> int:

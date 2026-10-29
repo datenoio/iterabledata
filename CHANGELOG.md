@@ -87,6 +87,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   improvement plan and July review report are marked superseded.
 
 ### Fixed
+- **Light `import iterable`** (OpenSpec `fix-package-import-hygiene`): the package root imported
+  every database driver (elasticsearch, pymongo, ...) through `iterable.helpers.detect`, plus
+  the AI stack (requests, provider SDKs). Built-in drivers are now imported on the first
+  `get_driver()` call and `iterable.ai` on first access: `import iterable` drops from ~0.42 s /
+  964 modules to ~0.09 s / 274 modules, and a new `import_iterable` performance workload guards it.
+  `list_drivers()` and `is_database_engine()` keep listing the built-in engines.
+- **`iterable.ai` is the `iterable.ai` package**: the root bound it to `iterable.ai.doc`, so
+  `mock.patch("iterable.ai.models...")` failed on Python 3.10. `iterable.ai.generate` and
+  `iterable.ai.doc` still work; `iterable.ai` is still `None` without the AI extras.
+- **AI prompt templates ship in the wheel**: `iterable/ai/prompts/*.txt` were missing from
+  distributions, so `iterable.ai.filter`, `plan` and `suggest` failed after `pip install`.
+  `dev/scripts/verify_dist.py` now rejects a distribution that lacks any runtime resource.
 - **JSON writers no longer write `null` for non-`None` values** (OpenSpec
   `fix-json-serialization-fidelity`): JSON Lines, GELF and JSON-LD wrote `null` for `time`,
   `Decimal`, `UUID`, `bytes`, `timedelta` and `set` values. All JSON-family writers now share one

@@ -25,19 +25,19 @@ Three packaging/import defects surfaced in undatum sessions; all still present o
   and import a driver on first `get_driver()` call. `is_database_engine()` uses the static table.
 - Remove eager driver imports from `iterable/helpers/detect.py`; keep the names importable through
   module `__getattr__` for compatibility.
-- Keep `iterable.ai` bound to the package. Re-export the former `iterable.ai.doc` public names
-  (`generate`, ...) lazily from `iterable/ai/__init__.py` so `iterable.ai.generate(...)` keeps
-  working.
-- Add `"ai/prompts/*.txt"` to package data and `recursive-include iterable *.txt` to `MANIFEST.in`;
-  add a wheel-content check to the release smoke test that loads every prompt via
-  `importlib.resources`.
+- Keep `iterable.ai` bound to the package and import it on first attribute access.
+  `iterable/ai/__init__.py` already re-exports `doc`, `generate` and `generate_blocks`, so
+  `iterable.ai.generate(...)` keeps working.
+- Add `"ai/prompts/*.txt"` to package data and to `MANIFEST.in`; `dev/scripts/verify_dist.py`
+  fails when a built distribution lacks any non-Python file under `iterable/`, and the CI
+  `minimal-smoke` job loads the prompts from a `pip install .` install.
 - Add an import-time gate: `import iterable` loads none of a deny-list of optional heavy modules
   and stays under a committed budget in `tests/performance_baselines.json`.
 
 ## Impact
 
 - Affected specs: `performance-regression`, `repository-quality`
-- Affected code: `iterable/__init__.py`, `iterable/ai/__init__.py`, `iterable/db/__init__.py`,
-  `iterable/helpers/detect.py`, `pyproject.toml`, `MANIFEST.in`
-- Affected tests: new `tests/test_import_hygiene.py`; release wheel smoke test
+- Affected code: `iterable/__init__.py`, `iterable/db/__init__.py`, `iterable/helpers/detect.py`,
+  `pyproject.toml`, `MANIFEST.in`, `dev/scripts/verify_dist.py`, `.github/workflows/ci.yml`
+- Affected tests: new `tests/test_import_hygiene.py`; `import_iterable` performance workload
 - Downstream: undatum can drop its lazy-import shims and the `iterable.ai` mock workaround

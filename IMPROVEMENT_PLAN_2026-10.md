@@ -70,7 +70,8 @@ Python object creation is the floor; larger wins need columnar paths that never 
 1. **Release 1.0.24 (P0 correctness):** `fix-json-serialization-fidelity`,
    `fix-csv-dialect-and-codec-options`, `fix-convert-silent-row-loss` — implemented 2026-10-28
    (defects 1-6 and 12; 50 new tests), not yet released.
-2. **Release 1.0.25 (P1 hygiene):** `fix-package-import-hygiene` (includes the wheel fix).
+2. **Release 1.0.25 (P1 hygiene):** `fix-package-import-hygiene` (includes the wheel fix) —
+   implemented 2026-10-29 (defects 7-9): `import iterable` 0.42 s -> 0.09 s.
 3. **Release 1.1.0 (performance + API):** `optimize-json-csv-parquet-hot-paths` (after 1 and 2;
    it reuses the shared JSON encoder and the CSV dialect handling), `update-convert-api-parity`.
 4. **undatum follow-up after each release:** remove `_with_csv_options`, `_with_codecargs`,

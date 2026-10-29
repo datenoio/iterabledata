@@ -5,11 +5,6 @@ __version__ = "1.0.23"
 __licence__ = "MIT"
 
 from . import ingest, validate
-
-try:
-    from .ai import doc as ai
-except ImportError:  # AI extras remain optional for the core package import.
-    ai = None
 from .exceptions import (
     CodecCompressionError,
     CodecDecompressionError,
@@ -35,6 +30,26 @@ from .ops import filter, inspect, schema, stats, transform
 from .types import CodecArgs, IterableArgs, Row
 
 open_it = open_iterable
+
+
+def __getattr__(name: str) -> object:
+    """Import ``iterable.ai`` on first access.
+
+    The AI stack pulls in HTTP clients and provider SDKs, so the package root does not
+    import it eagerly. ``iterable.ai`` is the ``iterable.ai`` package (``iterable.ai.generate``
+    and ``iterable.ai.doc`` are re-exported there), or ``None`` when the AI extras are missing.
+    """
+    if name == "ai":
+        import importlib
+
+        try:
+            module: object = importlib.import_module(".ai", __name__)
+        except ImportError:  # AI extras remain optional for the core package import.
+            module = None
+        globals()["ai"] = module
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "open_iterable",

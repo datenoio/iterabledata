@@ -1,5 +1,6 @@
 include LICENSE README.md pyproject.toml setup.cfg setup.py
 recursive-include iterable *.py py.typed
+recursive-include iterable/ai/prompts *.txt
 prune build
 prune dist
 prune dev

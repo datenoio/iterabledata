@@ -32,6 +32,8 @@ import gzip
 import json
 import os
 import platform
+import subprocess
+import sys
 import time
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -46,6 +48,7 @@ from iterable.helpers.detect import open_iterable
 pytestmark = pytest.mark.performance
 
 DEFAULT_BASELINE_FILE = Path(__file__).parent / "performance_baselines.json"
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 ROWS = 10_000
 WARMUP_RUNS = 1
@@ -60,6 +63,8 @@ TOLERANCES = {
     "csv_bulk_read_10k": 2.0,
     "csv_bulk_write_10k": 2.0,
     "jsonl_gz_to_parquet_convert_10k": 2.5,
+    # Subprocess start-up dominates and varies more between runs.
+    "import_iterable": 2.5,
 }
 
 
@@ -229,3 +234,12 @@ class TestPerformanceRegressionGate:
             convert(str(workload_files["jsonl_gz"]), str(output))
 
         _check_workload("jsonl_gz_to_parquet_convert_10k", workload, calibration_time, request)
+
+    def test_import_iterable(self, calibration_time, request):
+        python_path = os.pathsep.join(filter(None, [str(REPO_ROOT), os.environ.get("PYTHONPATH")]))
+        env = {**os.environ, "PYTHONPATH": python_path}
+
+        def workload():
+            subprocess.run([sys.executable, "-c", "import iterable"], check=True, env=env, cwd=REPO_ROOT)
+
+        _check_workload("import_iterable", workload, calibration_time, request)

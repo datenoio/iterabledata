@@ -22,7 +22,7 @@ This document is a dated snapshot of OpenSpec proposals that are not yet complet
 | `fix-json-serialization-fidelity` | 9/9 (ready to archive) | 10/28/2026 |
 | `fix-csv-dialect-and-codec-options` | 12/12 (ready to archive) | 10/28/2026 |
 | `fix-convert-silent-row-loss` | 9/9 (ready to archive) | 10/28/2026 |
-| `fix-package-import-hygiene` | 0/11 | 10/28/2026 |
+| `fix-package-import-hygiene` | 11/11 (ready to archive) | 10/28/2026 |
 | `update-convert-api-parity` | 0/8 | 10/28/2026 |
 | `optimize-json-csv-parquet-hot-paths` | 0/20 | 10/28/2026 |
 
