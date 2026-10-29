@@ -798,7 +798,7 @@ def generate_blocks(
         # Stage: assembling.
         with StageTimer(reporter, Stage.ASSEMBLING, "assemble document", progress=95):
             source_desc = _source_descriptor(source, iterable, file_meta, primary["record_count"], resolved_tables)
-            full_md = _assemble_markdown(base_ctx, result_blocks, requested, resolved_tables)
+            full_md = assemble_markdown(base_ctx, result_blocks, requested, resolved_tables)
 
         reporter.emit(Stage.COMPLETED, 100, "completed")
 
@@ -957,12 +957,25 @@ def _source_descriptor(
     return desc
 
 
-def _assemble_markdown(
+def assemble_markdown(
     ctx: BlockContext,
     result_blocks: dict[str, Any],
     requested: list[str],
     tables: list[str] | None,
 ) -> str:
+    """Join rendered blocks into one Markdown document with a title and a table of contents.
+
+    Args:
+        ctx: Block context; its ``language`` localizes headings and ``user_context["title"]``
+            overrides the title taken from the ``general`` block.
+        result_blocks: Block name -> block result (``{"markdown": ..., "data": ...}``), as in
+            ``generate_blocks(...)["blocks"]``.
+        requested: Block names in display order (see :func:`ordered_block_keys`).
+        tables: Table names for multi-table sources, or ``None``.
+
+    Returns:
+        The Markdown document, ending with a newline. Blocks without Markdown are skipped.
+    """
     labels = blocks_module.get_labels(ctx.language)
     title = ctx.user_context.get("title")
     if not title:
@@ -973,7 +986,7 @@ def _assemble_markdown(
 
     # Table of contents (localized section titles, anchors matching block headings).
     toc: list[str] = []
-    ordered_keys = _ordered_block_keys(result_blocks, requested)
+    ordered_keys = ordered_block_keys(result_blocks, requested)
     for key in ordered_keys:
         block = result_blocks.get(key, {})
         if not block.get("markdown"):
@@ -1007,7 +1020,8 @@ def _slug(text: str) -> str:
     return slug
 
 
-def _ordered_block_keys(result_blocks: dict[str, Any], requested: list[str]) -> list[str]:
+def ordered_block_keys(result_blocks: dict[str, Any], requested: list[str]) -> list[str]:
+    """Order block keys as requested; ``schema:<table>`` keys follow ``schema``, extra keys come last."""
     ordered: list[str] = []
     for name in requested:
         if name in result_blocks:
@@ -1020,6 +1034,11 @@ def _ordered_block_keys(result_blocks: dict[str, Any], requested: list[str]) -> 
         if key not in ordered:
             ordered.append(key)
     return ordered
+
+
+# Deprecated private aliases kept for downstream callers; remove in 1.2.
+_assemble_markdown = assemble_markdown
+_ordered_block_keys = ordered_block_keys
 
 
 def _prompt_filename_section(context: dict[str, Any], prompt_parts: list[str]) -> None:

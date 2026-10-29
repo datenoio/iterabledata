@@ -15,7 +15,7 @@ from typing import Any
 from ..types import Row
 
 
-def _run_metacrafter_scan(filename: str) -> list[dict[str, Any]] | None:
+def run_metacrafter_scan(filename: str) -> list[dict[str, Any]] | None:
     """
     Run Metacrafter scan on a file.
 
@@ -55,7 +55,7 @@ def _run_metacrafter_scan(filename: str) -> list[dict[str, Any]] | None:
     return None
 
 
-def _parse_metacrafter_matches(entry: dict[str, Any]) -> list[dict[str, Any]]:
+def parse_metacrafter_matches(entry: dict[str, Any]) -> list[dict[str, Any]]:
     """
     Parse semantic type matches from Metacrafter entry.
 
@@ -98,6 +98,11 @@ def _parse_metacrafter_matches(entry: dict[str, Any]) -> list[dict[str, Any]]:
     return results
 
 
+# Deprecated private aliases kept for downstream callers; remove in 1.2.
+_run_metacrafter_scan = run_metacrafter_scan
+_parse_metacrafter_matches = parse_metacrafter_matches
+
+
 def detect_semantic_types(filename: str, field_names: list[str]) -> dict[str, list[dict[str, Any]]]:
     """
     Detect semantic types for fields using Metacrafter.
@@ -109,7 +114,7 @@ def detect_semantic_types(filename: str, field_names: list[str]) -> dict[str, li
     Returns:
         Dictionary mapping field names to lists of semantic type dictionaries
     """
-    entries = _run_metacrafter_scan(filename)
+    entries = run_metacrafter_scan(filename)
     if not entries:
         return {name: [] for name in field_names}
 
@@ -123,7 +128,7 @@ def detect_semantic_types(filename: str, field_names: list[str]) -> dict[str, li
     for name in field_names:
         entry = entry_map.get(name)
         if entry:
-            result[name] = _parse_metacrafter_matches(entry)
+            result[name] = parse_metacrafter_matches(entry)
         else:
             result[name] = []
 
@@ -141,7 +146,7 @@ def detect_pii(filename: str, field_names: list[str]) -> list[dict[str, Any]]:
     Returns:
         List of PII field dictionaries with field, type, and confidence
     """
-    entries = _run_metacrafter_scan(filename)
+    entries = run_metacrafter_scan(filename)
     if not entries:
         return []
 
@@ -164,7 +169,7 @@ def detect_pii(filename: str, field_names: list[str]) -> list[dict[str, Any]]:
         is_pii = any("pii" in str(tag).lower() for tag in tags)
 
         # Check semantic types for PII
-        matches = _parse_metacrafter_matches(entry)
+        matches = parse_metacrafter_matches(entry)
         is_pii = is_pii or any("pii" in str(m.get("type", "")).lower() for m in matches)
 
         if is_pii:

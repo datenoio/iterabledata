@@ -73,7 +73,8 @@ Python object creation is the floor; larger wins need columnar paths that never 
 2. **Release 1.0.25 (P1 hygiene):** `fix-package-import-hygiene` (includes the wheel fix) —
    implemented 2026-10-29 (defects 7-9): `import iterable` 0.42 s -> 0.09 s.
 3. **Release 1.1.0 (performance + API):** `optimize-json-csv-parquet-hot-paths` (after 1 and 2;
-   it reuses the shared JSON encoder and the CSV dialect handling), `update-convert-api-parity`.
+   it reuses the shared JSON encoder and the CSV dialect handling), `update-convert-api-parity` —
+   implemented 2026-10-29 (defects 10-11).
 4. **undatum follow-up after each release:** remove `_with_csv_options`, `_with_codecargs`,
    `_codec_safe_source`, `_filter_bulk_convert_kwargs`, private imports, and the `TIME` exclusion
    in its engine contract tests; raise the `iterabledata` lower bound.

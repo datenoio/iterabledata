@@ -452,10 +452,11 @@ def generate_general(ctx: BlockContext) -> BlockResult:
     if ctx.file_meta.get("tables"):
         data["tables"] = ctx.file_meta["tables"]
 
-    return {"markdown": _render_general_md(data, ctx.language), "data": data}
+    return {"markdown": render_general_md(data, ctx.language), "data": data}
 
 
-def _render_general_md(data: dict[str, Any], language: str | None = None) -> str:
+def render_general_md(data: dict[str, Any], language: str | None = None) -> str:
+    """Render the ``general`` block data (title, description, file facts) as localized Markdown."""
     lbl = get_labels(language)
     title = data.get("title") or "Dataset"
     lines = [f"## {lbl['general']}\n", f"**{title}**\n"]
@@ -587,7 +588,7 @@ def generate_schema(ctx: BlockContext) -> BlockResult:
     ordered_fields = _order_schema_fields(field_names, deduped, schema_fields)
 
     data = {"fields": ordered_fields}
-    return {"markdown": _render_schema_md(ordered_fields, ctx.language), "data": data}
+    return {"markdown": render_schema_md(ordered_fields, ctx.language), "data": data}
 
 
 def _column_batches(field_names: list[str]) -> list[list[str]]:
@@ -596,7 +597,8 @@ def _column_batches(field_names: list[str]) -> list[list[str]]:
     return [field_names[i : i + SCHEMA_BATCH_SIZE] for i in range(0, len(field_names), SCHEMA_BATCH_SIZE)]
 
 
-def _render_schema_md(fields: list[dict[str, Any]], language: str | None = None) -> str:
+def render_schema_md(fields: list[dict[str, Any]], language: str | None = None) -> str:
+    """Render documented schema fields (name, type, nullable, description, example) as a Markdown table."""
     lbl = get_labels(language)
     lines = [
         f"## {lbl['schema']}\n",
@@ -615,6 +617,11 @@ def _render_schema_md(fields: list[dict[str, Any]], language: str | None = None)
         example_str = "" if example is None else str(example).replace("\n", " ")
         lines.append(f"| {name} | {ftype} | {nullable_str} | {desc} | {example_str} |")
     return "\n".join(lines)
+
+
+# Deprecated private aliases kept for downstream callers; remove in 1.2.
+_render_general_md = render_general_md
+_render_schema_md = render_schema_md
 
 
 def generate_quality(ctx: BlockContext) -> BlockResult:

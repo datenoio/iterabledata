@@ -85,6 +85,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   helpers with pinned behavior tests, so the "no D-or-worse" radon gate is now blocking.
   Format doc pages missing them (20 pages) gained verified Limitations sections; the June
   improvement plan and July review report are marked superseded.
+- **Convert API parity** (OpenSpec `update-convert-api-parity`): `convert()` and
+  `bulk_convert()` accept `codecargs` (source) and `tocodecargs` (destination), for example
+  `tocodecargs={"compression_level": 1}` or `{"profile": "fast"}`. `bulk_convert()` also
+  accepts `use_native_batch`, `selection` and `strict_native` and forwards them to every file,
+  in sequential and parallel mode.
+- **Public helpers for downstream tools**: `iterable.helpers.detect.list_codecs()` lists
+  built-in and plugin codecs (`id`, `module`, `class_name`, `source`);
+  `iterable.ai.doc.assemble_markdown()` / `ordered_block_keys()`,
+  `iterable.ai.blocks.render_general_md()` / `render_schema_md()` and
+  `iterable.ai.semantic.run_metacrafter_scan()` / `parse_metacrafter_matches()` replace the
+  underscore names, which stay as deprecated aliases until 1.2. `CODEC_REGISTRY`,
+  `DATATYPE_REGISTRY` and `TEXT_DATA_TYPES` are documented as read-only views.
+  `tests/test_downstream_contract.py` imports every name undatum uses, so a rename fails here
+  first.
 
 ### Fixed
 - **Light `import iterable`** (OpenSpec `fix-package-import-hygiene`): the package root imported

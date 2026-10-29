@@ -113,6 +113,39 @@ def _get_codec_registry() -> dict[str, tuple[str, str]]:
     return merged
 
 
+def list_codecs() -> list[dict[str, str]]:
+    """List the registered compression codecs, built-in and plugin.
+
+    Each entry describes one codec id:
+
+    - ``id``: the file extension that selects the codec (``"gz"``, ``"zst"``, ...). The same id is
+      accepted as ``iterableargs={"codec": ...}``; ``open_iterable`` also accepts the aliases
+      ``gzip``, ``bzip2``, ``zstandard`` and ``brotli`` there.
+    - ``module`` and ``class_name``: where the codec class lives. Importing it may need an
+      optional extra; nothing is imported by this function.
+    - ``source``: ``"builtin"`` or ``"plugin"``.
+
+    Several ids can name the same class (``zst`` and ``zstd``). Use this instead of
+    ``CODEC_REGISTRY`` or the private ``_get_codec_registry()``.
+
+    Returns:
+        Entries sorted by ``id``.
+    """
+    return [
+        {
+            "id": codec_id,
+            "module": module_path,
+            "class_name": symbol,
+            "source": "builtin" if codec_id in CODEC_REGISTRY else "plugin",
+        }
+        for codec_id, (module_path, symbol) in sorted(_get_codec_registry().items())
+    ]
+
+
+# The module-level registries below are read-only views of built-in metadata. Mutating them is
+# unsupported; use ``iterable.catalog.list_formats()`` / ``describe_format()``, ``list_codecs()``
+# and the plugin API (``iterable.plugins``) instead.
+
 # Built-in format metadata (derived from declarative descriptors in format_registry.py).
 DATATYPE_REGISTRY: dict[str, tuple[str, str]] = build_datatype_registry()
 
@@ -562,4 +595,11 @@ def __dir__() -> list[str]:
     return sorted(set(globals()) | _LAZY_OPEN_NAMES | _LAZY_CONVERT_NAMES | set(_LAZY_DRIVER_NAMES))
 
 
-__all__ = ["open_iterable", "detect_file_type", "detect_file_type_from_content", "convert", "bulk_convert"]  # noqa: F822
+__all__ = [  # noqa: F822
+    "open_iterable",
+    "detect_file_type",
+    "detect_file_type_from_content",
+    "convert",
+    "bulk_convert",
+    "list_codecs",
+]

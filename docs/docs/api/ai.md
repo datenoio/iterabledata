@@ -160,6 +160,32 @@ from `LLM_PROVIDER` (defaulting to `openai`).
 assembled markdown (`format="markdown"`) or the full result dict (`format="json"`), keeping
 the legacy single-document behavior when `blocks` is not provided.
 
+#### Re-rendering and assembling blocks
+
+Tools that edit block data after generation (for example to restore original file names) can
+re-render and re-assemble without calling the LLM again:
+
+```python
+from iterable.ai.blocks import BlockContext, render_general_md, render_schema_md
+from iterable.ai.doc import assemble_markdown, ordered_block_keys
+
+blocks = result["blocks"]
+blocks["general"]["markdown"] = render_general_md(blocks["general"]["data"], language="English")
+keys = ordered_block_keys(blocks, ["general", "schema"])
+markdown = assemble_markdown(BlockContext(language="English"), {k: blocks[k] for k in keys}, keys, None)
+```
+
+### Metacrafter helpers
+
+`iterable.ai.semantic.run_metacrafter_scan(filename)` runs the `metacrafter` CLI and returns
+its field entries, or `None` when the CLI is not installed or fails.
+`parse_metacrafter_matches(entry)` turns one entry into `{"type", "url", "confidence"}` dicts.
+`detect_semantic_types()` and `detect_pii()` are built on these two functions.
+
+The underscore names (`_assemble_markdown`, `_ordered_block_keys`, `_render_general_md`,
+`_render_schema_md`, `_run_metacrafter_scan`, `_parse_metacrafter_matches`) remain as
+deprecated aliases until 1.2.
+
 ## Examples
 
 ### Basic Documentation Generation
