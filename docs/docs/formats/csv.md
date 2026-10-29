@@ -12,7 +12,7 @@ CSV (Comma-Separated Values) is a simple text format for storing tabular data. E
 ## File Extensions
 
 - `.csv` - Standard CSV files
-- `.tsv` - Tab-separated values (also handled by CSV iterable)
+- `.tsv` - Tab-separated values (handled by the CSV iterable with a tab delimiter by default, also when compressed, e.g. `.tsv.gz`)
 
 ## Implementation Details
 
@@ -98,11 +98,20 @@ finally:
 |-----------|------|---------|----------|-------------|
 | `delimiter` | str | `,` | No | Field delimiter character. Common values: `,` (comma), `;` (semicolon), `\t` (tab), `\|` (pipe) |
 | `quotechar` | str | `"` | No | Quote character for fields containing delimiters |
+| `escapechar` | str | None | No | Escape character used when `doublequote` is `False` or quoting is impossible |
+| `doublequote` | bool | `True` | No | Escape a quote character inside a field by doubling it |
 | `encoding` | str | auto-detected | No | File encoding. If not specified, uses `chardet` to auto-detect. Common values: `utf-8`, `latin-1`, `cp1252` |
 | `keys` | list | None | Yes* | Column names. Required when writing or when reading files without headers. When reading with headers, column names are auto-detected from first row. |
 | `autodetect` | bool | `False` | No | Automatically detect delimiter by analyzing first few lines of file |
 
 \* Required when writing, optional when reading (auto-detected from headers if present)
+
+All of these can be passed through `open_iterable(..., iterableargs={...})` or
+`convert(..., iterableargs=..., toiterableargs=...)`. Precedence: an explicit constructor argument,
+then `iterableargs`, then the extension default (tab for `.tsv`), then `autodetect`.
+
+`totals()` returns the number of data rows counted by lines; the header line is not counted.
+Quoted fields that contain line breaks make it an over-estimate.
 
 ## Error Handling
 

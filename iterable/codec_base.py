@@ -71,6 +71,6 @@ class BaseCodec:
         """Context manager exit."""
         self.close()
 
-    def textIO(self, encoding: str = "utf8") -> io.TextIOWrapper:
-        """Return text wrapper over binary stream."""
-        return io.TextIOWrapper(self.fileobj(), encoding=encoding, write_through=False)
+    def textIO(self, encoding: str = "utf8", newline: str | None = None) -> io.TextIOWrapper:
+        """Return text wrapper over binary stream (``newline`` as in :func:`open`)."""
+        return io.TextIOWrapper(self.fileobj(), encoding=encoding, newline=newline, write_through=False)

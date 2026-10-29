@@ -362,12 +362,8 @@ class ORCIterable(BaseFileIterable):
             yield chunk
 
     def write(self, record: Row) -> None:
-        """Write single record"""
-        self._ensure_writer(record)
-        if self.backend == "pyarrow":
-            self.write_bulk([record])
-            return
-        self.writer.write(record)
+        """Write single record (through ``write_bulk`` so validation hooks apply on both backends)."""
+        self.write_bulk([record])
 
     def flush(self):
         """Flush buffered records to the pyarrow.orc writer."""

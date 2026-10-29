@@ -17,7 +17,7 @@ class RAWCodec(BaseCodec):
         self._fileobj = open(self.filename, self.mode)
         return self._fileobj
 
-    def textIO(self, encoding: str = "utf8"):
+    def textIO(self, encoding: str = "utf8", newline: str | None = None):
         """
         Return a text wrapper over the underlying stream.
 
@@ -27,7 +27,7 @@ class RAWCodec(BaseCodec):
         fobj = self.fileobj()
         if isinstance(fobj, io.TextIOBase):
             return fobj
-        return io.TextIOWrapper(fobj, encoding=encoding, write_through=False)
+        return io.TextIOWrapper(fobj, encoding=encoding, newline=newline, write_through=False)
 
     def close(self):
         if self._fileobj is not None:

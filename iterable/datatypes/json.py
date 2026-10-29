@@ -14,6 +14,7 @@ except ImportError:
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError, WriteError
+from ..helpers.jsonvalues import json_default_from_options
 from ..types import Row
 
 
@@ -30,6 +31,7 @@ class JSONIterable(BaseFileIterable):
         if options is None:
             options = {}
         self.tagname = tagname or options.get("tagname")
+        self._json_default = json_default_from_options(options)
         self._streaming = False
         self._parser = None
         self._items_buffer = []
@@ -88,10 +90,10 @@ class JSONIterable(BaseFileIterable):
                 self.fobj.seek(0)
                 if self.tagname:
                     # Parse items from a specific key in the JSON object
-                    self._parser = ijson.items(self.fobj, self.tagname + ".item")
+                    self._parser = ijson.items(self.fobj, self.tagname + ".item", use_float=True)
                 else:
                     # Parse items from a JSON array
-                    self._parser = ijson.items(self.fobj, "item")
+                    self._parser = ijson.items(self.fobj, "item", use_float=True)
                 # Pre-fetch first item to check if parser works
                 try:
                     self._first_item = next(self._parser)
@@ -223,7 +225,7 @@ class JSONIterable(BaseFileIterable):
         for record in records:
             if not getattr(self, "_first_item", True):
                 self.fobj.write(",")
-            self.fobj.write(json.dumps(record, ensure_ascii=False, default=str))
+            self.fobj.write(json.dumps(record, ensure_ascii=False, default=self._json_default))
             self._first_item = False
             self.total += 1
 

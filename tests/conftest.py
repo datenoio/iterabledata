@@ -55,16 +55,6 @@ def _verify_testdata_symlink() -> None:
 
 _verify_testdata_symlink()
 
-# Fixture-generator scripts, not tests. ``--doctest-modules`` (addopts) would
-# import them, and they need optional dependencies (pysam, protobuf) that most
-# environments lack. ``testdata`` is a symlink to ``fixtures``, so the OTLP
-# generator is reachable through both paths.
-collect_ignore = [
-    "create_bio_fixtures.py",
-    "fixtures/otlp/generate_protobuf_fixtures.py",
-    "testdata/otlp/generate_protobuf_fixtures.py",
-]
-
 # Tests historically write through the ``testdata`` compatibility path. Run
 # against a disposable copy so committed fixtures remain immutable even when
 # a legacy test has not yet been migrated to ``tmp_path``.
@@ -101,11 +91,14 @@ def pytest_configure(config):
     # the tokens pytest itself parsed as positional paths and preserve every
     # option verbatim: dropping flags here breaks plugins that re-parse the
     # raw args on the worker (e.g. pytest-cov's --no-cov detection).
-    # ``InvocationParams`` is a frozen dataclass (pytest >= 7.3), not a
-    # NamedTuple: it has no ``_replace``, and the ``__replace__`` hook only
-    # exists on Python 3.13+, so use ``dataclasses.replace``.
-    rewritten = tuple(_absolutize(arg) if arg in positional else arg for arg in config.invocation_params.args)
-    config.invocation_params = dataclasses.replace(config.invocation_params, args=rewritten)
+    # ``InvocationParams`` is a frozen dataclass (pytest >= 7; it has no
+    # ``__replace__`` before Python 3.13) or a NamedTuple in older pytest.
+    params = config.invocation_params
+    rewritten = tuple(_absolutize(arg) if arg in positional else arg for arg in params.args)
+    if dataclasses.is_dataclass(params):
+        config.invocation_params = dataclasses.replace(params, args=rewritten)
+    else:
+        config.invocation_params = params._replace(args=rewritten)
     os.chdir(_RUNTIME_ROOT)
 
 

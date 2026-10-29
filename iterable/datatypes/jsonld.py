@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import datetime
 import typing
 from json import dumps, loads
 from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
+from ..helpers.jsonvalues import encode_default, json_default_from_options
 from ..helpers.utils import rowincount
 from ..types import Row
 
-
-def date_handler(obj):
-    return obj.isoformat() if isinstance(obj, (datetime.datetime, datetime.date)) else None
+# Kept for backward compatibility; the shared encoder never returns ``None`` for a value.
+date_handler = encode_default
 
 
 class JSONLDIterable(BaseFileIterable):
@@ -34,6 +33,7 @@ class JSONLDIterable(BaseFileIterable):
         self.pos = 0
         self.context = None
         self.data = None
+        self._json_default = json_default_from_options(options)
         super().__init__(filename, stream, codec=codec, binary=False, mode=mode, encoding=encoding, options=options)
         if mode == "r":
             self.reset()
@@ -191,7 +191,7 @@ class JSONLDIterable(BaseFileIterable):
 
         # Write as a single JSON-LD object (one per line, similar to JSONL)
         # This allows streaming large datasets
-        json_str = dumps(record, ensure_ascii=False, default=date_handler)
+        json_str = dumps(record, ensure_ascii=False, default=self._json_default)
         self.fobj.write(json_str + "\n")
         self.pos += 1
 

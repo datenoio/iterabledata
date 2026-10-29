@@ -229,6 +229,8 @@ class BaseFileIterable(BaseIterable):
     """Basic file iterable."""
 
     datamode = "text"
+    # ``newline`` for text wrappers over codec streams; ``None`` is universal-newline mode.
+    text_newline: str | None = None
 
     def __init__(
         self,
@@ -359,7 +361,20 @@ class BaseFileIterable(BaseIterable):
                 self.codec.open()
                 self.fobj = self.codec.fileobj()
                 if self.datamode == "text":
-                    self.fobj = self.codec.textIO(encoding=self.encoding)
+                    self.fobj = self._codec_text_io()
+
+    def _codec_text_io(self) -> typing.IO[Any]:
+        """Text wrapper over the codec stream, honoring the format's ``text_newline``."""
+        codec = self.codec
+        if codec is None:
+            raise ValueError("Cannot open a codec text stream: no codec is set")
+        if self.text_newline is None:
+            return codec.textIO(encoding=self.encoding)
+        try:
+            return codec.textIO(encoding=self.encoding, newline=self.text_newline)
+        except TypeError:
+            # Third-party codecs written against the older ``textIO(encoding)`` signature.
+            return codec.textIO(encoding=self.encoding)
 
     def _init_error_handling(self, options: dict[str, Any]) -> None:
         """Initialize error handling configuration.
@@ -654,7 +669,7 @@ class BaseFileIterable(BaseIterable):
                 self.codec.reset()
                 self.fobj = self.codec.fileobj()
                 if self.datamode == "text":
-                    self.fobj = self.codec.textIO(encoding=self.encoding)
+                    self.fobj = self._codec_text_io()
             except Exception as e:
                 raise ReadError(
                     f"Cannot reset: failed to reset codec: {str(e)}",

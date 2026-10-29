@@ -16,6 +16,7 @@ from .detect import (
     DUCKDB_SUPPORTED_CODECS,
     DUCKDB_SUPPORTED_TYPES,
     FileTypeResult,
+    _codec_class,
     _datatype_class,
     _extension_is_ambiguous,
     _get_codec_registry,
@@ -129,8 +130,15 @@ def _open_stream_iterable(
     else:
         datatype = _resolve_stream_datatype(stream, normalized_mode, debug)
 
+    codec_hint = iterableargs.get("codec")
+    codec_id = _codec_hint_id(codec_hint) if codec_hint is not None else None
+    options = {k: v for k, v in iterableargs.items() if k != "codec"}
+
     try:
-        return _instantiate_datatype(datatype, stream=stream, mode=normalized_mode, options=iterableargs)
+        if codec_id is not None:
+            codec = _codec_class(codec_id)(fileobj=stream, mode=mode)
+            return _instantiate_datatype(datatype, codec=codec, mode=normalized_mode, options=options)
+        return _instantiate_datatype(datatype, stream=stream, mode=normalized_mode, options=options)
     except (IterableDataError, OSError, ValueError, TypeError):
         raise
     except Exception as e:
@@ -222,16 +230,54 @@ def _content_detect(filename: str, is_cloud_uri: bool, cloud_stream: Any, debug:
     return None
 
 
+# Codec names accepted in ``iterableargs["codec"]`` besides the registry keys.
+_CODEC_HINT_ALIASES = {"gzip": "gz", "bzip2": "bz2", "zstandard": "zstd", "brotli": "br"}
+_NO_CODEC_HINTS = {"none", "raw"}
+
+
+def _codec_hint_id(hint: str) -> str | None:
+    """Normalize an explicit codec hint to a codec registry key (``None`` for no compression)."""
+    key = str(hint).strip().lower()
+    if key in _NO_CODEC_HINTS:
+        return None
+    key = _CODEC_HINT_ALIASES.get(key, key)
+    registry = _get_codec_registry()
+    if key not in registry:
+        raise ValueError(
+            f"Unknown codec {hint!r}. Supported codecs: {', '.join(sorted(set(registry) | set(_CODEC_HINT_ALIASES)))}"
+        )
+    return key
+
+
+def _codec_id_from_name(filename: str | None) -> str | None:
+    """Return the codec registry key named by the file's last extension, if any."""
+    if not filename:
+        return None
+    ext = os.path.splitext(str(filename))[1].lstrip(".").lower()
+    return ext if ext and ext in _get_codec_registry() else None
+
+
 def _apply_explicit_format(result: FileTypeResult, iterableargs: IterableArgs) -> None:
-    """Override detection with an explicit ``format`` hint when provided."""
+    """Override detection with explicit ``format``/``codec`` hints when provided.
+
+    An explicit format keeps the compression codec named by the file's last extension
+    (``x.csv.gz`` with ``format="csv"`` is still gunzipped); an explicit ``codec`` hint
+    selects the codec for names that do not carry one.
+    """
     explicit_format = iterableargs.get("format")
+    explicit_codec = iterableargs.get("codec")
+    if explicit_codec is not None:
+        codec_id = _codec_hint_id(explicit_codec)
+        result["codec"] = _codec_class(codec_id) if codec_id else None
     if not explicit_format:
         return
     format_id = explicit_format.lower()
     if format_id in _get_format_registry():
         result["datatype"] = _datatype_class(format_id)
         result["success"] = True
-        result["codec"] = None
+        if explicit_codec is None:
+            codec_id = _codec_id_from_name(result.get("filename"))
+            result["codec"] = _codec_class(codec_id) if codec_id else None
         result["confidence"] = 1.0
         result["detection_method"] = "explicit"
 
@@ -321,7 +367,11 @@ def _resolve_type_and_codec(
 ) -> tuple[str | None, str | None]:
     """Derive the detected filetype/codec labels used for engine checks and logs."""
     if result.get("detection_method") == "explicit":
-        return (iterableargs.get("format", "").lower() or None, None)
+        codec_label = None
+        if result.get("codec") is not None:
+            hint = iterableargs.get("codec")
+            codec_label = _codec_hint_id(hint) if hint is not None else _codec_id_from_name(filename)
+        return (iterableargs.get("format", "").lower() or None, codec_label)
 
     parts = filename.lower().rsplit(".", 2)
     codec_registry = _get_codec_registry()
@@ -549,6 +599,8 @@ def _finalize_source(
 ) -> BaseIterable:
     """Validate engine support and instantiate the resolved iterable."""
     detected_filetype, detected_codec = _resolve_type_and_codec(filename, result, iterableargs)
+    # The codec hint was consumed by detection; as a datatype option it would replace ``self.codec``.
+    iterableargs = {k: v for k, v in iterableargs.items() if k != "codec"}
     _validate_engine_support(engine, detected_filetype, detected_codec)
 
     datatype_cls = result["datatype"]

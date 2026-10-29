@@ -41,17 +41,23 @@ def hashable_key(value: typing.Any) -> str | typing.Any:
         return json.dumps(value, sort_keys=True, default=str)
 
 
-def rowincount(filename: str | None = None, fileobj: typing.IO[Any] | None = None) -> int:
+def rowincount(
+    filename: str | None = None, fileobj: typing.IO[Any] | None = None, include_unterminated: bool = False
+) -> int:
     """Count newline-delimited rows without changing a seekable stream.
 
     Text codecs expose ``str`` chunks while ordinary files expose ``bytes``;
     selecting the delimiter from the first chunk keeps totals usable for both
     paths.  A seekable stream is restored to its original position so a
     progress query cannot consume the source.
+
+    With ``include_unterminated`` a final line without a trailing newline is
+    counted as well, so the result is the number of lines rather than the
+    number of newline characters.
     """
     if filename is not None:
         with open(filename, "rb") as f:
-            return sum(chunk.count(b"\n") for chunk in iter(lambda: f.read(1024 * 1024), b""))
+            return _count_newlines(iter(lambda: f.read(1024 * 1024), b""), include_unterminated)
     if fileobj is None:
         raise ValueError("Filename or fileobj should not be None")
 
@@ -61,20 +67,28 @@ def rowincount(filename: str | None = None, fileobj: typing.IO[Any] | None = Non
     except (AttributeError, OSError, ValueError):
         pass
 
-    total = 0
     try:
-        while True:
-            chunk = fileobj.read(1024 * 1024)
-            if not chunk:
-                break
-            delimiter = b"\n" if isinstance(chunk, bytes) else "\n"
-            total += chunk.count(delimiter)
+        return _count_newlines(iter(lambda: fileobj.read(1024 * 1024), None), include_unterminated)
     finally:
         if original_pos is not None:
             try:
                 fileobj.seek(original_pos)
             except (AttributeError, OSError, ValueError):
                 pass
+
+
+def _count_newlines(chunks: typing.Iterator[Any], include_unterminated: bool) -> int:
+    """Count ``\\n`` in byte or text chunks; optionally add an unterminated last line."""
+    total = 0
+    last = None
+    for chunk in chunks:
+        if not chunk:
+            break
+        delimiter = b"\n" if isinstance(chunk, bytes) else "\n"
+        total += chunk.count(delimiter)
+        last = chunk[-1:]
+    if include_unterminated and last is not None and last not in (b"\n", "\n"):
+        total += 1
     return total
 
 

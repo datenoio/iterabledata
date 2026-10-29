@@ -87,26 +87,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   improvement plan and July review report are marked superseded.
 
 ### Fixed
-- **CI test runs on Python 3.10–3.12**: `tests/conftest.py` rewrote `config.invocation_params`
-  with `_replace`/`__replace__`, but `InvocationParams` is a frozen dataclass, and dataclasses
-  only gain `__replace__` on Python 3.13. Every run below 3.13 aborted with an INTERNALERROR. It
-  now uses `dataclasses.replace`.
-- **Test collection without optional extras**: `--doctest-modules` no longer imports the fixture
-  generator scripts `tests/create_bio_fixtures.py` and
-  `tests/fixtures/otlp/generate_protobuf_fixtures.py` (also reachable through the
-  `tests/testdata` symlink), which need pysam and protobuf. `tests/test_xlsx_write.py` and
-  `tests/test_xml_write.py` skip when openpyxl or lxml is missing instead of erroring. The bulk
-  cursor interleave suite no longer treats every format whose module fails to import as a custom
-  bulk reader: modules without a `def read_bulk` (duckdb, GPX, KMZ, KML, GML without their
-  extras) are classified as base readers, so a dev-only install no longer fails coverage checks.
-  `tests/test_ai_doc_behavior.py` patches `iterable.ai.models` through `patch.object`: on Python
-  3.10, `mock.patch("iterable.ai.models...")` walks attributes and lands in `iterable.ai.doc`,
-  because `iterable/__init__.py` rebinds `iterable.ai` to that module.
-- **Dependency audit**: The dev extra now requires `pytest>=9.0.3` (PYSEC-2026-1845); the
-  former `<9` cap is unnecessary with `pytest-benchmark>=5.3`. `safety` is dropped from the dev
-  extra because every release caps `filelock<4.0`, which held filelock on a version with
-  CVE-2026-112940/112913/112907 (fixed in 4.2.1). The advisory Safety step in the Security
-  workflow installs it on its own.
+- **JSON writers no longer write `null` for non-`None` values** (OpenSpec
+  `fix-json-serialization-fidelity`): JSON Lines, GELF and JSON-LD wrote `null` for `time`,
+  `Decimal`, `UUID`, `bytes`, `timedelta` and `set` values. All JSON-family writers now share one
+  encoder (`iterable.helpers.jsonvalues`): ISO 8601 for dates, times and durations, `Decimal` as a
+  number when its shortest float form is exact (otherwise a string; `decimal="string"` forces
+  strings), base64 for bytes, arrays for sets, `.item()`/`.tolist()` for NumPy values, and
+  `str(value)` for anything else (`on_unknown_type="raise"` raises `WriteError` instead).
+  **Visible change:** the JSON writer now writes `Decimal` as a number and `bytes` as base64
+  instead of their Python string form.
+- **Large JSON files keep floats** (OpenSpec `fix-json-serialization-fidelity`): arrays above the
+  10 MB streaming threshold were parsed by `ijson` into `Decimal`, which the JSONL writer then
+  wrote as `null`. Every `ijson` reader (JSON, GeoJSON, TopoJSON, CZML, OTLP) now uses
+  `use_float=True`, so a file yields the same types whatever its size.
+- **CSV dialect options from `iterableargs`** (OpenSpec `fix-csv-dialect-and-codec-options`):
+  `delimiter`, `quotechar`, `escapechar`, `doublequote`, `keys` and `autodetect` passed through
+  `open_iterable(iterableargs=...)` or `convert(toiterableargs=...)` were overwritten by the
+  defaults; they now apply to reading and writing. Constructor arguments still win.
+- **TSV is tab-separated**: `.tsv` (also `.tsv.gz` etc.) and `format="tsv"` read and write with a
+  tab delimiter by default; they previously used commas.
+- **Explicit format keeps the codec**: `open_iterable("x.csv.gz", iterableargs={"format": "csv"})`
+  and `data.zip` with `format="jsonl"` now decompress the file. A new `iterableargs["codec"]` hint
+  (`"gz"`, `"gzip"`, `"zstd"`, ...) selects the codec for names without a codec extension and for
+  streams.
+- **CSV totals**: `CSVIterable.totals()` no longer counts the header line and counts a last line
+  without a trailing newline. Quoted fields with line breaks still make it an over-estimate.
+- **`convert()` no longer drops rows silently** (OpenSpec `fix-convert-silent-row-loss`): nested
+  JSON Lines converted to CSV without `is_flatten` wrote only the header, because rows were not
+  flattened to the dotted header keys and every batch write error was logged and swallowed.
+  Flat outputs now get dotted columns for nested objects and JSON text for lists. A failed batch
+  raises `WriteError` with its row range (`on_write_error="skip"` keeps going and reports
+  `ConversionResult.rows_skipped`), and a field first seen after `scan_limit` raises `WriteError`
+  unless `extra_fields="ignore"`. `bulk_convert()` accepts and forwards both options.
+  **Behavior change:** callers that relied on `convert()` returning normally after write errors
+  now get an exception.
+- **ORC writes apply validation hooks on the pyorc backend**: `write()` wrote straight to the
+  pyorc writer and skipped the hooks; it now goes through `write_bulk()` like the pyarrow backend.
+- **Format descriptors match their implementations**: `totals` was declared for `sql` and `copy`
+  (which have no `totals()`) and not declared for `jsonld` and `gpkg` (which have one);
+  `dev/formats.json` is regenerated.
+- **CI and test tooling**: `tests/conftest.py` rewrote `InvocationParams` with `_replace`/`__replace__`,
+  which neither pytest 8.4 nor Python < 3.13 provides, so every test job failed at configure;
+  it now uses `dataclasses.replace`. The dev extra requires `pytest>=9.0.3,<9.2` (PYSEC-2026-1845)
+  and no longer installs `safety`, whose `filelock<4` pin kept vulnerable filelock 3.x in the
+  environment pip-audit scans (the scheduled security workflow installs `safety` itself).
+  Fixture generator scripts are excluded from collection, and the DBF fixture overwritten in
+  1.0.16 is restored to the `ID`/`NAME` version the DBF tests expect.
 - **GeoPackage writes**: mode="w" now overwrites an existing file (GDAL's GPKG driver refuses to
   create over one), matching every other writer's truncate semantics.
 - **Bioinformatics robustness**: opaque htslib errors for missing references/truncated CRAM now
