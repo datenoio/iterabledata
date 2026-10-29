@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-29
+
 ### Added
 - **Reference plugin package** (OpenSpec `add-reference-plugin`):
   `examples/plugins/iterabledata-example/` is a complete installable plugin (a minimal
@@ -116,6 +118,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `backend` codec option (`"auto"`, `"isal"`, `"stdlib"`) overrides the choice.
   - The performance gate gains JSON, JSON Lines and Parquet workloads plus CSV -> JSONL,
     CSV -> Parquet and JSONL -> CSV conversions.
+- **CRAM docs**: Dedicated `docs/docs/formats/cram.md` page with sidebar entry, format index link,
+  and cross-links from BAM/SAM/genomic pages; registry `doc_url` now points to it.
+- **Quality gates**: mypy error-count ratchet (`dev/scripts/mypy_ratchet.py` with a committed
+  baseline, advisory in CI), an advisory radon complexity gate (no grade-D-or-worse functions),
+  explicit base-env and full-dev-env coverage floor checks in CI, and a Python 3.13 CI leg.
+- **Governance**: `SECURITY.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), and
+  `.github/CODEOWNERS`.
+
+### Changed
+- **Compact JSON output**: the JSON and JSON Lines writers write `{"a":1,"b":[1,2]}` instead of
+  `{"a": 1, "b": [1, 2]}`, whichever JSON backend is installed. Values are unchanged, with two
+  exceptions: NaN and infinities are written as `null` instead of the invalid `NaN`/`Infinity`,
+  and `Enum` members as their value instead of `str(member)`. Files that are compared byte for
+  byte with earlier output will differ.
+- **Typing gate**: Drop obsolete inline `type: ignore` comments for polars/fsspec (covered by
+  mypy `ignore_missing_imports` overrides), making the blocking mypy core gate pass in
+  environments with optional dependencies installed.
+- **Complexity**: Refactor the nine grade-D functions (`paimon_row.normalize_schema`,
+  `gml.gml_to_geojson`, `ical.write`/`write_bulk`, `shapefile.write`, `kml.write`, `gml.write`,
+  `cef._parse_cef`, `BaseFileIterable.reset`) into smaller helpers; all are grade C or better
+  with no behavior changes.
+- **OpenSpec**: Archive 23 completed change proposals; 21 new capability specs published
+  (73 items validate strict). Regenerate `dev/formats.json` (145 formats) and refresh
+  `UNFINISHED_PROPOSALS.md`.
 
 ### Fixed
 - **Light `import iterable`** (OpenSpec `fix-package-import-hygiene`): the package root imported
@@ -207,32 +233,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The remaining B608 findings (verified safe: quoted identifiers, bound parameters, or explicit
   raw-SQL pass-through API parameters) are annotated with `# nosec B608` justifications — zero
   bandit medium/high findings remain across the package.
-
-### Added
-- **CRAM docs**: Dedicated `docs/docs/formats/cram.md` page with sidebar entry, format index link,
-  and cross-links from BAM/SAM/genomic pages; registry `doc_url` now points to it.
-- **Quality gates**: mypy error-count ratchet (`dev/scripts/mypy_ratchet.py` with a committed
-  baseline, advisory in CI), an advisory radon complexity gate (no grade-D-or-worse functions),
-  explicit base-env and full-dev-env coverage floor checks in CI, and a Python 3.13 CI leg.
-- **Governance**: `SECURITY.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), and
-  `.github/CODEOWNERS`.
-
-### Changed
-- **Compact JSON output**: the JSON and JSON Lines writers write `{"a":1,"b":[1,2]}` instead of
-  `{"a": 1, "b": [1, 2]}`, whichever JSON backend is installed. Values are unchanged, with two
-  exceptions: NaN and infinities are written as `null` instead of the invalid `NaN`/`Infinity`,
-  and `Enum` members as their value instead of `str(member)`. Files that are compared byte for
-  byte with earlier output will differ.
-- **Typing gate**: Drop obsolete inline `type: ignore` comments for polars/fsspec (covered by
-  mypy `ignore_missing_imports` overrides), making the blocking mypy core gate pass in
-  environments with optional dependencies installed.
-- **Complexity**: Refactor the nine grade-D functions (`paimon_row.normalize_schema`,
-  `gml.gml_to_geojson`, `ical.write`/`write_bulk`, `shapefile.write`, `kml.write`, `gml.write`,
-  `cef._parse_cef`, `BaseFileIterable.reset`) into smaller helpers; all are grade C or better
-  with no behavior changes.
-- **OpenSpec**: Archive 23 completed change proposals; 21 new capability specs published
-  (73 items validate strict). Regenerate `dev/formats.json` (145 formats) and refresh
-  `UNFINISHED_PROPOSALS.md`.
 
 ## [1.0.23] - 2026-08-18
 

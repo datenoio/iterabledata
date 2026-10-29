@@ -1533,6 +1533,16 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
+### Version 1.1.0 (2026-10-29)
+
+- **Faster formats**: new `iterabledata[fast]` extra (orjson, msgspec, ISA-L): JSON Lines write ~5x and read ~2x; Parquet write ~5x; CSV -> Parquet ~12x with `convert(..., use_native_batch=True)`
+- **No silent data loss**: JSON writers keep `time`, `Decimal`, `UUID`, `bytes`, `timedelta`, `set` values (also in binary containers); `convert()` no longer drops nested rows or swallows write errors
+- **CSV/TSV**: dialect options from `iterableargs`, `.tsv` is tab-separated, an explicit `format=` keeps the compression codec
+- **Light `import iterable`**: 0.42 s -> 0.09 s; AI prompt templates now ship in the wheel
+- **Convert API**: `codecargs`/`tocodecargs` in `convert()` and `bulk_convert()`, `list_codecs()`, public AI helpers
+- **Formats and runtime**: XLSX/ODS/XML writes, validation hooks on every writable format, genuine async iteration, ClickHouse/MSSQL ingest
+- **Changed**: JSON and JSON Lines output is compact (`{"a":1}`); NaN and infinities are written as `null`
+
 ### Version 1.0.23 (2026-08-18)
 
 - **MCP Registry**: Shorten `server.json` description to the 100-character registry limit

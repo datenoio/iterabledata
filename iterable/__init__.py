@@ -1,7 +1,7 @@
 """Iterable data processing Python library."""
 
 __author__ = "Ivan Begtin"
-__version__ = "1.0.23"
+__version__ = "1.1.0"
 __licence__ = "MIT"
 
 from . import ingest, validate
