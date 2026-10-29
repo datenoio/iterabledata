@@ -23,6 +23,7 @@ reader lands in the registry without landing in one of the tiers.
 
 from __future__ import annotations
 
+import importlib.util
 import io
 import json
 import os
@@ -59,12 +60,21 @@ def _has_custom_read_bulk(cls: type) -> bool:
     return False
 
 
+def _module_defines_read_bulk(module: str) -> bool:
+    """Source-level check for ``def read_bulk`` when the module cannot be imported."""
+    spec = importlib.util.find_spec(module)
+    if spec is None or spec.origin is None:
+        return True
+    return "def read_bulk" in Path(spec.origin).read_text(encoding="utf-8")
+
+
 def _classify_formats() -> tuple[dict[str, type | None], set[str]]:
     """Split registry primary keys into custom-bulk readers and base-bulk readers.
 
     Returns ``(custom, base_only)`` where ``custom`` maps the primary key to the
-    loaded class (or ``None`` when an optional dependency blocks the import, in
-    which case the source-level ``def read_bulk`` is assumed custom).
+    loaded class (or ``None`` when an optional dependency blocks the import and
+    the module source defines ``def read_bulk``; without it the class is treated
+    as using the base implementation).
     """
     custom: dict[str, type | None] = {}
     base_only: set[str] = set()
@@ -74,7 +84,10 @@ def _classify_formats() -> tuple[dict[str, type | None], set[str]]:
         except ImportError:
             # Module-level optional dependency missing (e.g. dbfread). The class
             # cannot be introspected; golden/builder tiers still cover the key.
-            custom[primary] = None
+            if _module_defines_read_bulk(target[0]):
+                custom[primary] = None
+            else:
+                base_only.add(primary)
             continue
         if _has_custom_read_bulk(cls):
             custom[primary] = cls

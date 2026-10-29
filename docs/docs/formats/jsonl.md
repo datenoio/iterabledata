@@ -28,7 +28,7 @@ The JSONL implementation:
 
 Writing support:
 - Writes each record as a single line
-- Automatically serializes datetime objects to ISO format
+- Serializes values JSON has no type for with a shared encoder (see the table below)
 - Supports Unicode characters
 - Efficient for bulk writes
 
@@ -38,7 +38,7 @@ Writing support:
 - **Memory efficient**: Suitable for very large files
 - **Nested data support**: Preserves complex nested structures
 - **Totals support**: Can count total lines in file
-- **Datetime handling**: Automatically converts datetime objects to ISO format
+- **Type fidelity**: Never writes `null` for a value that is not `None`
 
 ## Usage
 
@@ -88,6 +88,23 @@ finally:
 | Parameter | Type | Default | Required | Description |
 |-----------|------|---------|----------|-------------|
 | `encoding` | str | `utf8` | No | File encoding for reading/writing JSONL files. UTF-8 is the standard for JSON/JSONL files. Other encodings like `latin-1` or `cp1252` are supported but not recommended. |
+| `decimal` | str | `auto` | No | Writing: `auto` writes a `Decimal` as a JSON number when its shortest float form is exact and as a string otherwise; `string` always writes strings |
+| `on_unknown_type` | str | `str` | No | Writing: `str` writes `str(value)` for objects without a JSON encoding; `raise` raises `WriteError` |
+
+### Value encoding when writing
+
+The same encoder is used by the JSON, JSON Lines, GELF, JSON-LD, GeoJSON, TopoJSON and CZML writers.
+
+| Python value | Written as |
+|---|---|
+| `datetime`, `date`, `time` | ISO 8601 string (`"2026-10-28T09:15:00+00:00"`, `"12:30:00"`) |
+| `Decimal` | number (`1.5`), or string when a float cannot represent it exactly |
+| `UUID` | canonical string |
+| `bytes`, `bytearray`, `memoryview` | base64 string |
+| `timedelta` | ISO 8601 duration (`"PT5S"`, `"-P1DT2H"`) |
+| `set`, `frozenset` | array (sorted when comparable) |
+| NumPy scalar / array | `.item()` / `.tolist()` |
+| anything else | `str(value)`, or `WriteError` with `on_unknown_type="raise"` |
 
 ## Error Handling
 

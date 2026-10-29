@@ -6,12 +6,22 @@ interaction, context collection (schema/stats/metadata/semantic/PII) and
 error handling. All LLM calls are mocked.
 """
 
+import importlib
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from iterable.ai import doc
 from iterable.ai.cache import cache_clear
+
+
+def _ai_models():
+    """``iterable.ai.models`` by import path.
+
+    ``patch("iterable.ai.models...")`` resolves ``iterable.ai`` by attribute on Python 3.10,
+    and the package root binds that attribute to ``iterable.ai.doc``.
+    """
+    return importlib.import_module("iterable.ai.models")
 
 
 def _make_provider(text="# Generated Documentation", fields_info=None):
@@ -389,10 +399,7 @@ class TestValidation:
     def test_validate_output_failure_only_warns(self):
         with (
             patch.object(doc, "get_provider") as mock_get,
-            patch(
-                "iterable.ai.models.validate_documentation_result",
-                side_effect=ValueError("bad doc"),
-            ),
+            patch.object(_ai_models(), "validate_documentation_result", side_effect=ValueError("bad doc")),
         ):
             mock_get.return_value = _make_provider()
             result = doc.generate([{"id": 1}], provider="openai", format="json", validate_output=True)
@@ -401,7 +408,7 @@ class TestValidation:
     def test_validate_output_ignored_for_markdown(self):
         with (
             patch.object(doc, "get_provider") as mock_get,
-            patch("iterable.ai.models.validate_documentation_result") as mock_validate,
+            patch.object(_ai_models(), "validate_documentation_result") as mock_validate,
         ):
             mock_get.return_value = _make_provider()
             doc.generate([{"id": 1}], provider="openai", format="markdown", validate_output=True)

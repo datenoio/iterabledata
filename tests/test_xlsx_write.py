@@ -3,9 +3,10 @@
 import datetime
 
 import pytest
-from openpyxl import load_workbook
 
 from iterable import open_iterable
+
+load_workbook = pytest.importorskip("openpyxl", reason="openpyxl is required for XLSX support").load_workbook
 
 
 class TestXLSXWrite:

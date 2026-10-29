@@ -34,6 +34,8 @@ convert(
     use_native_batch: bool = False,
     selection: BatchSelection | dict | None = None,
     strict_native: bool = False,
+    extra_fields: str = "raise",
+    on_write_error: str = "raise",
 ) -> ConversionResult
 ```
 
@@ -101,7 +103,17 @@ If `False`, shows progress bars during conversion. Default: `True`.
 
 ### `is_flatten` (bool, optional)
 
-If `True`, flattens nested structures when converting to flat formats. Nested dictionaries become dot-notation keys (e.g., `user.name`). Default: `False`.
+If `True`, flattens records with `make_flat`: nested dictionaries and lists are written as their Python string form in one column. Default: `False`.
+
+Without `is_flatten`, flat outputs (CSV, TSV, XLSX, ...) get one dot-notation column per nested value (e.g. `user.name`), and lists are written as JSON text.
+
+### `extra_fields` (str, optional)
+
+For flat outputs, what to do with a field that was not seen in the first `scan_limit` rows (and is therefore missing from the header): `"raise"` raises `WriteError` naming the field; `"ignore"` drops the field and writes the row. Default: `"raise"`.
+
+### `on_write_error` (str, optional)
+
+`"raise"` raises `WriteError` with the failing batch's row range when the destination cannot write a batch. `"skip"` records the error in `errors`, adds the batch size to `rows_skipped` and continues. Default: `"raise"`.
 
 ### `use_totals` (bool, optional)
 
@@ -137,6 +149,7 @@ Returns a `ConversionResult` object containing conversion metrics:
 - `bytes_read`: Number of bytes read (if available, otherwise `None`)
 - `bytes_written`: Number of bytes written (if available, otherwise `None`)
 - `errors`: List of errors encountered during conversion (empty if none)
+- `rows_skipped`: Rows in batches that failed with `on_write_error="skip"` (`rows_out + rows_skipped == rows_in`)
 
 ## Examples
 

@@ -14,6 +14,9 @@ from ..types import Row
 
 DEFAULT_ENCODING = "utf8"
 DEFAULT_DELIMITER = ","
+DEFAULT_QUOTECHAR = '"'
+TSV_DELIMITER = "\t"
+TSV_EXTENSIONS = ("tsv",)
 
 
 def _rewind_stream(stream, pos) -> None:
@@ -53,6 +56,22 @@ def detect_encoding_raw(filename=None, stream=None, limit=1000000):
     return detected
 
 
+def _is_tsv_name(name: str | None) -> bool:
+    """True when ``name`` ends in ``.tsv``, optionally followed by a compression extension."""
+    if not name:
+        return False
+    parts = str(name).lower().rsplit(".", 2)
+    if len(parts) < 2:
+        return False
+    if parts[-1] in TSV_EXTENSIONS:
+        return True
+    if len(parts) == 3 and parts[-2] in TSV_EXTENSIONS:
+        from ..helpers.detect import _get_codec_registry
+
+        return parts[-1] in _get_codec_registry()
+    return False
+
+
 def detect_delimiter(filename=None, stream=None, encoding="utf8"):
     if filename is not None:
         with open(filename, encoding=encoding) as f:
@@ -68,6 +87,10 @@ def detect_delimiter(filename=None, stream=None, encoding="utf8"):
 
 
 class CSVIterable(BaseFileIterable):
+    # The csv module needs untranslated line endings, also through codecs (``.csv.gz``):
+    # universal-newline mode turns its ``\r\n`` into ``\r\r\n`` on Windows.
+    text_newline = ""
+
     def __init__(
         self,
         filename: str | None = None,
@@ -75,7 +98,7 @@ class CSVIterable(BaseFileIterable):
         codec: BaseCodec | None = None,
         keys: list[str] | None = None,
         delimiter: str | None = None,
-        quotechar: str = '"',
+        quotechar: str | None = None,
         mode: str = "r",
         encoding: str | None = None,
         autodetect: bool = False,
@@ -84,39 +107,70 @@ class CSVIterable(BaseFileIterable):
         if options is None:
             options = {}
         logging.debug(f"Params: encoding: {encoding}, options {options}")
-        self.encoding = None
         self.fileobj = stream
-        if encoding is not None:
-            self.encoding = encoding
-        elif "encoding" in options.keys() and options["encoding"] is not None:
-            self.encoding = options["encoding"]
-        if mode == "r":
-            if filename is not None and stream is None and self.encoding is None:
-                self.encoding = detect_encoding_raw(filename=filename)["encoding"]
-            elif stream is not None and self.encoding is None:
-                self.encoding = detect_encoding_raw(stream=stream)["encoding"]
-            elif self.encoding is None:
-                self.encoding = DEFAULT_ENCODING
-        elif self.encoding is None:
-            self.encoding = DEFAULT_ENCODING
+        self.encoding = self._resolve_encoding(encoding, options, filename, stream, mode)
         logging.debug(f"Final encoding {self.encoding}")
-        self.keys = keys
+        # Constructor arguments win; otherwise take the dialect from ``options`` (that is,
+        # ``open_iterable(iterableargs=...)``), then the extension default, then autodetection.
+        self.keys = keys if keys is not None else options.get("keys")
+        delimiter = delimiter if delimiter is not None else options.get("delimiter")
+        quotechar = quotechar if quotechar is not None else options.get("quotechar")
+        autodetect = autodetect or bool(options.get("autodetect", False))
+        self.escapechar = options.get("escapechar")
+        self.doublequote = options.get("doublequote", True)
 
         super().__init__(
             filename, stream, codec=codec, binary=False, encoding=self.encoding, mode=mode, options=options
         )
-        if not delimiter:
-            if autodetect and mode == "r":
-                #                print(filename, stream)
-                self.delimiter = detect_delimiter(filename, self.fobj, encoding=self.encoding)
-            else:
-                self.delimiter = DEFAULT_DELIMITER
-        else:
-            self.delimiter = delimiter
-        self.quotechar = quotechar
+        self.delimiter = delimiter or self._default_delimiter(filename, codec, options, autodetect and mode == "r")
+        self.quotechar = quotechar or DEFAULT_QUOTECHAR
         logging.debug(f"Detected delimiter {self.delimiter}")
         self.reset()
-        pass
+
+    @staticmethod
+    def _resolve_encoding(
+        encoding: str | None,
+        options: dict[str, Any],
+        filename: str | None,
+        stream: typing.IO[Any] | None,
+        mode: str,
+    ) -> str:
+        """Explicit encoding, then ``options["encoding"]``, then detection when reading."""
+        if encoding is None:
+            encoding = options.get("encoding")
+        if encoding is not None:
+            return encoding
+        if mode == "r" and stream is not None:
+            return detect_encoding_raw(stream=stream)["encoding"]
+        if mode == "r" and filename is not None:
+            return detect_encoding_raw(filename=filename)["encoding"]
+        return DEFAULT_ENCODING
+
+    def _default_delimiter(
+        self, filename: str | None, codec: BaseCodec | None, options: dict[str, Any], autodetect: bool
+    ) -> str:
+        """Tab for TSV sources, the detected delimiter with ``autodetect``, else a comma."""
+        if self._is_tsv_source(filename, codec, options):
+            return TSV_DELIMITER
+        if autodetect:
+            return detect_delimiter(filename, self.fobj, encoding=self.encoding)
+        return DEFAULT_DELIMITER
+
+    @staticmethod
+    def _is_tsv_source(filename: str | None, codec: BaseCodec | None, options: dict[str, Any]) -> bool:
+        """Whether the source is tab-separated by its explicit format or its file name."""
+        if str(options.get("format") or "").lower() in TSV_EXTENSIONS:
+            return True
+        return _is_tsv_name(filename) or _is_tsv_name(getattr(codec, "filename", None))
+
+    def _dialect(self) -> dict[str, Any]:
+        """Keyword arguments for ``csv.DictReader``/``DictWriter``."""
+        return {
+            "delimiter": self.delimiter,
+            "quotechar": self.quotechar,
+            "escapechar": self.escapechar,
+            "doublequote": self.doublequote,
+        }
 
     @staticmethod
     def has_totals() -> bool:
@@ -124,24 +178,31 @@ class CSVIterable(BaseFileIterable):
         return True
 
     def totals(self) -> int:
-        """Returns file totals"""
-        return rowincount(self.filename, self.fobj)
+        """Return the number of data rows, counted by lines.
+
+        The header line is not counted when the header is read from the file. Quoted
+        fields that contain line breaks make this an over-estimate.
+        """
+        total = rowincount(self.filename, self.fobj, include_unterminated=True)
+        if self.mode == "r" and self.keys is None and total > 0:
+            total -= 1
+        return total
 
     def reset(self) -> None:
         super().reset()
         if self.fobj is None and self.codec is not None:
-            fobj = self.codec.textIO(self.encoding)
+            fobj = self._codec_text_io()
         else:
             fobj = self.fobj
         logging.debug(f"Detected delimiter {self.delimiter}")
         self.reader = None
         if self.mode == "r":
             if self.keys is not None:
-                self.reader = DictReader(fobj, fieldnames=self.keys, delimiter=self.delimiter, quotechar=self.quotechar)
+                self.reader = DictReader(fobj, fieldnames=self.keys, **self._dialect())
             else:
-                self.reader = DictReader(fobj, delimiter=self.delimiter, quotechar=self.quotechar)
+                self.reader = DictReader(fobj, **self._dialect())
         if self.mode in ["w", "wr"] and self.keys is not None:
-            self.writer = DictWriter(fobj, fieldnames=self.keys, delimiter=self.delimiter, quotechar=self.quotechar)
+            self.writer = DictWriter(fobj, fieldnames=self.keys, **self._dialect())
             self.writer.writeheader()
         else:
             self.writer = None
@@ -265,9 +326,7 @@ class CSVIterable(BaseFileIterable):
         """Create writer on first write when keys were not set at open."""
         if self.writer is None and self.mode in ["w", "wr"] and self.fobj is not None:
             self.keys = list(record.keys()) if isinstance(record, dict) else list(record)
-            self.writer = DictWriter(
-                self.fobj, fieldnames=self.keys, delimiter=self.delimiter, quotechar=self.quotechar
-            )
+            self.writer = DictWriter(self.fobj, fieldnames=self.keys, **self._dialect())
             self.writer.writeheader()
 
     def write(self, record: Row) -> None:

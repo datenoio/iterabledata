@@ -130,6 +130,9 @@ class ConversionResult:
     errors: list[Exception] = field(default_factory=list)
     """List of errors encountered during conversion (empty if none)."""
 
+    rows_skipped: int = 0
+    """Rows in batches that failed to write with ``on_write_error="skip"``."""
+
 
 @dataclass
 class FileConversionResult:
