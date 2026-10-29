@@ -16,6 +16,10 @@ from ..types import Row
 DEFAULT_BATCH_SIZE = 1024
 
 
+def _has_nested_types(schema: pyarrow.Schema) -> bool:
+    return any(pyarrow.types.is_nested(field.type) for field in schema)
+
+
 def fields_to_pyarrow_schema(keys):
     fields = []
     for key in keys:
@@ -46,6 +50,9 @@ class ParquetIterable(BaseFileIterable):
             options = {}
         self.use_pandas = use_pandas
         self.__buffer = []
+        # Batches converted to Arrow once the writer schema is known, flushed per row group.
+        self.__tables: list[pyarrow.Table] = []
+        self.__buffered_rows = 0
         self.adapt_schema = adapt_schema
         self.keys = keys
         self.schema = schema
@@ -82,6 +89,8 @@ class ParquetIterable(BaseFileIterable):
         if self.mode == "w":
             # Reset write state for streaming writes
             self.__buffer = []
+            self.__tables = []
+            self.__buffered_rows = 0
             self.is_data_written = False
             if not self.adapt_schema:
                 if self.schema is not None:
@@ -135,25 +144,42 @@ class ParquetIterable(BaseFileIterable):
         """Normalize record values before PyArrow schema inference."""
         return [normalize_extended_json(record) for record in records]
 
+    def _to_arrow(self, records: list[Row], schema: pyarrow.Schema | None = None) -> pyarrow.Table:
+        """Convert records to Arrow once; unwrap extended JSON only when the batch needs it.
+
+        ``Table.from_pylist`` takes the columns from ``schema`` (missing keys become nulls,
+        unknown keys are dropped) or, without a schema, from the first record. A flat result
+        means the batch had no dict or list values, so ``normalize_extended_json`` would not
+        have changed it; otherwise the batch is normalized and converted again.
+        """
+        if schema is None or not _has_nested_types(schema):
+            try:
+                table = pyarrow.Table.from_pylist(records, schema=schema)
+            except (pyarrow.ArrowException, TypeError, ValueError):
+                table = None
+            if table is not None and not _has_nested_types(table.schema):
+                return table
+        return pyarrow.Table.from_pylist(self._prepare_records(records), schema=schema)
+
     def _write_records(self, records: list[Row]) -> None:
         """Write records to Parquet, aligning schema when appending to an existing file."""
-        records = self._prepare_records(records)
         if self.writer is None:
-            table = pyarrow.Table.from_pylist(records)
+            table = self._to_arrow(records)
             self.writer = pyarrow.parquet.ParquetWriter(
                 self.fobj, table.schema, compression=self.compression, use_dictionary=False
             )
         else:
-            normalized_records = self._normalize_records_to_schema(records, self.writer.schema)
-            table = pyarrow.Table.from_pylist(normalized_records, schema=self.writer.schema)
+            table = self._to_arrow(records, self.writer.schema)
         self.writer.write_table(table)
 
     def flush(self):
         """Flush all data"""
-        if not self.__buffer:
-            return
-        self._write_records(self.__buffer)
-        self.__buffer = []
+        if self.__buffer:
+            self._write_records(self.__buffer)
+            self.__buffer = []
+        if self.__tables:
+            tables, self.__tables, self.__buffered_rows = self.__tables, [], 0
+            self.writer.write_table(tables[0] if len(tables) == 1 else pyarrow.concat_tables(tables))
 
     def close(self):
         """Close iterable"""
@@ -281,27 +307,27 @@ class ParquetIterable(BaseFileIterable):
         if not records:
             return
 
-        if self.writer is not None:
-            # Validate against the established schema before buffering so
-            # callers still receive alignment errors at the offending batch,
-            # while successful rows retain bounded row-group buffering.
-            try:
-                prepared = self._prepare_records(records)
-                normalized = self._normalize_records_to_schema(prepared, self.writer.schema)
-                pyarrow.Table.from_pylist(normalized, schema=self.writer.schema)
-            except Exception as exc:
-                raise WriteError(
-                    "Failed to write records aligned to the existing Parquet schema "
-                    f"({self.writer.schema.names}): {exc}",
-                    filename=getattr(self, "filename", None),
-                    error_code="SCHEMA_ALIGNMENT_FAILED",
-                ) from exc
+        if self.writer is None:
+            # The schema is inferred from the first row group at the first flush.
+            self.__buffer.extend(records)
+            if len(self.__buffer) >= self.row_group_size:
+                self.flush()
+            return
 
-        # Always buffer to a bounded row group.  Previously a writer that had
-        # already been created bypassed the buffer, producing one physical row
-        # group per ``write`` call.
-        self.__buffer.extend(records)
-        if len(self.__buffer) >= self.row_group_size:
+        # Convert against the established schema once: alignment errors surface at the
+        # offending batch, and the converted batch is what gets written.
+        try:
+            table = self._to_arrow(records, self.writer.schema)
+        except Exception as exc:
+            raise WriteError(
+                f"Failed to write records aligned to the existing Parquet schema ({self.writer.schema.names}): {exc}",
+                filename=getattr(self, "filename", None),
+                error_code="SCHEMA_ALIGNMENT_FAILED",
+            ) from exc
+        # Buffer to a bounded row group rather than one physical row group per call.
+        self.__tables.append(table)
+        self.__buffered_rows += table.num_rows
+        if self.__buffered_rows >= self.row_group_size:
             self.flush()
 
     def write_batch(self, records: list[Row]) -> None:
