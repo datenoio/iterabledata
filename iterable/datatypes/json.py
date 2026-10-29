@@ -14,6 +14,7 @@ except ImportError:
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError, WriteError
+from ..helpers.jsonbackend import make_decoder, make_encoder
 from ..helpers.jsonvalues import json_default_from_options
 from ..types import Row
 
@@ -32,6 +33,8 @@ class JSONIterable(BaseFileIterable):
             options = {}
         self.tagname = tagname or options.get("tagname")
         self._json_default = json_default_from_options(options)
+        self._loads = make_decoder()
+        self._dumps = make_encoder(self._json_default)
         self._streaming = False
         self._parser = None
         self._items_buffer = []
@@ -103,10 +106,10 @@ class JSONIterable(BaseFileIterable):
                     self._items_buffer = []
                     self.total = 0
             else:
-                # Use traditional json.load() for small files
+                # Load small files in one call (msgspec when installed, else json)
                 self._streaming = False
                 try:
-                    self.data = json.load(self.fobj)
+                    self.data = self._loads(self.fobj.read())
                 except (json.JSONDecodeError, ValueError) as e:
                     # Defer malformed/empty JSON errors to read() so that opening
                     # the iterable succeeds and the error surfaces during iteration.
@@ -222,12 +225,11 @@ class JSONIterable(BaseFileIterable):
             records = validated_records
         if not records:
             return
-        for record in records:
-            if not getattr(self, "_first_item", True):
-                self.fobj.write(",")
-            self.fobj.write(json.dumps(record, ensure_ascii=False, default=self._json_default))
-            self._first_item = False
-            self.total += 1
+        dumps = self._dumps
+        separator = "" if getattr(self, "_first_item", True) else ","
+        self.fobj.write(separator + ",".join([dumps(record) for record in records]))
+        self._first_item = False
+        self.total += len(records)
 
     def close(self):
         """Close iterable and finalize JSON output if writing."""

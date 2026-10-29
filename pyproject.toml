@@ -74,6 +74,9 @@ dxf = ["ezdxf>=1.0.0"]
 html = ["beautifulsoup4>=4.11.0"]
 arff = ["liac-arff>=2.5.0"]
 json = ["ijson>=3.2.0"]
+# Faster JSON/JSON Lines (msgspec decode, orjson encode) and gzip writes (ISA-L); optional,
+# the standard library is used when they are missing and produces the same values.
+fast = ["orjson>=3.11.7", "msgspec>=0.18.0", "isal>=1.6.0"]
 vortex = ["vortex-data>=0.56.0"]
 pydantic = ["pydantic>=2.0.0"]
 dataframes = ["pandas>=1.5.0", "polars>=0.19.0", "dask[dataframe]>=2023.1.0"]
@@ -259,6 +262,9 @@ all = [
     "bencodepy>=0.9.0",
     "icalendar>=5.0.0",
     "ldif3>=3.2.0",
+    "orjson>=3.11.7",
+    "msgspec>=0.18.0",
+    "isal>=1.6.0",
 ]
 
 dev = [

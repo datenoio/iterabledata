@@ -1,8 +1,14 @@
 """Enforced performance regression gate for IterableData.
 
-Representative workloads (CSV read, JSONL read, compressed JSONL -> Parquet
-convert, bulk read/write) are timed and compared against committed baselines
-in ``tests/performance_baselines.json``.
+Representative workloads are timed and compared against committed baselines in
+``tests/performance_baselines.json``: CSV, JSON Lines and JSON reads; CSV,
+JSON Lines and Parquet bulk writes; CSV -> JSON Lines, CSV -> Parquet,
+JSON Lines -> CSV and compressed JSON Lines -> Parquet conversions; and
+``import iterable``.
+
+The CI gate runs with the base install plus PyArrow (no ``orjson``/``isal``),
+so baselines describe the standard-library paths. Generate them in the same
+kind of environment.
 
 To make baselines portable across machines, every measurement is normalized
 by a fixed pure-Python calibration workload timed in the same session. The
@@ -28,6 +34,7 @@ Set ``ITERABLE_PERF_BASELINE_FILE`` to point the gate at an alternative
 baseline file (used for validating that the gate detects regressions).
 """
 
+import csv
 import gzip
 import json
 import os
@@ -63,6 +70,13 @@ TOLERANCES = {
     "csv_bulk_read_10k": 2.0,
     "csv_bulk_write_10k": 2.0,
     "jsonl_gz_to_parquet_convert_10k": 2.5,
+    "json_read_10k": 2.0,
+    "jsonl_bulk_read_10k": 2.0,
+    "jsonl_bulk_write_10k": 2.0,
+    "parquet_bulk_write_10k": 2.0,
+    "csv_to_jsonl_convert_10k": 2.5,
+    "csv_to_parquet_convert_10k": 2.5,
+    "jsonl_to_csv_convert_10k": 2.5,
     # Subprocess start-up dominates and varies more between runs.
     "import_iterable": 2.5,
 }
@@ -131,6 +145,22 @@ def calibration_time() -> float:
     return _best_of(_calibration_workload)
 
 
+def _rich_row(i: int) -> dict[str, Any]:
+    """A row with the value shapes real files have: floats, empty strings, quotes and commas."""
+    return {
+        "id": i,
+        "date": f"2026-{i % 12 + 1:02d}-{i % 28 + 1:02d}",
+        "category": f"cat{i % 17}",
+        "amount": round(i * 1.37, 2),
+        "qty": i % 100,
+        "email": "" if i % 10 == 0 else f"user{i}@example.com",
+        "text": f'Item {i}, "quoted" text',
+    }
+
+
+RICH_ROWS = [_rich_row(i) for i in range(ROWS)]
+
+
 @pytest.fixture(scope="module")
 def workload_files(tmp_path_factory):
     """Create the shared input files for all workloads once per module."""
@@ -152,7 +182,30 @@ def workload_files(tmp_path_factory):
         for i in range(ROWS):
             f.write(json.dumps({"id": i, "name": f"Name{i}", "value": i * 10}) + "\n")
 
-    return {"root": root, "csv": csv_file, "jsonl": jsonl_file, "jsonl_gz": jsonl_gz_file}
+    rich_csv = root / "rich.csv"
+    with rich_csv.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(RICH_ROWS[0]))
+        writer.writeheader()
+        writer.writerows(RICH_ROWS)
+
+    rich_jsonl = root / "rich.jsonl"
+    with rich_jsonl.open("w") as f:
+        for row in RICH_ROWS:
+            f.write(json.dumps(row) + "\n")
+
+    rich_json = root / "rich.json"
+    with rich_json.open("w") as f:
+        json.dump(RICH_ROWS, f)
+
+    return {
+        "root": root,
+        "csv": csv_file,
+        "jsonl": jsonl_file,
+        "jsonl_gz": jsonl_gz_file,
+        "rich_csv": rich_csv,
+        "rich_jsonl": rich_jsonl,
+        "rich_json": rich_json,
+    }
 
 
 def _check_workload(key: str, func: Callable[[], Any], calibration_time: float, request) -> None:
@@ -234,6 +287,67 @@ class TestPerformanceRegressionGate:
             convert(str(workload_files["jsonl_gz"]), str(output))
 
         _check_workload("jsonl_gz_to_parquet_convert_10k", workload, calibration_time, request)
+
+    def test_json_read(self, workload_files, calibration_time, request):
+        def workload():
+            with open_iterable(workload_files["rich_json"]) as source:
+                for _row in source:
+                    pass
+
+        _check_workload("json_read_10k", workload, calibration_time, request)
+
+    def test_jsonl_bulk_read(self, workload_files, calibration_time, request):
+        def workload():
+            with open_iterable(workload_files["rich_jsonl"]) as source:
+                while source.read_bulk(num=1000):
+                    pass
+
+        _check_workload("jsonl_bulk_read_10k", workload, calibration_time, request)
+
+    def test_jsonl_bulk_write(self, workload_files, calibration_time, request):
+        output = workload_files["root"] / "bulk_out.jsonl"
+
+        def workload():
+            with open_iterable(output, "w") as dest:
+                dest.write_bulk(RICH_ROWS)
+
+        _check_workload("jsonl_bulk_write_10k", workload, calibration_time, request)
+
+    def test_parquet_bulk_write(self, workload_files, calibration_time, request):
+        pytest.importorskip("pyarrow", reason="Parquet write workload requires pyarrow")
+        output = workload_files["root"] / "bulk_out.parquet"
+
+        def workload():
+            with open_iterable(output, "w") as dest:
+                for start in range(0, ROWS, 1000):
+                    dest.write_bulk(RICH_ROWS[start : start + 1000])
+
+        _check_workload("parquet_bulk_write_10k", workload, calibration_time, request)
+
+    def test_csv_to_jsonl_convert(self, workload_files, calibration_time, request):
+        output = workload_files["root"] / "csv_converted.jsonl"
+
+        def workload():
+            convert(str(workload_files["rich_csv"]), str(output))
+
+        _check_workload("csv_to_jsonl_convert_10k", workload, calibration_time, request)
+
+    def test_csv_to_parquet_convert(self, workload_files, calibration_time, request):
+        pytest.importorskip("pyarrow", reason="Parquet convert workload requires pyarrow")
+        output = workload_files["root"] / "csv_converted.parquet"
+
+        def workload():
+            convert(str(workload_files["rich_csv"]), str(output))
+
+        _check_workload("csv_to_parquet_convert_10k", workload, calibration_time, request)
+
+    def test_jsonl_to_csv_convert(self, workload_files, calibration_time, request):
+        output = workload_files["root"] / "jsonl_converted.csv"
+
+        def workload():
+            convert(str(workload_files["rich_jsonl"]), str(output))
+
+        _check_workload("jsonl_to_csv_convert_10k", workload, calibration_time, request)
 
     def test_import_iterable(self, calibration_time, request):
         python_path = os.pathsep.join(filter(None, [str(REPO_ROOT), os.environ.get("PYTHONPATH")]))

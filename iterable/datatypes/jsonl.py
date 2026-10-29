@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import typing
-from json import dumps, loads
+from itertools import islice
 from typing import Any
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
+from ..helpers.jsonbackend import make_decoder, make_encoder, make_lines_encoder
 from ..helpers.jsonvalues import encode_default, json_default_from_options
 from ..helpers.utils import rowincount
 from ..types import Row
@@ -28,6 +29,10 @@ class JSONLinesIterable(BaseFileIterable):
             options = {}
         self.pos = 0
         self._json_default = json_default_from_options(options)
+        # JSON backend (msgspec/orjson when installed, else the standard library); see jsonbackend.
+        self._loads = make_decoder()
+        self._dumps = make_encoder(self._json_default)
+        self._dumps_lines = make_lines_encoder(self._json_default)
         super().__init__(filename, stream, codec=codec, binary=False, mode=mode, encoding=encoding, options=options)
         # Track line number and byte offset for error context
         self._current_line_number = 0
@@ -60,97 +65,89 @@ class JSONLinesIterable(BaseFileIterable):
         self._current_line_number = 0
         self._current_byte_offset = 0
 
+    def _remember_byte_offset(self) -> None:
+        """Record the stream offset for error context (skip/warn modes and debug only)."""
+        if hasattr(self.fobj, "tell"):
+            try:
+                self._current_byte_offset = self.fobj.tell()
+            except (OSError, AttributeError):
+                pass
+
+    def _report_parse_error(self, exc: Exception, line: str) -> None:
+        """Hand a line that failed to parse to the error policy (raises in ``raise`` mode)."""
+        original_line = line.rstrip("\n\r")
+        byte_offset = self._current_byte_offset if self._current_byte_offset > 0 else None
+        error = FormatParseError(
+            format_id="jsonl",
+            message=str(exc),
+            filename=self.filename,
+            row_number=self._current_line_number,
+            byte_offset=byte_offset,
+            original_line=original_line,
+        )
+        self._handle_error(
+            error,
+            row_number=self._current_line_number,
+            byte_offset=byte_offset,
+            original_line=original_line,
+        )
+
     def read(self, skip_empty: bool = True) -> dict:
         """Read single JSON lines record"""
+        loads = self._loads
         while True:
+            # ``tell`` is comparatively expensive on buffered and decompressed streams. Keep
+            # offsets for diagnostics, but do not pay that cost on the normal fast path.
+            if self._on_error != "raise" or self._debug:
+                self._remember_byte_offset()
+            line = next(self.fobj)
+            self._current_line_number += 1
             try:
-                # ``tell`` is comparatively expensive on buffered and
-                # decompressed streams. Keep offsets for diagnostics, but do
-                # not pay that cost on the normal successful fast path.
-                if self._on_error != "raise" or self._debug:
-                    if hasattr(self.fobj, "tell"):
-                        try:
-                            self._current_byte_offset = self.fobj.tell()
-                        except (OSError, AttributeError):
-                            pass
-
-                line = next(self.fobj)
-                self._current_line_number += 1
-
-                if skip_empty and len(line.strip()) == 0:
+                result = loads(line)
+            except (ValueError, TypeError, SyntaxError) as e:
+                # Blank lines fail to parse too; checking for them only here keeps
+                # ``strip()`` off the success path.
+                if skip_empty and not line.strip():
                     continue
-
-                original_line = line.rstrip("\n\r")
-
-                if line:
-                    try:
-                        result = loads(line)
-                        self.pos += 1
-                        return result
-                    except (ValueError, TypeError, SyntaxError) as e:
-                        # JSON parse error
-                        error = FormatParseError(
-                            format_id="jsonl",
-                            message=str(e),
-                            filename=self.filename,
-                            row_number=self._current_line_number,
-                            byte_offset=self._current_byte_offset if self._current_byte_offset > 0 else None,
-                            original_line=original_line,
-                        )
-                        self._handle_error(
-                            error,
-                            row_number=self._current_line_number,
-                            byte_offset=self._current_byte_offset if self._current_byte_offset > 0 else None,
-                            original_line=original_line,
-                        )
-                        # If we get here, error was handled (skip/warn), continue to next record
-                        continue
-                return None
-            except StopIteration:
-                raise
+                self._report_parse_error(e, line)
+                # The error was handled (skip/warn); continue with the next record.
+                continue
+            self.pos += 1
+            return result
 
     def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[dict]:
-        """Read bulk JSON lines records efficiently"""
-        chunk = []
-        for _n in range(0, num):
+        """Read up to ``num`` JSON lines records, skipping blank lines"""
+        if self._on_error != "raise" or self._debug:
+            return self._read_bulk_tracked(num)
+        loads = self._loads
+        chunk: list[dict] = []
+        append = chunk.append
+        while len(chunk) < num:
+            wanted = num - len(chunk)
+            before = len(chunk)
+            blank = 0
+            for line in islice(self.fobj, wanted):
+                try:
+                    append(loads(line))
+                except (ValueError, TypeError, SyntaxError) as e:
+                    if line.strip():
+                        self._current_line_number += len(chunk) - before + blank + 1
+                        self.pos += len(chunk)
+                        self._report_parse_error(e, line)  # raises: on_error is "raise" here
+                    blank += 1
+            consumed = len(chunk) - before + blank
+            self._current_line_number += consumed
+            if consumed < wanted:
+                break
+        self.pos += len(chunk)
+        return chunk
+
+    def _read_bulk_tracked(self, num: int) -> list[dict]:
+        """``read_bulk`` with byte offsets and skip/warn handling, one record at a time."""
+        chunk: list[dict] = []
+        while len(chunk) < num:
             try:
-                if self._on_error != "raise" or self._debug:
-                    if hasattr(self.fobj, "tell"):
-                        try:
-                            self._current_byte_offset = self.fobj.tell()
-                        except (OSError, AttributeError):
-                            pass
-
-                line = self.fobj.readline()
-                if not line:
-                    break
-
-                self._current_line_number += 1
-                original_line = line.rstrip("\n\r")
-                line = line.strip()
-
-                if line:
-                    try:
-                        chunk.append(loads(line))
-                        self.pos += 1
-                    except (ValueError, TypeError, SyntaxError) as e:
-                        # JSON parse error
-                        error = FormatParseError(
-                            format_id="jsonl",
-                            message=str(e),
-                            filename=self.filename,
-                            row_number=self._current_line_number,
-                            byte_offset=self._current_byte_offset if self._current_byte_offset > 0 else None,
-                            original_line=original_line,
-                        )
-                        self._handle_error(
-                            error,
-                            row_number=self._current_line_number,
-                            byte_offset=self._current_byte_offset if self._current_byte_offset > 0 else None,
-                            original_line=original_line,
-                        )
-                        # If we get here, error was handled (skip/warn), continue to next record
-                        continue
+                chunk.append(self.read())
             except StopIteration:
                 break
         return chunk
@@ -166,7 +163,7 @@ class JSONLinesIterable(BaseFileIterable):
             if validated is None:
                 return
             record = validated
-        self.fobj.write(dumps(record, ensure_ascii=False, default=self._json_default) + "\n")
+        self.fobj.write(self._dumps(record) + "\n")
 
     def write_bulk(self, records: list[Row]) -> None:
         """Write bulk JSON lines records"""
@@ -180,6 +177,4 @@ class JSONLinesIterable(BaseFileIterable):
         if not records:
             return
         # Minimize per-record I/O by writing a single concatenated batch.
-        default = self._json_default
-        batch = "\n".join(dumps(r, ensure_ascii=False, default=default) for r in records)
-        self.fobj.write(batch + "\n")
+        self.fobj.write(self._dumps_lines(records))
