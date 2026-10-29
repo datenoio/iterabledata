@@ -16,6 +16,7 @@ This guide provides comprehensive performance optimization strategies for Iterab
 - [Compression](#compression)
 - [Streaming vs Batch Processing](#streaming-vs-batch-processing)
 - [DuckDB Engine](#duckdb-engine)
+- [Faster JSON, CSV and Parquet](#faster-json-csv-and-parquet)
 - [Benchmarking](#benchmarking)
 
 ## Bulk Operations
@@ -324,6 +325,42 @@ with open_iterable('large.csv.gz', engine='duckdb') as source:
 | Large CSV read | Sequential | Parallel | 2-5x |
 | Filtering | Python loop | SQL filter | 5-10x |
 | Aggregations | Python | SQL | 10-100x |
+
+## Faster JSON, CSV and Parquet
+
+Install the optional accelerators with:
+
+```bash
+pip install 'iterabledata[fast]'
+```
+
+`msgspec` parses JSON and JSON Lines, `orjson` writes them and `isal` writes gzip at levels 1-2.
+They are detected at runtime. Without them the standard library is used and gives the same
+records. The written JSON is also the same, except that floats below `1e-4` may be written as
+`0.00001` instead of `1e-05`. Set `ITERABLEDATA_JSON_BACKEND=stdlib` to compare.
+
+Timings for 500,000 rows (9 columns; JSON Lines adds a nested object), Apple M4 Max, Python 3.13,
+best of four interleaved runs. "Before" is the code without these paths; "stdlib" and
+"`[fast]`" are the current code without and with the extra.
+
+| Operation | Before | stdlib | `[fast]` |
+| --- | --- | --- | --- |
+| JSON Lines, iterate rows | 1.19 s | 1.08 s | 0.60 s |
+| JSON Lines, `read_bulk(10000)` | 1.30 s | 1.19 s | 0.68 s |
+| JSON Lines, `write_bulk` | 1.28 s | 1.07 s | 0.25 s |
+| CSV, iterate rows | 0.92 s | 0.84 s | 0.83 s |
+| CSV, `read_bulk(10000)` | 0.91 s | 0.73 s | 0.70 s |
+| CSV, `write_bulk` | 0.89 s | 0.68 s | 0.67 s |
+| Parquet, `write_bulk` | 1.55 s | 0.30 s | 0.30 s |
+| `convert()` CSV -> JSON Lines | 2.03 s | 1.70 s | 1.14 s |
+| `convert()` CSV -> Parquet | 2.68 s | 1.25 s | 1.24 s |
+| `convert()` CSV -> Parquet, `use_native_batch=True` | 2.68 s | 0.23 s | 0.23 s |
+| `convert()` JSON Lines -> CSV | 4.15 s | 3.78 s | 3.29 s |
+
+For CSV -> Parquet or Arrow, pass `use_native_batch=True`: the CSV is read with
+`pyarrow.csv` straight into Arrow record batches, with every column as a string, so the values
+match the row path. Rows with a different number of fields than the header raise an error on
+this path; the row path pads them.
 
 ## Benchmarking
 

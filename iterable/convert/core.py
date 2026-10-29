@@ -21,7 +21,7 @@ from ..helpers.detect import is_flat, open_iterable
 from ..helpers.jsonvalues import encode_default
 from ..helpers.utils import make_flat
 from ..types import BulkConversionResult, CodecArgs, ConversionResult, FileConversionResult, IterableArgs
-from .batch import BatchSelection, native_batch_supported, select_rows
+from .batch import BatchSelection, arrow_batch_supported, native_batch_supported, select_rows
 
 DEFAULT_BATCH_SIZE = 50000
 DEFAULT_HEADERS_DETECT_LIMIT = 1000
@@ -338,15 +338,31 @@ def _run_native_batch_loop(
     use_totals: bool,
     progress_interval: int,
 ) -> None:
-    """Transfer backend batches without materializing row transforms."""
-    for batch in it_in.read_batches(selection):
-        if not batch:
+    """Transfer backend batches without materializing row transforms.
+
+    Endpoints that both speak Arrow exchange ``pyarrow.RecordBatch`` objects; others exchange
+    lists of rows.
+    """
+    count: Callable[[Any], int]
+    if arrow_batch_supported(it_in, it_out):
+        batches = it_in.read_arrow_batches(selection)
+        write, count = it_out.write_arrow_batch, _arrow_rows
+    else:
+        batches = it_in.read_batches(selection)
+        write, count = it_out.write_batch, len
+    for batch in batches:
+        rows = count(batch)
+        if not rows:
             continue
-        it_out.write_batch(batch)
-        metrics.rows_read += len(batch)
-        metrics.rows_written += len(batch)
-        if metrics.rows_read % progress_interval < len(batch):
+        write(batch)
+        metrics.rows_read += rows
+        metrics.rows_written += rows
+        if metrics.rows_read % progress_interval < rows:
             _report_progress(progress, metrics, it_in, use_totals)
+
+
+def _arrow_rows(batch: Any) -> int:
+    return int(batch.num_rows)
 
 
 def _is_flat_source(it_in: Any) -> bool:

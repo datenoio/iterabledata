@@ -290,6 +290,15 @@ jobs:
             extras: "lakehouse"
             tests: "tests/test_delta.py tests/test_iceberg.py"
             cov: "*/datatypes/delta.py,*/datatypes/iceberg.py"
+          # The main matrix covers the standard-library JSON and gzip paths; this leg runs the
+          # JSON, JSON Lines, CSV and gzip tests with msgspec, orjson and isal installed.
+          - family: fast
+            extras: "fast,parquet"
+            tests: >-
+              tests/test_json_backend.py tests/test_jsonl.py tests/test_json.py
+              tests/test_json_value_encoding.py tests/test_gzip_backend.py
+              tests/test_convert_codec_args.py tests/test_csv_native_batches.py
+            cov: "*/helpers/jsonbackend.py,*/datatypes/jsonl.py,*/datatypes/json.py,*/codecs/gzipcodec.py"
     name: optional-${{ matrix.family }}
     steps:
       - uses: actions/checkout@v4

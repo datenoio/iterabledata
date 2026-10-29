@@ -14,6 +14,7 @@ Encoding table:
 - ``bytes``/``bytearray``/``memoryview``: base64 string
 - ``timedelta``: ISO 8601 duration (``PT5S``, ``-P1DT2H``)
 - ``set``/``frozenset``: array (sorted when the members are comparable)
+- ``Enum`` members: their ``value`` (``IntEnum``/``StrEnum`` are already numbers/strings)
 - NumPy scalars and arrays: ``.item()`` / ``.tolist()``
 - anything else: ``str(value)``, or ``WriteError`` with ``on_unknown_type="raise"``
 """
@@ -23,6 +24,7 @@ from __future__ import annotations
 import base64
 import datetime
 import decimal
+import enum
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -110,6 +112,8 @@ def make_json_default(decimal_mode: str = "auto", on_unknown_type: str = "str") 
             return iso_duration(obj)
         if isinstance(obj, (set, frozenset)):
             return _encode_set(obj)
+        if isinstance(obj, enum.Enum):
+            return obj.value
         if type(obj).__module__ == "numpy":
             if hasattr(obj, "tolist"):
                 return obj.tolist()

@@ -94,6 +94,9 @@ Number of rows between `progress` callback invocations. Default: `1000`.
 ### `use_native_batch` (bool, optional)
 
 Request a native columnar batch transfer when both endpoints support it. Default: `False`.
+CSV to Parquet or Arrow IPC then streams Arrow record batches with every column as a string
+(see [CSV native batches](/formats/csv#native-batches)); Parquet, Arrow, Lance and other
+columnar pairs exchange batches of rows.
 
 ### `selection` (dict, optional)
 

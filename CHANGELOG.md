@@ -99,6 +99,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `DATATYPE_REGISTRY` and `TEXT_DATA_TYPES` are documented as read-only views.
   `tests/test_downstream_contract.py` imports every name undatum uses, so a rename fails here
   first.
+- **Faster CSV, JSON Lines, JSON and Parquet paths** (OpenSpec
+  `optimize-json-csv-parquet-hot-paths`). On 500,000 rows (Apple M4 Max, Python 3.13):
+  - The new `iterabledata[fast]` extra installs `msgspec` (JSON parsing), `orjson` (JSON
+    writing) and `isal` (gzip). With it, JSON Lines reads take 0.60 s instead of 1.19 s and
+    writes 0.25 s instead of 1.28 s. Without it the standard library is used and gives the
+    same values. Integers beyond 64 bits stay exact.
+  - CSV reads and writes use `csv.reader`/`csv.writer` and return the same records as
+    `DictReader`/`DictWriter`: `read_bulk` takes 0.70 s instead of 0.91 s and `write_bulk`
+    0.68 s instead of 0.89 s.
+  - Parquet `write_bulk` converts each batch to Arrow once: 0.30 s instead of 1.55 s.
+  - CSV to Parquet `convert()` takes 1.25 s instead of 2.68 s. With `use_native_batch=True`
+    it takes 0.23 s: CSV streams as Arrow record batches, every column a string, into Parquet
+    or Arrow IPC.
+  - gzip output at levels 1-2 (`profile="fast"`) is written with ISA-L when installed. The
+    `backend` codec option (`"auto"`, `"isal"`, `"stdlib"`) overrides the choice.
+  - The performance gate gains JSON, JSON Lines and Parquet workloads plus CSV -> JSONL,
+    CSV -> Parquet and JSONL -> CSV conversions.
 
 ### Fixed
 - **Light `import iterable`** (OpenSpec `fix-package-import-hygiene`): the package root imported
@@ -194,6 +211,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `.github/CODEOWNERS`.
 
 ### Changed
+- **Compact JSON output**: the JSON and JSON Lines writers write `{"a":1,"b":[1,2]}` instead of
+  `{"a": 1, "b": [1, 2]}`, whichever JSON backend is installed. Values are unchanged, with two
+  exceptions: NaN and infinities are written as `null` instead of the invalid `NaN`/`Infinity`,
+  and `Enum` members as their value instead of `str(member)`. Files that are compared byte for
+  byte with earlier output will differ.
 - **Typing gate**: Drop obsolete inline `type: ignore` comments for polars/fsspec (covered by
   mypy `ignore_missing_imports` overrides), making the blocking mypy core gate pass in
   environments with optional dependencies installed.

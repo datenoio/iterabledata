@@ -32,6 +32,7 @@ class ArrowIterable(BaseFileIterable):
 
     datamode = "binary"
     supports_native_batch = True
+    supports_arrow_batches = True
 
     def __init__(
         self,
@@ -217,3 +218,12 @@ class ArrowIterable(BaseFileIterable):
     def write_batch(self, records: list[Row]) -> None:
         """Native batch writer hook used by columnar conversion."""
         self.write_bulk(records)
+
+    def write_arrow_batch(self, batch: Any) -> None:
+        """Native Arrow hook: write a ``RecordBatch`` or ``Table`` without building rows."""
+        if self.__buffer:
+            self.flush()
+        for record_batch in batch.to_batches() if isinstance(batch, pyarrow.Table) else [batch]:
+            if self._ipc_writer is None:
+                self._ipc_writer = pyarrow.ipc.new_file(self.fobj, record_batch.schema)
+            self._ipc_writer.write_batch(record_batch)

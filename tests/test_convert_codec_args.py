@@ -10,9 +10,9 @@ import pytest
 from iterable.convert import bulk_convert, convert
 from iterable.convert import core as convert_core
 
-# Byte 8 of a gzip member header (XFL): 2 = maximum compression, 4 = fastest.
+# Byte 8 of a gzip member header (XFL): zlib writes 2 for maximum compression.
 GZIP_XFL_OFFSET = 8
-XFL_BEST, XFL_FAST = 2, 4
+XFL_BEST = 2
 
 
 def _write_jsonl(path, rows):
@@ -46,7 +46,7 @@ def test_tocodecargs_sets_output_compression_level(tmp_path):
     convert(str(src), str(fast), tocodecargs={"compression_level": 1})
     convert(str(src), str(best), tocodecargs={"compression_level": 9})
 
-    assert fast.read_bytes()[GZIP_XFL_OFFSET] == XFL_FAST
+    # Level 1 may be written by ISA-L (iterabledata[fast]), which sets XFL differently.
     assert best.read_bytes()[GZIP_XFL_OFFSET] == XFL_BEST
     assert best.stat().st_size < fast.stat().st_size
     assert _read_jsonl(fast) == _read_jsonl(best) == _rows()

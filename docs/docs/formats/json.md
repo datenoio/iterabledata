@@ -13,14 +13,17 @@ JSON (JavaScript Object Notation) is a lightweight data interchange format. It s
 ### Reading
 
 The JSON implementation:
-- Loads the entire JSON file into memory
+- Loads files up to 10 MB into memory in one call (`msgspec` with the `fast` extra, else `json`)
+  and streams larger files with `ijson` when it is installed
 - Expects the root element to be an array of objects
 - Supports optional `tagname` parameter to extract a specific key from the root object
 - Iterates over array elements, returning each as a dictionary
 
 ### Writing
 
-Writing is not directly supported for JSON format. Use JSONL format for writing individual records.
+Writing produces one JSON array of compact records (`[{"a":1},{"a":2}]`), or an object with the
+array under `tagname`. Values are encoded as for [JSON Lines](jsonl.md#value-encoding-when-writing),
+with the same backends.
 
 ### Key Features
 

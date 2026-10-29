@@ -19,12 +19,13 @@ review benchmark on 500k rows (see `design.md`) shows where the time goes:
 
 ## What Changes
 
-- Add an internal JSON backend (`iterable/helpers/jsonbackend.py`) that uses `orjson` when
-  installed and the stdlib otherwise, with identical output bytes from both (compact separators,
-  UTF-8, shared value encoder from `fix-json-serialization-fidelity`). Use it in JSONL/JSON readers
-  and writers. Add an optional `fast` extra (`orjson`, `isal`).
-- Read UTF-8 JSON Lines as bytes when the fast backend is active; batch `read_bulk()` with
-  `islice` and no per-line `strip()`/`rstrip()` on the success path.
+- Add an internal JSON backend (`iterable/helpers/jsonbackend.py`) that decodes with `msgspec`
+  and encodes with `orjson` when installed and uses the stdlib otherwise, with the same values
+  and, except for floats below `1e-4`, the same bytes from both (compact separators, UTF-8,
+  shared value encoder from `fix-json-serialization-fidelity`). Use it in JSONL/JSON readers
+  and writers. Add an optional `fast` extra (`orjson`, `msgspec`, `isal`).
+- Batch JSON Lines `read_bulk()` with `islice` and no per-line `strip()`/`rstrip()` on the
+  success path.
 - Replace `DictReader`/`DictWriter` on the CSV hot path with `csv.reader`/`csv.writer` while
   keeping `DictReader` semantics for short and long rows; remove per-row `tell()` unless
   `on_error != "raise"` or debug is on.
@@ -32,10 +33,12 @@ review benchmark on 500k rows (see `design.md`) shows where the time goes:
   JSON walk when a batch has no nested values.
 - Add a native Arrow batch reader for CSV (all columns as strings) so `convert(..., use_native_batch=True)`
   and auto-native pairs stream CSV -> Parquet/Arrow/ORC without Python dicts.
-- Use `isal` (when installed) for gzip writes and as an opt-in gzip read backend.
+- Use `isal` (when installed) for gzip writes at levels 1-2, where its ratio matches zlib, and
+  as an opt-in gzip backend for other levels and for reads.
 - Extend the performance regression gate with these workloads.
-- **Visible change:** JSON and JSON Lines output becomes compact (`{"a":1}` instead of
-  `{"a": 1}`); values are unchanged.
+- **Visible changes:** JSON and JSON Lines output becomes compact (`{"a":1}` instead of
+  `{"a": 1}`), NaN and infinities are written as `null` instead of invalid `NaN`, and `Enum`
+  members are written as their value; other values are unchanged.
 
 ## Impact
 

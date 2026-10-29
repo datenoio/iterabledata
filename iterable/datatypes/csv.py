@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+import importlib.util
 import logging
+import os
 import typing
-from csv import DictReader, DictWriter
+from collections.abc import Iterable, Mapping
+from csv import reader as csv_reader
+from csv import writer as csv_writer
+from itertools import islice
+from operator import itemgetter
 from typing import Any
 
 import chardet
 
-from ..base import DEFAULT_BULK_NUMBER, ITERABLE_TYPE_FILE, BaseCodec, BaseFileIterable
+from ..base import DEFAULT_BULK_NUMBER, ITERABLE_TYPE_CODEC, ITERABLE_TYPE_FILE, BaseCodec, BaseFileIterable
 from ..exceptions import FormatParseError
 from ..helpers.utils import rowincount
 from ..types import Row
@@ -17,6 +23,8 @@ DEFAULT_DELIMITER = ","
 DEFAULT_QUOTECHAR = '"'
 TSV_DELIMITER = "\t"
 TSV_EXTENSIONS = ("tsv",)
+# Codec extensions whose streams PyArrow decompresses itself on the native batch path.
+ARROW_COMPRESSION = {"gz": "gzip", "bz2": "bz2", "zst": "zstd", "zstd": "zstd"}
 
 
 def _rewind_stream(stream, pos) -> None:
@@ -86,10 +94,128 @@ def detect_delimiter(filename=None, stream=None, encoding="utf8"):
     return delimiter
 
 
+class _DictRowReader:
+    """``csv.DictReader`` on top of ``csv.reader``, with a batch fast path.
+
+    Records are the same as ``DictReader``'s with ``restkey=None`` and ``restval=None``: rows
+    shorter than the header get ``None`` for the missing fields, extra values of longer rows go
+    to a list under the ``None`` key, and blank lines are skipped.
+    """
+
+    def __init__(self, f: Iterable[str], fieldnames: typing.Sequence[str] | None = None, **dialect: Any) -> None:
+        self.reader = csv_reader(f, **dialect)
+        self._fieldnames = fieldnames
+        self.line_num = 0
+
+    @property
+    def fieldnames(self) -> typing.Sequence[str] | None:
+        if self._fieldnames is None:
+            try:
+                self._fieldnames = next(self.reader)
+            except StopIteration:
+                pass
+        self.line_num = self.reader.line_num
+        return self._fieldnames
+
+    @fieldnames.setter
+    def fieldnames(self, value: typing.Sequence[str] | None) -> None:
+        self._fieldnames = value
+
+    def __iter__(self) -> _DictRowReader:
+        return self
+
+    def __next__(self) -> dict[Any, Any]:
+        if self.line_num == 0:
+            self.fieldnames  # noqa: B018 - reads the header, as DictReader does
+        row = next(self.reader)
+        self.line_num = self.reader.line_num
+        while row == []:
+            row = next(self.reader)
+        fieldnames = self._fieldnames
+        if fieldnames is not None and len(row) == len(fieldnames):
+            return dict(zip(fieldnames, row, strict=False))
+        return self._record(row)
+
+    def _record(self, row: list[str]) -> dict[Any, Any]:
+        fieldnames = self._fieldnames or ()
+        record: dict[Any, Any] = dict(zip(fieldnames, row, strict=False))
+        if len(fieldnames) < len(row):
+            record[None] = row[len(fieldnames) :]
+        elif len(fieldnames) > len(row):
+            for key in fieldnames[len(row) :]:
+                record[key] = None
+        return record
+
+    def read_many(self, num: int) -> list[dict[Any, Any]]:
+        """Up to ``num`` records; fewer only at the end of the input."""
+        if self.line_num == 0:
+            self.fieldnames  # noqa: B018 - reads the header, as DictReader does
+        fieldnames = self._fieldnames or ()
+        width = len(fieldnames)
+        chunk: list[dict[Any, Any]] = []
+        append = chunk.append
+        while len(chunk) < num:
+            wanted = num - len(chunk)
+            before = len(chunk)
+            blank = 0
+            for row in islice(self.reader, wanted):
+                if len(row) == width:
+                    append(dict(zip(fieldnames, row, strict=False)))
+                elif row:
+                    append(self._record(row))
+                else:
+                    blank += 1
+            self.line_num = self.reader.line_num
+            if len(chunk) - before + blank < wanted:
+                break
+        return chunk
+
+
+class _DictRowWriter:
+    """``csv.DictWriter`` (``restval=""``, ``extrasaction="raise"``) on top of ``csv.writer``.
+
+    Records whose keys are exactly the header are projected with ``itemgetter``; others are
+    checked for unknown fields and padded with ``""``, as ``DictWriter`` does.
+    """
+
+    def __init__(self, f: typing.IO[str], fieldnames: Iterable[str], **dialect: Any) -> None:
+        self.fieldnames = list(fieldnames)
+        self.writer = csv_writer(f, **dialect)
+        self._keys = frozenset(self.fieldnames)
+        self._project: typing.Callable[[Mapping[Any, Any]], Any]
+        if not self.fieldnames:
+            self._project = lambda record: ()
+        elif len(self.fieldnames) == 1:
+            # ``itemgetter`` with one key returns the value itself, not a 1-tuple.
+            key = self.fieldnames[0]
+            self._project = lambda record: (record[key],)
+        else:
+            self._project = itemgetter(*self.fieldnames)
+
+    def _row(self, record: Mapping[Any, Any]) -> Any:
+        if record.keys() == self._keys:
+            return self._project(record)
+        unknown = record.keys() - self._keys
+        if unknown:
+            raise ValueError("dict contains fields not in fieldnames: " + ", ".join([repr(x) for x in unknown]))
+        return [record.get(key, "") for key in self.fieldnames]
+
+    def writeheader(self) -> Any:
+        return self.writer.writerow(self.fieldnames)
+
+    def writerow(self, record: Mapping[Any, Any]) -> Any:
+        return self.writer.writerow(self._row(record))
+
+    def writerows(self, records: Iterable[Mapping[Any, Any]]) -> None:
+        self.writer.writerows(map(self._row, records))
+
+
 class CSVIterable(BaseFileIterable):
     # The csv module needs untranslated line endings, also through codecs (``.csv.gz``):
     # universal-newline mode turns its ``\r\n`` into ``\r\r\n`` on Windows.
     text_newline = ""
+    # Native batches: rows via ``read_batches``; Arrow batches when PyArrow is installed.
+    supports_native_batch = True
 
     def __init__(
         self,
@@ -164,7 +290,7 @@ class CSVIterable(BaseFileIterable):
         return _is_tsv_name(filename) or _is_tsv_name(getattr(codec, "filename", None))
 
     def _dialect(self) -> dict[str, Any]:
-        """Keyword arguments for ``csv.DictReader``/``DictWriter``."""
+        """Keyword arguments for ``csv.reader``/``csv.writer``."""
         return {
             "delimiter": self.delimiter,
             "quotechar": self.quotechar,
@@ -197,12 +323,9 @@ class CSVIterable(BaseFileIterable):
         logging.debug(f"Detected delimiter {self.delimiter}")
         self.reader = None
         if self.mode == "r":
-            if self.keys is not None:
-                self.reader = DictReader(fobj, fieldnames=self.keys, **self._dialect())
-            else:
-                self.reader = DictReader(fobj, **self._dialect())
+            self.reader = _DictRowReader(fobj, fieldnames=self.keys, **self._dialect())
         if self.mode in ["w", "wr"] and self.keys is not None:
-            self.writer = DictWriter(fobj, fieldnames=self.keys, **self._dialect())
+            self.writer = _DictRowWriter(fobj, fieldnames=self.keys, **self._dialect())
             self.writer.writeheader()
         else:
             self.writer = None
@@ -232,101 +355,192 @@ class CSVIterable(BaseFileIterable):
     def is_flatonly() -> bool:
         return True
 
+    def _row_reader(self) -> _DictRowReader:
+        if self.reader is None:
+            raise ValueError("CSV iterable is not open for reading")
+        return self.reader
+
+    def _report_parse_error(self, exc: Exception) -> None:
+        """Hand a row that failed to parse to the error policy (raises in ``raise`` mode)."""
+        # The underlying ``csv.reader`` has already counted the line that failed.
+        line_num = getattr(getattr(self.reader, "reader", self.reader), "line_num", 0)
+        if line_num:
+            self._current_line_number = line_num
+        row_number = self._current_line_number if self._current_line_number > 0 else self.pos + 1
+        byte_offset = self._current_byte_offset if self._current_byte_offset > 0 else None
+        error = FormatParseError(
+            format_id="csv",
+            message=str(exc),
+            filename=self.filename,
+            row_number=row_number,
+            byte_offset=byte_offset,
+            original_line=self._current_line,
+        )
+        self._handle_error(error, row_number=row_number, byte_offset=byte_offset, original_line=self._current_line)
+
     def read(self, skip_empty: bool = True) -> Row:
         """Read single CSV record"""
+        if self._on_error != "raise" or self._debug:
+            return self._read_tracked(skip_empty)
+        reader = self.reader
         while True:
             try:
-                # Try to get the raw line before parsing
-                # DictReader doesn't expose the raw line, so we need to track it
-                # For now, we'll track line number and try to get byte offset
-                if hasattr(self.fobj, "tell"):
-                    try:
-                        self._current_byte_offset = self.fobj.tell()
-                    except (OSError, AttributeError):
-                        pass
-
-                row = next(self.reader)
-                self._current_line_number = self.reader.line_num
-
-                # Try to get the original line if possible
-                # Note: DictReader doesn't expose raw lines, so we'll set it to None
-                # Format-specific implementations can override this
-                self._current_line = None
-
-                if skip_empty and len(row) == 0:
-                    continue
-
-                self.pos += 1
-                return row
+                row = next(reader)
             except StopIteration:
                 raise
             except Exception as e:
-                # Handle parse errors according to error policy
-                error = FormatParseError(
-                    format_id="csv",
-                    message=str(e),
-                    filename=self.filename,
-                    row_number=self._current_line_number if self._current_line_number > 0 else self.pos + 1,
-                    byte_offset=self._current_byte_offset if self._current_byte_offset > 0 else None,
-                    original_line=self._current_line,
-                )
-                self._handle_error(
-                    error,
-                    row_number=self._current_line_number if self._current_line_number > 0 else self.pos + 1,
-                    byte_offset=self._current_byte_offset if self._current_byte_offset > 0 else None,
-                    original_line=self._current_line,
-                )
-                # If we get here, error was handled (skip/warn), continue to next record
+                self._report_parse_error(e)
                 continue
+            if row or not skip_empty:
+                self.pos += 1
+                return row
+
+    def _read_tracked(self, skip_empty: bool = True) -> Row:
+        """``read`` that records byte offsets and line numbers for skip/warn handling and debug."""
+        while True:
+            if hasattr(self.fobj, "tell"):
+                try:
+                    self._current_byte_offset = self.fobj.tell()
+                except (OSError, AttributeError):
+                    pass
+            try:
+                row = next(self.reader)
+            except StopIteration:
+                raise
+            except Exception as e:
+                self._report_parse_error(e)
+                # The error was handled (skip/warn); continue with the next record.
+                continue
+            self._current_line_number = self.reader.line_num
+            if skip_empty and len(row) == 0:
+                continue
+            self.pos += 1
+            return row
 
     def read_bulk(self, num: int = DEFAULT_BULK_NUMBER) -> list[Row]:
         """Read bulk CSV records efficiently"""
-        chunk = []
-        for _n in range(0, num):
+        if self._on_error != "raise" or self._debug:
+            return self._read_bulk_tracked(num)
+        try:
+            chunk = self._row_reader().read_many(num)
+        except Exception as e:
+            self._report_parse_error(e)  # raises: on_error is "raise" here
+            raise
+        self.pos += len(chunk)
+        return chunk
+
+    def _read_bulk_tracked(self, num: int) -> list[Row]:
+        """``read_bulk`` with byte offsets and skip/warn handling, one record at a time."""
+        chunk: list[Row] = []
+        while len(chunk) < num:
             try:
-                if hasattr(self.fobj, "tell"):
-                    try:
-                        self._current_byte_offset = self.fobj.tell()
-                    except (OSError, AttributeError):
-                        pass
-
-                row = next(self.reader)
-                self._current_line_number = self.reader.line_num
-                self._current_line = None
-
-                chunk.append(row)
-                self.pos += 1
+                chunk.append(self._read_tracked(skip_empty=False))
             except StopIteration:
                 break
-            except Exception as e:
-                # Handle parse errors according to error policy
-                error = FormatParseError(
-                    format_id="csv",
-                    message=str(e),
-                    filename=self.filename,
-                    row_number=self._current_line_number if self._current_line_number > 0 else self.pos + 1,
-                    byte_offset=self._current_byte_offset if self._current_byte_offset > 0 else None,
-                    original_line=self._current_line,
-                )
-                self._handle_error(
-                    error,
-                    row_number=self._current_line_number if self._current_line_number > 0 else self.pos + 1,
-                    byte_offset=self._current_byte_offset if self._current_byte_offset > 0 else None,
-                    original_line=self._current_line,
-                )
-                # If we get here, error was handled (skip/warn), continue to next record
-                continue
         return chunk
 
     def is_streaming(self) -> bool:
         """Returns True - CSV always streams row by row"""
         return True
 
+    def read_batches(self, selection: Any = None) -> typing.Iterator[list[Row]]:
+        """Native row-batch hook: the row reader with the selection applied row-wise."""
+        from ..convert.batch import BatchSelection, chunk_rows, select_rows
+
+        selection = selection or BatchSelection()
+        if selection.table is not None:
+            raise NotImplementedError("CSV has no tables")
+        yield from chunk_rows(select_rows(self, selection), selection.batch_size or DEFAULT_BULK_NUMBER)
+
+    @property
+    def supports_arrow_batches(self) -> bool:
+        """Arrow batches need PyArrow."""
+        return importlib.util.find_spec("pyarrow") is not None
+
+    def _arrow_source(self) -> Any:
+        """A PyArrow input stream over the file, decompressing ``.gz``/``.bz2``/``.zst`` itself."""
+        import pyarrow
+
+        if self.stype == ITERABLE_TYPE_FILE and self.filename:
+            return pyarrow.input_stream(self.filename, compression=None)
+        codec_file = getattr(self.codec, "filename", None)
+        if self.stype == ITERABLE_TYPE_CODEC and codec_file and os.path.isfile(codec_file):
+            compression = ARROW_COMPRESSION.get(str(codec_file).rsplit(".", 1)[-1].lower())
+            if compression is not None:
+                return pyarrow.input_stream(codec_file, compression=compression)
+        raise NotImplementedError("Native CSV batches need a local file, plain or .gz/.bz2/.zst")
+
+    def _arrow_options(self, names: list[str], columns: list[str] | None) -> dict[str, Any]:
+        """``pyarrow.csv.open_csv`` options matching the row reader: every column a string."""
+        import pyarrow
+        import pyarrow.csv as pacsv
+
+        return {
+            "read_options": pacsv.ReadOptions(
+                column_names=names, skip_rows=0 if self.keys is not None else 1, encoding=self.encoding
+            ),
+            "parse_options": pacsv.ParseOptions(
+                delimiter=self.delimiter,
+                quote_char=self.quotechar or False,
+                double_quote=self.doublequote,
+                escape_char=self.escapechar or False,
+                newlines_in_values=True,
+                ignore_empty_lines=True,
+            ),
+            "convert_options": pacsv.ConvertOptions(
+                column_types={name: pyarrow.string() for name in names},
+                strings_can_be_null=False,
+                quoted_strings_can_be_null=False,
+                include_columns=columns,
+            ),
+        }
+
+    def _arrow_columns(self, selection: Any) -> tuple[list[str], list[str] | None]:
+        """Header names and projected columns, or ``NotImplementedError`` for the row path."""
+        unsupported = (selection.predicate, selection.table, selection.row_range, selection.slice)
+        if any(value is not None for value in unsupported):
+            raise NotImplementedError("Native CSV batches support column projection only")
+        if self.mode != "r" or self.pos != 0:
+            raise NotImplementedError("Native CSV batches need a fresh reader")
+        names = list(self.keys) if self.keys is not None else list(self._row_reader().fieldnames or [])
+        columns = list(selection.columns) if selection.columns is not None else None
+        if not names or len(set(names)) != len(names) or not set(columns or ()) <= set(names):
+            raise NotImplementedError("Native CSV batches need unique header names covering the selection")
+        return names, columns
+
+    def read_arrow_batches(self, selection: Any = None) -> typing.Iterator[Any]:
+        """Yield ``pyarrow.RecordBatch`` objects with every column typed as string.
+
+        Values equal the row reader's (no type inference; empty fields stay ``""``). Column
+        projection is pushed down; predicates and row windows raise ``NotImplementedError``
+        so ``convert()`` uses the row path. Every row must have as many fields as the header.
+        """
+        import pyarrow
+        import pyarrow.csv as pacsv
+
+        from ..convert.batch import BatchSelection
+
+        names, columns = self._arrow_columns(selection or BatchSelection())
+        source = self._arrow_source()
+        try:
+            for batch in pacsv.open_csv(source, **self._arrow_options(names, columns)):
+                self.pos += batch.num_rows
+                yield batch
+        except pyarrow.ArrowInvalid as e:
+            raise FormatParseError(
+                format_id="csv",
+                message=f"{e}. The native batch path needs every row to have the header's fields; "
+                "read ragged files with use_native_batch=False.",
+                filename=self.filename,
+            ) from e
+        finally:
+            source.close()
+
     def _ensure_writer(self, record: Row) -> None:
         """Create writer on first write when keys were not set at open."""
         if self.writer is None and self.mode in ["w", "wr"] and self.fobj is not None:
             self.keys = list(record.keys()) if isinstance(record, dict) else list(record)
-            self.writer = DictWriter(self.fobj, fieldnames=self.keys, **self._dialect())
+            self.writer = _DictRowWriter(self.fobj, fieldnames=self.keys, **self._dialect())
             self.writer.writeheader()
 
     def write(self, record: Row) -> None:

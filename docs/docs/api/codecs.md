@@ -16,6 +16,21 @@ pip install 'iterabledata[compression]'
 
 Gzip, bzip2, LZMA/xz, and ZIP use the standard library and do not require the extra.
 
+### Gzip backends
+
+With ISA-L installed (`pip install 'iterabledata[fast]'`), gzip output at compression levels
+1-2 (`profile="fast"`) is written with ISA-L, which matches zlib's ratio at those levels and is
+faster; `profile="fast"` also compresses on several threads. Other levels keep zlib so the
+`balanced` and `max` ratios do not change. The `backend` codec option overrides this:
+
+```python
+open_iterable("out.jsonl.gz", "w", codecargs={"backend": "isal"})    # ISA-L at any level (and for reads)
+open_iterable("out.jsonl.gz", "w", codecargs={"backend": "stdlib"})  # always zlib
+```
+
+ISA-L's top level compresses less than zlib 6-9, and its read speed advantage is mostly on
+x86-64, so reads use zlib unless `backend="isal"` is set. Output is always a standard gzip stream.
+
 ## Codec catalog
 
 | Codec | Extensions | Extra | Notes |

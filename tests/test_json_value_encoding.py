@@ -96,7 +96,7 @@ def test_decimal_string_option_on_writer(tmp_path):
     path = tmp_path / "d.jsonl"
     with open_iterable(str(path), mode="w", iterableargs={"decimal": "string"}) as it:
         it.write({"dec": decimal.Decimal("1.50")})
-    assert path.read_text(encoding="utf-8").strip() == '{"dec": "1.50"}'
+    assert path.read_text(encoding="utf-8").strip() == '{"dec":"1.50"}'
 
 
 class _Opaque:

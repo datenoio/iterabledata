@@ -8,8 +8,6 @@ at a time, so memory use is bounded by a single feature.
 
 from __future__ import annotations
 
-from json import loads
-
 from ..base import DEFAULT_BULK_NUMBER
 from ..exceptions import FormatParseError
 from .jsonl import JSONLinesIterable
@@ -35,7 +33,7 @@ class GeoJSONSeqIterable(JSONLinesIterable):
                 continue
             original_line = line.rstrip("\n\r")
             try:
-                result = loads(line)
+                result = self._loads(line)
             except (ValueError, TypeError) as e:
                 error = FormatParseError(
                     format_id="geojsonseq",
@@ -61,7 +59,7 @@ class GeoJSONSeqIterable(JSONLinesIterable):
             if not line:
                 continue
             try:
-                chunk.append(loads(line))
+                chunk.append(self._loads(line))
                 self.pos += 1
             except (ValueError, TypeError) as e:
                 error = FormatParseError(

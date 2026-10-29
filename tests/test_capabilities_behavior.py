@@ -450,7 +450,7 @@ class TestDescriptorOverlay:
     def test_registered_id_overlays_descriptor_values(self):
         """A class whose id() names a described format inherits descriptor values."""
         caps = _detect_capabilities(_CsvIdBaseWrite)
-        assert caps["native_bulk_read"] is False
+        assert caps["native_bulk_read"] is True
         assert caps["native_bulk_write"] is True
         assert caps["read_memory"] == "bounded"
         assert caps["write_memory"] == "bounded"

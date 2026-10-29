@@ -38,6 +38,9 @@ class GeoParquetIterable(ParquetIterable):
     ``geometry_types`` and ``bbox`` accessors.
     """
 
+    # Arrow batches would bypass the GeoParquet metadata that ``_write_records`` adds.
+    supports_arrow_batches = False
+
     @staticmethod
     def id() -> str:
         return "geoparquet"
