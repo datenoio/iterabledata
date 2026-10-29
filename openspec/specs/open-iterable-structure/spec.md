@@ -23,3 +23,38 @@ The core entry points (`open_iterable`, `convert`, `bulk_convert`, `Pipeline.run
 - **WHEN** radon analyzes the refactored functions
 - **THEN** each SHALL report a cyclomatic grade of C or better
 
+### Requirement: Explicit Format Preserves Compression
+
+When `open_iterable()` receives an explicit `format`, it SHALL still apply the compression codec detected from the file's last extension. An explicit `codec` hint SHALL select the codec for names without a codec extension.
+
+#### Scenario: Gzipped CSV with an explicit format
+
+- **WHEN** a user opens `x.csv.gz` with `iterableargs={"format": "csv"}`
+- **THEN** the file SHALL be decompressed with the gzip codec
+- **AND** the reader SHALL return the CSV records
+
+#### Scenario: ZIP archive whose name has no inner format
+
+- **WHEN** a user opens `data.zip` containing JSON Lines with `iterableargs={"format": "jsonl"}`
+- **THEN** the reader SHALL return the JSON Lines records
+
+#### Scenario: Explicit codec hint
+
+- **WHEN** a user opens `data.bin` with `iterableargs={"format": "jsonl", "codec": "gz"}`
+- **THEN** the file SHALL be decompressed with the gzip codec
+
+### Requirement: Public Helpers for Downstream Tools
+
+Functionality that downstream tools need SHALL be available under public, documented names. Private names that were previously used downstream SHALL remain as aliases for at least one minor release.
+
+#### Scenario: Listing codecs
+
+- **WHEN** a caller needs the registered codec ids and extensions
+- **THEN** `iterable.helpers.detect.list_codecs()` SHALL return them
+- **AND** the caller SHALL NOT need `_get_codec_registry()`
+
+#### Scenario: Downstream contract test
+
+- **WHEN** a public helper used by undatum is renamed or removed
+- **THEN** `tests/test_downstream_contract.py` SHALL fail in this repository
+

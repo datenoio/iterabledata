@@ -45,7 +45,7 @@ vs `gzip` (undatum now accepts both; `list_codecs()` will document ids).
 ## 3. Performance findings
 
 Full numbers and rejected options are in
-`openspec/changes/optimize-json-csv-parquet-hot-paths/design.md` (500k rows, Apple M4 Max,
+`openspec/changes/archive/2026-10-29-optimize-json-csv-parquet-hot-paths/design.md` (500k rows, Apple M4 Max,
 Python 3.13).
 
 | Path | Now | Best measured alternative | Gain |
@@ -69,14 +69,16 @@ Python object creation is the floor; larger wins need columnar paths that never 
 
 1. **Release 1.0.24 (P0 correctness):** `fix-json-serialization-fidelity`,
    `fix-csv-dialect-and-codec-options`, `fix-convert-silent-row-loss` — implemented 2026-10-28
-   (defects 1-6 and 12; 50 new tests), not yet released.
+   (defects 1-6 and 12; 50 new tests), merged in PR #28, not yet released.
 2. **Release 1.0.25 (P1 hygiene):** `fix-package-import-hygiene` (includes the wheel fix) —
-   implemented 2026-10-29 (defects 7-9): `import iterable` 0.42 s -> 0.09 s.
+   implemented 2026-10-29 (defects 7-9), merged in PR #30: `import iterable` 0.42 s -> 0.09 s.
 3. **Release 1.1.0 (performance + API):** `optimize-json-csv-parquet-hot-paths` (after 1 and 2;
    it reuses the shared JSON encoder and the CSV dialect handling), `update-convert-api-parity` —
    both implemented 2026-10-29 (defects 10-11; JSONL write 5x and read 2x with `[fast]`, Parquet
    write 5x, CSV -> Parquet 2x, or 12x with `use_native_batch=True`; numbers in
-   `docs/docs/getting-started/performance.md`).
+   `docs/docs/getting-started/performance.md`); merged in PRs #31 and #32.
+
+   All six changes are archived as `openspec/changes/archive/2026-10-29-*` with their spec deltas applied.
 4. **undatum follow-up after each release:** remove `_with_csv_options`, `_with_codecargs`,
    `_codec_safe_source`, `_filter_bulk_convert_kwargs`, private imports, and the `TIME` exclusion
    in its engine contract tests; raise the `iterabledata` lower bound.
@@ -95,4 +97,6 @@ Python object creation is the floor; larger wins need columnar paths that never 
 - The worktree checkout materialized `tests/testdata` as a file (`core.symlinks=false`); restored
   per `AGENTS.md`.
 
-These are outside the six changes; fix them in the next housekeeping pass.
+These were outside the six changes. All are fixed in `5a0dff8` (PR #28): the DBF fixture is
+restored, ORC `write()` runs validation hooks through `write_bulk()`, the `jsonld` totals
+declaration matches the class, and fixture generator scripts are no longer collected.

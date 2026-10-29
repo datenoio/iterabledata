@@ -66,3 +66,36 @@ Performance regression tests SHALL protect bounded memory and important physical
 - **THEN** peak retained memory SHALL stay within the documented allowance
 - **AND** the test SHALL report the format, batch size, and observed peak on failure
 
+### Requirement: Lightweight Package Import
+
+Importing the top-level `iterable` package SHALL NOT import optional database drivers, columnar or dataframe libraries, HTTP clients or terminal UI libraries. Such backends SHALL be imported on first use.
+
+#### Scenario: Plain package import
+
+- **WHEN** a fresh interpreter runs `import iterable` with all optional extras installed
+- **THEN** none of `elasticsearch`, `pymongo`, `pyarrow`, `numpy`, `pandas`, `duckdb`, `httpx` or `rich` SHALL be present in `sys.modules`
+
+#### Scenario: Database driver on demand
+
+- **WHEN** a user opens a `postgres://` source after importing `iterable`
+- **THEN** only the PostgreSQL driver module SHALL be imported to serve the request
+
+#### Scenario: Import-time regression
+
+- **WHEN** the performance regression gate runs
+- **THEN** the measured `import iterable` time SHALL be compared with its committed baseline like other workloads
+
+### Requirement: Popular Format Throughput Workloads
+
+The performance regression gate SHALL include read, write and conversion workloads for CSV, JSON Lines, JSON and Parquet at a representative size, and SHALL compare them with committed baselines.
+
+#### Scenario: JSON Lines write regression
+
+- **WHEN** a change makes the JSON Lines `write_bulk` workload slower than its baseline beyond the gate tolerance
+- **THEN** the performance gate SHALL fail and name the workload
+
+#### Scenario: Conversion pair coverage
+
+- **WHEN** the gate runs
+- **THEN** it SHALL measure CSV to JSON Lines, CSV to Parquet and JSON Lines to CSV conversions
+

@@ -157,3 +157,121 @@ Streaming text readers SHALL preserve actionable parse-error context without per
 - **THEN** the raised error SHALL include the format, filename when available, and record or line number
 - **AND** byte offset MAY be omitted when the active stream cannot provide it cheaply or correctly
 
+### Requirement: CSV Dialect Options From Iterable Arguments
+
+`CSVIterable` SHALL apply `delimiter`, `quotechar`, `escapechar`, `doublequote`, `keys` and `autodetect` supplied through `options` (and therefore through `open_iterable(iterableargs=...)`) to both reading and writing. An explicit constructor argument SHALL take precedence over `options`, and `options` SHALL take precedence over extension defaults and autodetection.
+
+#### Scenario: Semicolon delimiter through open_iterable
+
+- **WHEN** a user opens `a.csv` containing `a;b\n1;2\n` with `iterableargs={"delimiter": ";"}`
+- **THEN** the reader SHALL return `{"a": "1", "b": "2"}`
+
+#### Scenario: Tab delimiter on write
+
+- **WHEN** a user writes `{"a": 1, "b": 2}` to `o.csv` with `iterableargs={"delimiter": "\t"}`
+- **THEN** the file SHALL contain `a\tb` and `1\t2`
+
+### Requirement: Tab-Separated Defaults
+
+Files detected as `tsv` SHALL use a tab delimiter by default for reading and writing.
+
+#### Scenario: Reading a TSV file without options
+
+- **WHEN** a user opens `t.tsv` containing `a,b\tc\n1,2\t3\n` without options
+- **THEN** the reader SHALL return `{"a,b": "1,2", "c": "3"}`
+
+#### Scenario: Writing a compressed TSV file
+
+- **WHEN** a user writes records to `out.tsv.gz`
+- **THEN** the decompressed output SHALL be tab-separated
+
+### Requirement: CSV Totals Exclude the Header
+
+`CSVIterable.totals()` SHALL NOT count the header line as a record.
+
+#### Scenario: Two data rows
+
+- **WHEN** a CSV file has one header line and two single-line data rows
+- **THEN** `totals()` SHALL return `2`
+
+### Requirement: Lossless JSON Value Serialization
+
+Every JSON-family writer SHALL serialize record values through one shared encoder and SHALL NOT write `null` for a value that is not `None`. Values without a lossless JSON form SHALL use the documented textual encoding; other objects SHALL be written as `str(value)`, or raise `WriteError` when `on_unknown_type="raise"`.
+
+#### Scenario: Time and decimal values written to JSON Lines
+
+- **WHEN** a record containing `datetime.time(12, 30)` and `Decimal("1.50")` is written to a `.jsonl` file
+- **THEN** the line SHALL contain `"12:30:00"` for the time value
+- **AND** the decimal SHALL be written as the JSON number `1.5`
+
+#### Scenario: Decimal that a float cannot represent
+
+- **WHEN** a record contains `Decimal("12345678901234567890.123456789")`
+- **THEN** the writer SHALL write it as the string `"12345678901234567890.123456789"`
+- **AND** it SHALL NOT round the value
+
+#### Scenario: JSON and JSON Lines writers agree
+
+- **WHEN** the same record is written once to `.json` and once to `.jsonl`
+- **THEN** each field SHALL have the same JSON value in both outputs
+
+#### Scenario: Unsupported value type
+
+- **WHEN** a record contains an object with no documented encoding and `on_unknown_type` is not set
+- **THEN** the writer SHALL write `str(value)` for that field
+- **AND** with `on_unknown_type="raise"` it SHALL raise `WriteError` naming the Python type and write no partial line
+
+### Requirement: Size-Independent JSON Decoding
+
+The JSON array reader SHALL return the same Python value types for a document regardless of whether it is parsed in memory or streamed.
+
+#### Scenario: Large JSON array with floats
+
+- **WHEN** a JSON array larger than the streaming threshold contains the number `0.5`
+- **THEN** the reader SHALL return it as a `float`
+- **AND** converting the file to JSON Lines SHALL write `0.5`
+
+### Requirement: Backend-Independent JSON Output
+
+JSON and JSON Lines readers and writers SHALL use an accelerated JSON backend when it is installed and the standard library otherwise. Returned records SHALL be identical for both backends, and written bytes SHALL be identical except for floats below `1e-4`, which may be written in positional or exponent form with the same value.
+
+#### Scenario: Same output with and without orjson
+
+- **WHEN** the same records, without floats below `1e-4`, are written to JSON Lines once with `orjson` installed and once with the standard-library backend forced
+- **THEN** the two files SHALL be byte-identical
+
+#### Scenario: Input the accelerated parser rejects
+
+- **WHEN** a JSON Lines record contains a literal the accelerated parser rejects but the standard library accepts (for example `NaN`)
+- **THEN** the reader SHALL return the standard library's result for that line
+- **AND** it SHALL NOT raise `FormatParseError`
+
+#### Scenario: Integers beyond 64 bits
+
+- **WHEN** a JSON Lines record contains an integer literal beyond the 64-bit range
+- **THEN** the reader SHALL return the exact integer, not a float
+
+### Requirement: CSV Fast Path Preserves Record Semantics
+
+The CSV reader and writer SHALL return and accept the same records as `csv.DictReader` and `csv.DictWriter` with the configured dialect, including rows shorter or longer than the header.
+
+#### Scenario: Short row
+
+- **WHEN** a data row has fewer fields than the header
+- **THEN** the missing fields SHALL be `None`
+
+#### Scenario: Long row
+
+- **WHEN** a data row has more fields than the header
+- **THEN** the extra values SHALL be returned as a list under the `None` key
+
+### Requirement: Single Conversion per Parquet Batch
+
+The Parquet writer SHALL convert each written batch to Arrow once and SHALL reuse that conversion for schema validation and output.
+
+#### Scenario: Bulk write after the schema is fixed
+
+- **WHEN** `write_bulk()` is called after the writer schema exists
+- **THEN** the batch SHALL be converted to an Arrow table or record batch once
+- **AND** a schema mismatch SHALL still raise `WriteError` for that batch
+

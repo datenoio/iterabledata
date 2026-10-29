@@ -134,3 +134,53 @@ The system SHALL provide a `bulk_convert()` function that converts multiple file
 - **THEN** conversion SHALL continue with `estimated_total=None`
 - **AND** progress estimation SHALL NOT consume records or require a reset
 
+### Requirement: Flat Output Rows Match the Header
+
+When the destination format is flat-only, `convert()` SHALL write each record flattened with the same key scheme used to build the header, whether or not `is_flatten` is set.
+
+#### Scenario: Nested JSON Lines to CSV
+
+- **WHEN** a user converts JSON Lines records shaped `{"id": 1, "meta": {"a": 1}}` to CSV without `is_flatten`
+- **THEN** the CSV header SHALL contain `id` and `meta.a`
+- **AND** every input record SHALL be written as one CSV row
+
+#### Scenario: Field first seen after the schema scan
+
+- **WHEN** a field appears only after `scan_limit` records and `extra_fields` is not set
+- **THEN** `convert()` SHALL raise `WriteError` naming the field
+- **AND** with `extra_fields="ignore"` the field SHALL be omitted and the row written
+
+### Requirement: No Silent Write Failures
+
+`convert()` and `bulk_convert()` SHALL raise when a batch cannot be written, unless the caller passes `on_write_error="skip"`. In skip mode the result SHALL report the number of skipped rows.
+
+#### Scenario: Writer rejects a batch
+
+- **WHEN** the destination writer raises while writing a batch and `on_write_error` is not set
+- **THEN** `convert()` SHALL raise `WriteError`
+- **AND** the error SHALL identify the failing batch's row range
+
+#### Scenario: Skip mode accounting
+
+- **WHEN** a batch fails and `on_write_error="skip"`
+- **THEN** the conversion SHALL continue
+- **AND** `rows_out + rows_skipped` SHALL equal `rows_in`
+
+### Requirement: Codec Arguments in Conversion
+
+`convert()` and `bulk_convert()` SHALL accept `codecargs` for the source and `tocodecargs` for the destination and SHALL pass them to the codec that opens each file.
+
+#### Scenario: Compression level for the output
+
+- **WHEN** a user calls `convert("a.csv", "b.jsonl.gz", tocodecargs={"compression_level": 1})`
+- **THEN** the gzip codec SHALL write the output with compression level 1
+
+### Requirement: Bulk Conversion Parameter Parity
+
+`bulk_convert()` SHALL accept every per-file conversion parameter that `convert()` accepts, including `use_native_batch`, `selection` and `strict_native`, and SHALL forward them to each file conversion.
+
+#### Scenario: Selection in bulk conversion
+
+- **WHEN** a user calls `bulk_convert("in/*.parquet", "out/", to_ext="jsonl", selection={"columns": ["id"]})`
+- **THEN** every output file SHALL contain only the `id` field
+
