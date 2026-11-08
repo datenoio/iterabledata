@@ -65,7 +65,14 @@ with open_iterable('output.shp', mode='w') as dest:
 
 ## Parameters
 
-- `encoding` (str): File encoding (default: `utf8`)
+- `encoding` (str): DBF encoding. By default the `.cpg` file next to the `.shp` decides
+  (`UTF-8`, `1252`, `ANSI 1251`, `ISO 8859-1`, ...), else UTF-8.
+- `member` (str): The `.shp` to read from a zip archive that holds several (path inside the
+  archive or file name).
+
+Zipped Shapefiles open directly: `open_iterable("counties.shp.zip")`, or a `.zip` that holds
+exactly one `.shp` (`open_iterable("counties.zip")`). pyshp reads the archive; nothing is
+extracted.
 
 ## Limitations
 

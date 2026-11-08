@@ -22,6 +22,7 @@ from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
 from ..exceptions import ReadError
+from ..helpers.sheets import sheet_options
 from ..types import Row
 
 
@@ -44,11 +45,13 @@ class ODSIterable(BaseFileIterable):
         if not HAS_ODF and not HAS_PYEXCEL_ODS:
             raise ImportError("ODS file support requires 'odfpy' or 'pyexcel-ods3' package")
         super().__init__(filename, stream, codec=codec, mode=mode, binary=True, noopen=True, options=options)
+        # open_iterable() passes iterableargs as ``options``: read the sheet options there too.
+        keys, page, start_line = sheet_options(keys, page, start_line, options)
         self.keys = keys
+        # Rows above the header (title rows); the header is the next row.
+        self._skip_rows = start_line
         self.start_line = start_line + 1
         self.page = page
-        if "page" in options.keys():
-            self.page = int(options["page"])
         self.pos = self.start_line
         self.extracted_keys = keys is None
         self.reset()
@@ -77,11 +80,11 @@ class ODSIterable(BaseFileIterable):
                 )
             self.sheet = self.sheets[self.page]
             self.rows = self.sheet.getElementsByType(TableRow)
-            self.row_index = 0
+            self.row_index = self._skip_rows
 
-            if self.extracted_keys and len(self.rows) > 0:
-                # Extract keys from first row
-                first_row = self.rows[0]
+            if self.extracted_keys and len(self.rows) > self._skip_rows:
+                # Extract keys from the header row
+                first_row = self.rows[self._skip_rows]
                 cells = first_row.getElementsByType(TableCell)
                 self.keys = []
                 for cell in cells:
@@ -90,7 +93,7 @@ class ODSIterable(BaseFileIterable):
                     for p in paragraphs:
                         text_content += p.firstChild.data if p.firstChild else ""
                     self.keys.append(text_content if text_content else "")
-                self.row_index = 1
+                self.row_index = self._skip_rows + 1
                 self.pos += 1
         else:
             # Using pyexcel_ods3 library
@@ -104,12 +107,12 @@ class ODSIterable(BaseFileIterable):
                 )
             self.sheet_name = sheet_names[self.page]
             self.rows = self.data[self.sheet_name]
-            self.row_index = 0
+            self.row_index = self._skip_rows
 
-            if self.extracted_keys and len(self.rows) > 0:
-                # Extract keys from first row
-                self.keys = [str(cell) for cell in self.rows[0]]
-                self.row_index = 1
+            if self.extracted_keys and len(self.rows) > self._skip_rows:
+                # Extract keys from the header row
+                self.keys = [str(cell) for cell in self.rows[self._skip_rows]]
+                self.row_index = self._skip_rows + 1
                 self.pos += 1
 
     @staticmethod

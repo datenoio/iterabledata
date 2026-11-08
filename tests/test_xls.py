@@ -104,3 +104,23 @@ class TestXLS:
         sheets2 = iterable.list_tables()
         assert sheets1 == sheets2
         iterable.close()
+
+
+def test_xls_start_line_and_page_through_open_iterable(tmp_path):
+    import pytest
+
+    xlwt = pytest.importorskip("xlwt")
+    from iterable.helpers.detect import open_iterable
+
+    workbook = xlwt.Workbook()
+    first = workbook.add_sheet("first")
+    first.write(0, 0, "ignored")
+    sheet = workbook.add_sheet("kreise")
+    for row, values in enumerate([["Tabelle 1"], [], ["Stand"], ["Schlüssel", "Kreis"], ["01001", "Flensburg"]]):
+        for col, value in enumerate(values):
+            sheet.write(row, col, value)
+    path = str(tmp_path / "title.xls")
+    workbook.save(path)
+    with open_iterable(path, iterableargs={"start_line": 3, "page": 1}) as source:
+        assert source.keys == ["Schlüssel", "Kreis"]
+        assert list(source) == [{"Schlüssel": "01001", "Kreis": "Flensburg"}]

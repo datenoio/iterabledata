@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import typing
 from typing import Any
@@ -17,6 +18,40 @@ from ..exceptions import FormatParseError, WriteError
 from ..helpers.jsonbackend import make_decoder, make_encoder
 from ..helpers.jsonvalues import json_default_from_options
 from ..types import Row
+
+_BOM_CHAR = b"\xef\xbb\xbf".decode("utf-8")
+
+
+def records_key(obj: dict[str, Any]) -> str | None:
+    """Key of the record list in a JSON object root, or None when there is none.
+
+    A record list is a non-empty list whose items are all objects (OData ``value``, JSON-LD
+    ``@graph``, ``data``, ``results``, ``features``). With several, the longest one wins.
+    """
+    best: str | None = None
+    best_len = 0
+    for key, value in obj.items():
+        if isinstance(value, list) and value and all(isinstance(item, dict) for item in value):
+            if len(value) > best_len:
+                best, best_len = key, len(value)
+    return best
+
+
+def _streaming_records_key(fobj: typing.IO[Any]) -> str | None:
+    """``records_key`` for a large file read with ijson: the first top-level list of objects."""
+    events = ijson.parse(fobj)
+    expect: str | None = None
+    for prefix, event, value in events:
+        if prefix == "" and event == "map_key":
+            expect = value
+        elif expect is not None and prefix == expect:
+            if event != "start_array":
+                expect = None
+        elif expect is not None and prefix == f"{expect}.item":
+            if event == "start_map" and "." not in expect:
+                return expect
+            expect = None
+    return None
 
 
 class JSONIterable(BaseFileIterable):
@@ -91,9 +126,23 @@ class JSONIterable(BaseFileIterable):
                 # Use streaming parser
                 self._streaming = True
                 self.fobj.seek(0)
+                root_object = False
+                if not self.tagname:
+                    head = self.fobj.read(4096).lstrip(_BOM_CHAR + " \t\r\n")
+                    root_object = head.startswith("{")
+                    self.fobj.seek(0)
+                    if root_object:
+                        key = _streaming_records_key(self.fobj)
+                        self.fobj.seek(0)
+                        if key is not None:
+                            logging.info(f"JSON root is an object; reading the records under {key!r}")
+                            self.tagname = key
                 if self.tagname:
                     # Parse items from a specific key in the JSON object
                     self._parser = ijson.items(self.fobj, self.tagname + ".item", use_float=True)
+                elif root_object:
+                    # An object without a record list is one record
+                    self._parser = ijson.items(self.fobj, "", use_float=True)
                 else:
                     # Parse items from a JSON array
                     self._parser = ijson.items(self.fobj, "item", use_float=True)
@@ -119,6 +168,17 @@ class JSONIterable(BaseFileIterable):
                     return
                 if self.tagname:
                     self.data = self.data[self.tagname]
+                elif isinstance(self.data, dict):
+                    key = records_key(self.data)
+                    if key is None:
+                        # An object without a record list is one record
+                        self.data = [self.data]
+                    else:
+                        logging.info(f"JSON root is an object; reading the records under {key!r}")
+                        self.tagname = key
+                        self.data = self.data[key]
+                if not isinstance(self.data, list):
+                    self.data = [self.data]
                 self.total = len(self.data)
 
     @staticmethod

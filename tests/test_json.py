@@ -86,3 +86,46 @@ class TestJSON:
             assert row == FIXTURES[n]
             n += 1
         iterable.close()
+
+
+@pytest.mark.parametrize(
+    ("document", "key", "records"),
+    [
+        ({"odata.metadata": "x", "value": [{"a": 1}, {"a": 2}]}, "value", [{"a": 1}, {"a": 2}]),
+        ({"@context": {}, "@graph": [{"@id": "1"}]}, "@graph", [{"@id": "1"}]),
+        ({"meta": [{"m": 1}], "rows": [{"b": 1}, {"b": 2}]}, "rows", [{"b": 1}, {"b": 2}]),
+        ({"columns": ["a"], "data": [[1], [2]]}, None, [{"columns": ["a"], "data": [[1], [2]]}]),
+        ({"name": "x", "value": 1}, None, [{"name": "x", "value": 1}]),
+    ],
+)
+def test_json_object_root_without_tagname(tmp_path, document, key, records):
+    import json
+
+    from iterable.helpers.detect import open_iterable
+
+    path = tmp_path / "root.json"
+    path.write_text(json.dumps(document))
+    with open_iterable(str(path)) as source:
+        assert list(source) == records
+        assert source.tagname == key
+
+
+def test_json_object_root_in_streaming_mode(tmp_path):
+    pytest.importorskip("ijson")
+    import json
+
+    from iterable.helpers.detect import open_iterable
+
+    path = tmp_path / "big.json"
+    path.write_text(json.dumps({"meta": {"n": 1}, "value": [{"i": i, "s": "x" * 200} for i in range(60000)]}))
+    with open_iterable(str(path)) as source:
+        assert source.is_streaming()
+        assert source.tagname == "value"
+        assert next(source)["i"] == 0
+        assert sum(1 for _ in source) == 59999
+    single = tmp_path / "big_object.json"
+    single.write_text(json.dumps({"name": "x" * 11_000_000}))
+    with open_iterable(str(single)) as source:
+        rows = list(source)
+        assert source.is_streaming()
+        assert len(rows) == 1 and len(rows[0]["name"]) == 11_000_000

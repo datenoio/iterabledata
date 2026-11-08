@@ -67,7 +67,11 @@ with open_iterable('output.gml', mode='w') as dest:
 ## Parameters
 
 - `prefix_strip` (bool): Strip XML namespace prefixes (default: `True`)
-- `feature_member` (str): Name of feature member element (default: `featureMember`)
+- `feature_member` (str) or `tagname` (str): Name of the feature member element, with or without a
+  prefix (`wfs:member`). Members are matched by local name in any namespace; after the given name,
+  `featureMember` (GML 2/3, also in a service's own namespace such as `app:featureMember`), `member`
+  (WFS 2.0 `wfs:member`) and `featureMembers` (whose children are all features) are tried.
+  Parse errors are raised, not turned into an empty result.
 - `encoding` (str): File encoding (default: `utf8`)
 
 ## Limitations

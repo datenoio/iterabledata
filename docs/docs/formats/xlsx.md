@@ -68,7 +68,7 @@ with open_iterable("out.xlsx", mode="w") as target:
 |-----------|------|---------|----------|-------------|
 | `page` | int or str | `0` | No | Sheet index (int, 0-indexed) or name (str). |
 | `keys` | list[str] | auto-detected | No | Column names. Extracted from the first non-blank row if omitted. |
-| `start_line` | int | `0` | No | Row number to start reading from (0-indexed). |
+| `start_line` | int | `0` | No | Rows above the header to skip, e.g. title rows of a statistics table (`iterableargs={"start_line": 3}`). |
 
 ## Error Handling
 

@@ -153,3 +153,77 @@ class TestShapefileStreaming:
         assert n == self.ROWS
         # Lazy iteration keeps peak allocation far below the full payload.
         assert peak < uncompressed_size / 2, f"peak {peak} suggests full-file load"
+
+
+def _zipped_towns(tmp_path, cpg="1252", folder=""):
+    import zipfile
+
+    shapefile = pytest.importorskip("shapefile")
+    base = str(tmp_path / "towns")
+    writer = shapefile.Writer(base, shapeType=shapefile.POINT, encoding="cp1252")
+    writer.field("name", "C", 40)
+    writer.field("plz", "C", 5)
+    writer.point(7.6, 47.8)
+    writer.record("Müllheim", "79379")
+    writer.point(8.5, 47.3)
+    writer.record("Zürich", "8001")
+    writer.close()
+    with open(base + ".cpg", "w") as handle:
+        handle.write(cpg)
+    archive = str(tmp_path / ("towns.shp.zip" if not folder else "towns.zip"))
+    with zipfile.ZipFile(archive, "w") as zipped:
+        for ext in ("shp", "shx", "dbf", "cpg"):
+            zipped.write(f"{base}.{ext}", f"{folder}towns.{ext}")
+    return archive
+
+
+def test_zipped_shapefile_through_open_iterable(tmp_path):
+    from iterable.helpers.detect import open_iterable
+
+    for archive in (_zipped_towns(tmp_path), _zipped_towns(tmp_path, folder="data/")):
+        with open_iterable(archive) as source:
+            assert isinstance(source, ShapefileIterable)
+            rows = list(source)
+        assert [row["properties"]["name"] for row in rows] == ["Müllheim", "Zürich"]
+        assert rows[0]["geometry"] == {"type": "Point", "coordinates": [7.6, 47.8]}
+
+
+def test_zipped_shapefile_direct_and_cpg_names(tmp_path):
+    import contextlib
+
+    from iterable.datatypes.shapefile import _PYSHP_READS_CPG, cpg_encoding
+
+    archive = _zipped_towns(tmp_path, cpg="ANSI 1252")
+    source = ShapefileIterable(archive)
+    # pyshp >= 3 cannot use "ANSI 1252" itself and warns that the code page passed differs.
+    expect = pytest.warns(UserWarning, match="cpg") if _PYSHP_READS_CPG else contextlib.nullcontext()
+    with expect:
+        assert source.read()["properties"]["name"] == "Müllheim"
+    assert source.encoding == "cp1252"
+    assert source.totals() == 2
+    source.close()
+    assert cpg_encoding("UTF-8") == "utf-8"
+    assert cpg_encoding("65001") == "utf-8"
+    assert cpg_encoding("1251") == "cp1251"
+    assert cpg_encoding("ISO 8859-1") == "iso8859-1"
+    assert cpg_encoding("shift_jis") == "shift_jis"
+    assert cpg_encoding("") is None
+    assert cpg_encoding("no-such-code-page") is None
+
+
+def test_zip_with_several_shapefiles_needs_a_member(tmp_path):
+    import zipfile
+
+    from iterable.exceptions import ReadError
+
+    single = _zipped_towns(tmp_path)
+    archive = str(tmp_path / "two.zip")
+    with zipfile.ZipFile(single) as source_zip, zipfile.ZipFile(archive, "w") as target:
+        for name in source_zip.namelist():
+            target.writestr("a/" + name, source_zip.read(name))
+            target.writestr("b/" + name.replace("towns", "other"), source_zip.read(name))
+    with pytest.raises(ReadError, match="exactly one .shp"):
+        ShapefileIterable(archive)
+    source = ShapefileIterable(archive, options={"member": "b/other.shp"})
+    assert source.read()["properties"]["plz"] == "79379"
+    source.close()

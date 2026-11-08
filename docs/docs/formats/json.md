@@ -51,7 +51,7 @@ with open_iterable("data.json", iterableargs={"tagname": "items"}) as source:
 
 | Parameter | Type | Default | Required | Description |
 |-----------|------|---------|----------|-------------|
-| `tagname` | str | `None` | No | Key name to extract from root object before iterating. If root is an object (not array), use this to specify which key contains the array to iterate over. |
+| `tagname` | str | `None` | No | Key name to extract from root object before iterating. If root is an object (not array), use this to specify which key contains the array to iterate over. Without it, an object root is read from its record list: the only (or longest) top-level list of objects, such as OData `value` or JSON-LD `@graph`; the key used is logged and set as `tagname`. An object without such a list is read as one record. In streaming mode (files over 10 MB) the first top-level list of objects is used. |
 
 ## Error Handling
 
@@ -88,7 +88,7 @@ except Exception as e:
 ### Common Errors
 
 - **JSONDecodeError**: Invalid JSON syntax - check file format and encoding
-- **ValueError**: Root element is not an array, or `tagname` key not found in root object
+- **KeyError**: `tagname` key not found in root object
 - **ImportError**: For large files (>10MB), `ijson` package is required for streaming
 - **FileNotFoundError**: File path is incorrect or file doesn't exist
 - **MemoryError**: For very large files, consider using JSONL format instead
@@ -100,7 +100,7 @@ except Exception as e:
    - **Small files (under 10MB)**: Entire JSON document is loaded into memory
    - **Large files (>10MB)**: Automatically uses streaming parser (`ijson`) to avoid loading entire file
    - For very large files, prefer **JSONL** format for true line-by-line streaming
-3. **Array requirement**: Root element must be an array of objects (or object with array values via `tagname`)
+3. **Record shape**: Records are the items of the root array, of the list under `tagname`, or of the record list found in an object root
 4. **Single document**: Only supports single JSON document per file
 
 ## Compression Support

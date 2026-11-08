@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import codecs
 import re
 import typing
 from itertools import product
@@ -10,6 +11,42 @@ from ..exceptions import WriteNotSupportedError
 from ..types import Row
 
 DEFAULT_ENCODING = "utf8"
+_UTF8_BOM = b"\xef\xbb\xbf"
+_KEYWORD = re.compile(rb'^\s*(CODEPAGE|CHARSET)\s*=\s*"([^"]*)"\s*;', re.IGNORECASE | re.MULTILINE)
+
+
+def detect_px_encoding(data: bytes) -> str:
+    """Encoding of PC-Axis bytes from the file's own keywords.
+
+    A UTF-8 byte order mark wins, then ``CODEPAGE="..."``, then a strict UTF-8 decode;
+    ``CHARSET="ANSI"`` means a Windows code page (cp1252), and a file without ``CHARSET``
+    is in DOS format (cp850) as the PC-Axis specification defines.
+    """
+    if data.startswith(_UTF8_BOM):
+        return "utf-8-sig"
+    data_start = data.find(b"DATA=")
+    head = data[:data_start] if data_start >= 0 else data[:65536]
+    keywords = {
+        m.group(1).decode("ascii").upper(): m.group(2).decode("ascii", "replace").strip()
+        for m in _KEYWORD.finditer(head)
+    }
+    candidates = []
+    if keywords.get("CODEPAGE"):
+        candidates.append(keywords["CODEPAGE"])
+    candidates.append("utf-8")
+    if keywords.get("CHARSET", "").upper() == "ANSI":
+        candidates.append("cp1252")
+    elif "CHARSET" not in keywords:
+        candidates.append("cp850")
+    candidates.append("cp1252")
+    for candidate in candidates:
+        try:
+            codecs.lookup(candidate)
+            data.decode(candidate)
+            return candidate
+        except (LookupError, UnicodeDecodeError):
+            continue
+    return "latin-1"
 
 
 class PXIterable(BaseFileIterable):
@@ -22,14 +59,17 @@ class PXIterable(BaseFileIterable):
         codec: BaseCodec | None = None,
         mode: str = "r",
         encoding: str | None = None,
+        metadata: bool | None = None,
         options: dict[str, Any] | None = None,
     ):
         if options is None:
             options = {}
-        self.encoding = encoding or options.get("encoding", DEFAULT_ENCODING)
-        super().__init__(
-            filename, stream, codec=codec, binary=False, encoding=self.encoding, mode=mode, options=options
-        )
+        # Without an explicit encoding the bytes are decoded by the file's CODEPAGE / CHARSET.
+        self._explicit_encoding = encoding or options.get("encoding")
+        self.encoding = self._explicit_encoding or DEFAULT_ENCODING
+        # ``metadata=False`` leaves the ``_KEYWORD`` copies of the metadata out of the records.
+        self.include_metadata = bool(options.get("metadata", True) if metadata is None else metadata)
+        super().__init__(filename, stream, codec=codec, binary=True, encoding=self.encoding, mode=mode, options=options)
         self.metadata = {}
         self.stub_vars = []
         self.heading_vars = []
@@ -186,9 +226,10 @@ class PXIterable(BaseFileIterable):
             record["VALUE"] = None
 
         # Add metadata fields
-        for key, value in self.metadata.items():
-            if key not in ["STUB", "HEADING"]:
-                record[f"_{key}"] = value
+        if self.include_metadata:
+            for key, value in self.metadata.items():
+                if key not in ["STUB", "HEADING"]:
+                    record[f"_{key}"] = value
 
         return record
 
@@ -227,6 +268,10 @@ class PXIterable(BaseFileIterable):
         if self.mode == "r":
             # Read entire file content
             content = self.fobj.read()
+            if isinstance(content, bytes):
+                self.encoding = self._explicit_encoding or detect_px_encoding(content)
+                content = content.decode(self.encoding)
+            content = content.lstrip(_UTF8_BOM.decode("utf-8"))
 
             # Parse metadata and find data section
             data_start_idx = self._parse_metadata(content)

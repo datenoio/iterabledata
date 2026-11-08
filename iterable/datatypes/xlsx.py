@@ -6,6 +6,7 @@ from typing import Any
 from openpyxl import Workbook, load_workbook
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..helpers.sheets import sheet_options
 
 _BLANK_HEADER_TOKENS = frozenset({"", "none", "null", "<na>", "nan"})
 
@@ -51,11 +52,11 @@ class XLSXIterable(BaseFileIterable):
         if options is None:
             options = {}
         super().__init__(filename, stream, codec=codec, mode=mode, binary=True, noopen=True, options=options)
+        # open_iterable() passes iterableargs as ``options``: read the sheet options there too.
+        keys, page, start_line = sheet_options(keys, page, start_line, options)
         self.keys = keys
         self.start_line = start_line + 1
         self.page = page
-        if "page" in options.keys():
-            self.page = int(options["page"])
         self.pos = self.start_line
         self.extracted_keys = keys is None
         self.reset()

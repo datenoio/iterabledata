@@ -77,3 +77,68 @@ class TestPX:
         # After reset, should read from beginning
         assert row1 == row2
         iterable.close()
+
+
+PX_ANSI = (
+    'CHARSET="ANSI";\nAXIS-VERSION="2000";\nLANGUAGE="de";\nMATRIX="test";\n'
+    'TITLE="Bevölkerung nach Gemeinde";\nCONTENTS="Bevölkerung";\nUNITS="Personen";\n'
+    'STUB="Gemeinde";\nHEADING="Jahr";\nVALUES("Gemeinde")="Zürich","Genève";\n'
+    'VALUES("Jahr")="2000","2010";\nDATA=\n1 2\n3 4;\n'
+)
+
+
+def test_px_charset_ansi_is_read_as_cp1252(tmp_path):
+    from iterable.helpers.detect import open_iterable
+
+    path = tmp_path / "ansi.px"
+    path.write_bytes(PX_ANSI.encode("cp1252"))
+    with open_iterable(str(path)) as source:
+        rows = list(source)
+        assert source.encoding == "cp1252"
+    assert [row["Gemeinde"] for row in rows] == ["Zürich", "Zürich", "Genève", "Genève"]
+    assert rows[0]["_TITLE"] == "Bevölkerung nach Gemeinde"
+
+
+def test_px_codepage_wins_over_charset(tmp_path):
+    from iterable.helpers.detect import open_iterable
+
+    text = PX_ANSI.replace('AXIS-VERSION="2000";', 'AXIS-VERSION="2000";\nCODEPAGE="iso-8859-15";')
+    path = tmp_path / "latin9.px"
+    path.write_bytes(text.replace("Personen", "€ Personen").encode("iso-8859-15"))
+    with open_iterable(str(path)) as source:
+        row = next(source)
+        assert source.encoding == "iso-8859-15"
+    assert row["_UNITS"] == "€ Personen"
+
+
+def test_px_utf8_bom_and_explicit_encoding(tmp_path):
+    from iterable.helpers.detect import open_iterable
+
+    path = tmp_path / "bom.px"
+    path.write_bytes(b"\xef\xbb\xbf" + PX_ANSI.encode("utf-8"))
+    with open_iterable(str(path)) as source:
+        assert next(source)["Gemeinde"] == "Zürich"
+    latin = tmp_path / "latin.px"
+    latin.write_bytes(PX_ANSI.encode("latin-1"))
+    with open_iterable(str(latin), iterableargs={"encoding": "latin-1"}) as source:
+        assert source.encoding == "latin-1"
+        assert next(source)["Gemeinde"] == "Zürich"
+
+
+def test_px_without_charset_is_dos(tmp_path):
+    from iterable.datatypes.px import detect_px_encoding
+
+    text = PX_ANSI.replace('CHARSET="ANSI";\n', "")
+    assert detect_px_encoding(text.encode("cp850")) == "cp850"
+    assert detect_px_encoding(text.encode("utf-8")) == "utf-8"
+
+
+def test_px_metadata_option_leaves_out_keyword_copies(tmp_path):
+    from iterable.helpers.detect import open_iterable
+
+    path = tmp_path / "ansi.px"
+    path.write_bytes(PX_ANSI.encode("cp1252"))
+    with open_iterable(str(path), iterableargs={"metadata": False}) as source:
+        assert next(source) == {"Gemeinde": "Zürich", "Jahr": "2000", "VALUE": 1}
+    with open_iterable(str(path)) as source:
+        assert "_CHARSET" in next(source)

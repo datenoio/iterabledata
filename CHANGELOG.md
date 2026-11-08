@@ -8,7 +8,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **CSV `skip_rows` option** (#44): the number of lines before the header, for title, source
+  and date rows above a statistics table (`iterableargs={"skip_rows": 3}`). Delimiter
+  autodetection reads the header line after them; `totals()` does not count them.
+- **Zipped Shapefiles** (#46): `open_iterable("x.shp.zip")`, and a `.zip` that holds exactly
+  one `.shp`, open as Shapefiles (pyshp reads the archive; `member` picks one of several). The
+  DBF encoding comes from the `.cpg` file (`UTF-8`, `1252`, `ANSI 1251`, `ISO 8859-1`), also for
+  plain `.shp` files, unless `encoding` is given. Read errors raise `ReadError` instead of an
+  empty result.
+- **PC-Axis `metadata` option** (#41): `iterableargs={"metadata": False}` leaves the `_KEYWORD`
+  copies of the metadata (`_TITLE`, `_UNITS`, ...) out of the records. The default (`True`)
+  keeps the current records.
+
 ### Fixed
+
+- **CSV: the encoding of compressed files is detected** (#40). A `.csv.gz`, `.csv.bz2`,
+  `.csv.xz` or `.csv.zst` file was always read as UTF-8, so cp1252 or cp932 files failed with
+  `UnicodeDecodeError`. The decompressed bytes are now sampled as for plain files. chardet
+  results with a Mac code page (MacRoman, MacTurkish, MacCentralEurope, MacCyrillic, ...) are
+  read as the Windows code page of the same script when that decodes the sample, so a short
+  German cp1252 file no longer gives `Straşe` for `Straße`; ISO-8859-1 results with bytes
+  0x80-0x9F become cp1252.
+- **CSV: an Excel `sep=;` first line sets the delimiter and is skipped** (#44) instead of
+  becoming the header. An explicit `delimiter` still wins.
+- **PC-Axis: the file's encoding is used** (#41). Without an explicit `encoding` the reader
+  decodes by a UTF-8 BOM, then `CODEPAGE`, then UTF-8, then `CHARSET="ANSI"` (cp1252); a file
+  without `CHARSET` is DOS (cp850). ISO-8859-1/15 and cp1252 files from BFS, INE and SCB failed
+  with `UnicodeDecodeError` before.
+- **JSON: an object at the root no longer raises `KeyError: 0`** (#42). Without `tagname` the
+  records are the only (or longest) top-level list of objects (OData `value`, JSON-LD
+  `@graph`, `data`, `results`); the key is logged and set as `tagname`. An object without such a
+  list is one record. Streaming mode (files over 10 MB) uses the first top-level list of
+  objects.
+- **XLSX, XLS, ODS: `keys`, `start_line` and `page` work through `open_iterable`** (#45). They
+  were read only as constructor arguments, so `iterableargs={"start_line": 3}` was ignored and a
+  sheet with title rows read as one column. ODS now honours `start_line` at all.
+- **GML: features of WFS 2.0 and service namespaces are read** (#43). Members are matched by
+  local name in any namespace (`wfs:member`, `app:featureMember`, `gml:featureMembers`), and
+  `tagname` / `feature_member` name the member element. `gml:pos` and `gml:posList` of GML 3.1
+  (`http://www.opengis.net/gml`) give coordinates. Parse errors propagate instead of giving an
+  empty result.
 
 - **CSV: a UTF-8 byte order mark no longer stays in the first header** (#37).
   `detect_encoding_raw` returned `utf-8` for any sample that decodes cleanly, including one
