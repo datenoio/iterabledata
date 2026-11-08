@@ -66,9 +66,12 @@ with open_iterable("out.xlsx", mode="w") as target:
 
 | Parameter | Type | Default | Required | Description |
 |-----------|------|---------|----------|-------------|
-| `page` | int or str | `0` | No | Sheet index (int, 0-indexed) or name (str). |
+| `page` | int or str | `0` | No | Sheet index (int, 0-indexed) or name (str). An unknown name raises `ValueError` listing the sheets. |
 | `keys` | list[str] | auto-detected | No | Column names. Extracted from the first non-blank row if omitted. |
 | `start_line` | int | `0` | No | Rows above the header to skip, e.g. title rows of a statistics table (`iterableargs={"start_line": 3}`). |
+
+Cell values are read as strings; empty cells are `None`. Cells beyond the header width go to
+a list under the `None` key, as in CSV (`{"id": "1", "name": None, None: ["extra"]}`).
 
 ## Error Handling
 

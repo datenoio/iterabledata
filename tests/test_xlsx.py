@@ -257,3 +257,49 @@ def test_xlsx_start_line_and_keys_through_open_iterable(tmp_path):
     source = XLSXIterable(path, start_line=3, options={"start_line": 1})
     assert source.keys == ["Schlüssel", "Kreis", "Einwohner"]
     source.close()
+
+
+def _two_sheet_workbook(path):
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    notes = workbook.active
+    notes.title = "Notes"
+    notes.append(["Read me first"])
+    data = workbook.create_sheet("Data")
+    data.append(["id", "name"])
+    data.append([1, None, "extra", None])
+    data.append([2, "B"])
+    workbook.save(path)
+
+
+def test_xlsx_page_by_sheet_name(tmp_path):
+    import pytest
+
+    from iterable.helpers.detect import open_iterable
+
+    path = str(tmp_path / "two.xlsx")
+    _two_sheet_workbook(path)
+    by_index = list(open_iterable(path, iterableargs={"page": 1}))
+    assert list(open_iterable(path, iterableargs={"page": "Data"})) == by_index
+    assert list(open_iterable(path, iterableargs={"page": "1"})) == by_index
+    source = XLSXIterable(path, page="Data")
+    assert source.keys == ["id", "name"]
+    source.close()
+    with pytest.raises(ValueError, match="'Notes', 'Data'"):
+        XLSXIterable(path, page="Missing")
+
+
+def test_xlsx_empty_cells_are_none_and_extra_cells_are_kept(tmp_path):
+    path = str(tmp_path / "two.xlsx")
+    _two_sheet_workbook(path)
+    source = XLSXIterable(path, page=1)
+    rows = list(source)
+    source.close()
+    # Values stay strings as before; an empty cell is None, not "None"; the cell beyond the
+    # header goes under the None key (trailing empty cells are padding and are dropped).
+    assert rows[0] == {"id": "1", "name": None, None: ["extra"]}
+    assert rows[1] == {"id": "2", "name": "B"}
+    source = XLSXIterable(path, page=1)
+    assert source.read_bulk(5) == rows
+    source.close()

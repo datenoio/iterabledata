@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Spreadsheets: sheet names, empty cells, long rows** (#48).
+  - `page` takes a sheet name as documented, for XLSX, XLS and ODS, as a constructor argument
+    and through `iterableargs` (`{"page": "Data"}`); an unknown name raises `ValueError` that
+    lists the sheets. A string of digits that is not a sheet name is still an index.
+  - XLSX empty cells are `None` instead of the string `"None"`. Other values stay strings.
+  - XLSX and ODS cells beyond the header width are kept in a list under the `None` key, as CSV
+    does, instead of being dropped; trailing empty cells are padding and are left out.
 - **CSV: the encoding of compressed files is detected** (#40). A `.csv.gz`, `.csv.bz2`,
   `.csv.xz` or `.csv.zst` file was always read as UTF-8, so cp1252 or cp932 files failed with
   `UnicodeDecodeError`. The decompressed bytes are now sampled as for plain files. chardet

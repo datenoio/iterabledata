@@ -22,7 +22,7 @@ from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
 from ..exceptions import ReadError
-from ..helpers.sheets import sheet_options
+from ..helpers.sheets import resolve_page, row_with_rest, sheet_options
 from ..types import Row
 
 
@@ -36,7 +36,7 @@ class ODSIterable(BaseFileIterable):
         codec: BaseCodec | None = None,
         mode="r",
         keys: list[str] | None = None,
-        page: int = 0,
+        page: int | str = 0,
         start_line: int = 0,
         options: dict[str, Any] | None = None,
     ):
@@ -72,13 +72,15 @@ class ODSIterable(BaseFileIterable):
             # Using odfpy library
             self.doc = load(self.filename)
             self.sheets = [sheet for sheet in self.doc.spreadsheet.getElementsByType(Table)]
-            if self.page >= len(self.sheets):
+            names = [sheet.getAttribute("name") or f"Sheet{i}" for i, sheet in enumerate(self.sheets)]
+            index = resolve_page(self.page, names)
+            if index >= len(self.sheets):
                 raise ReadError(
-                    f"Sheet index {self.page} out of range. Available sheets: {len(self.sheets)}",
+                    f"Sheet index {index} out of range. Available sheets: {len(self.sheets)}",
                     filename=self.filename,
                     error_code="INVALID_PARAMETER",
                 )
-            self.sheet = self.sheets[self.page]
+            self.sheet = self.sheets[index]
             self.rows = self.sheet.getElementsByType(TableRow)
             self.row_index = self._skip_rows
 
@@ -99,13 +101,14 @@ class ODSIterable(BaseFileIterable):
             # Using pyexcel_ods3 library
             self.data = pyexcel_ods3.get_data(self.filename)
             sheet_names = list(self.data.keys())
-            if self.page >= len(sheet_names):
+            index = resolve_page(self.page, sheet_names)
+            if index >= len(sheet_names):
                 raise ReadError(
-                    f"Sheet index {self.page} out of range. Available sheets: {len(sheet_names)}",
+                    f"Sheet index {index} out of range. Available sheets: {len(sheet_names)}",
                     filename=self.filename,
                     error_code="INVALID_PARAMETER",
                 )
-            self.sheet_name = sheet_names[self.page]
+            self.sheet_name = sheet_names[index]
             self.rows = self.data[self.sheet_name]
             self.row_index = self._skip_rows
 
@@ -195,7 +198,7 @@ class ODSIterable(BaseFileIterable):
             # Pad values if needed
             while len(values) < len(self.keys):
                 values.append("")
-            result = dict(zip(self.keys, values, strict=False))
+            result: dict[Any, Any] = row_with_rest(self.keys, values, empty="")
             self.row_index += 1
             self.pos += 1
             return result
@@ -207,7 +210,7 @@ class ODSIterable(BaseFileIterable):
             values = [str(cell) for cell in row]
             while len(values) < len(self.keys):
                 values.append("")
-            result = dict(zip(self.keys, values, strict=False))
+            result = row_with_rest(self.keys, values, empty="")
             self.row_index += 1
             self.pos += 1
             return result

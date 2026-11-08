@@ -67,7 +67,7 @@ source = open_iterable('data.xls', iterableargs={
 
 ## Parameters
 
-- `page` (int): Sheet index to read (default: `0`)
+- `page` (int or str): Sheet index (0-indexed) or sheet name (default: `0`)
 - `keys` (list[str]): Column names (default: extracted from first row)
 - `start_line` (int): Rows above the header to skip, e.g. title rows (default: `0`)
 
