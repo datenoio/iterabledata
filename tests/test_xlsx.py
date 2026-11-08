@@ -227,3 +227,33 @@ class TestXLSX:
             assert iterable.read()["Column name"] == "Entity"
         finally:
             iterable.close()
+
+
+def _title_workbook(path):
+    import openpyxl
+
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.append(["Tabelle 1: Kreise"])
+    sheet.append([])
+    sheet.append(["Stand: 31.12.2024"])
+    sheet.append(["Schlüssel", "Kreis", "Einwohner"])
+    sheet.append(["01001", "Flensburg", 92550])
+    sheet.append(["01002", "Kiel", 247000])
+    workbook.save(path)
+
+
+def test_xlsx_start_line_and_keys_through_open_iterable(tmp_path):
+    from iterable.helpers.detect import open_iterable
+
+    path = str(tmp_path / "title.xlsx")
+    _title_workbook(path)
+    with open_iterable(path, iterableargs={"start_line": 3}) as source:
+        assert source.keys == ["Schlüssel", "Kreis", "Einwohner"]
+        assert next(source) == {"Schlüssel": "01001", "Kreis": "Flensburg", "Einwohner": "92550"}
+    with open_iterable(path, iterableargs={"start_line": 4, "keys": ["key", "name", "people"]}) as source:
+        assert [row["name"] for row in source] == ["Flensburg", "Kiel"]
+    # The constructor argument still wins over options.
+    source = XLSXIterable(path, start_line=3, options={"start_line": 1})
+    assert source.keys == ["Schlüssel", "Kreis", "Einwohner"]
+    source.close()

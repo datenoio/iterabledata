@@ -8,6 +8,7 @@ import xlrd
 from xlrd import open_workbook
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
+from ..helpers.sheets import sheet_options
 
 
 def read_row_keys(rownum, ncols, sheet):
@@ -60,6 +61,7 @@ class XLSIterable(BaseFileIterable):
         if options is None:
             options = {}
         super().__init__(filename, stream, codec=codec, binary=True, mode=mode, noopen=True, options=options)
+        keys, page, start_line = sheet_options(keys, page, start_line, options)
         self.page = page
         self.start_line = start_line
         self.pos = start_line

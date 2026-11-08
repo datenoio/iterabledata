@@ -73,3 +73,28 @@ def test_ods_list_tables_with_filename():
         assert isinstance(sheets, list)
         assert len(sheets) > 0
         iterable.close()
+
+
+@pytest.mark.skipif(not HAS_ODF, reason="odfpy is required to write the test document")
+def test_ods_start_line_through_open_iterable(tmp_path):
+    from odf.opendocument import OpenDocumentSpreadsheet
+    from odf.table import Table, TableCell, TableRow
+    from odf.text import P
+
+    from iterable.helpers.detect import open_iterable
+
+    document = OpenDocumentSpreadsheet()
+    table = Table(name="kreise")
+    for values in [["Tabelle 1: Kreise"], ["Stand"], ["Schlüssel", "Kreis"], ["01001", "Flensburg"], ["01002", "Kiel"]]:
+        row = TableRow()
+        for value in values:
+            cell = TableCell()
+            cell.addElement(P(text=value))
+            row.addElement(cell)
+        table.addElement(row)
+    document.spreadsheet.addElement(table)
+    path = str(tmp_path / "title.ods")
+    document.save(path)
+    with open_iterable(path, iterableargs={"start_line": 2}) as source:
+        assert source.keys == ["Schlüssel", "Kreis"]
+        assert [row["Kreis"] for row in source] == ["Flensburg", "Kiel"]

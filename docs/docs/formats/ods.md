@@ -60,7 +60,7 @@ with open_iterable("out.ods", mode="w") as target:
 |-----------|------|---------|----------|-------------|
 | `page` | int | `0` | No | Sheet index to read (0-indexed) |
 | `keys` | list[str] | auto-detected | No | Column names. Extracted from the first row if omitted. |
-| `start_line` | int | `0` | No | Row number to start reading from (0-indexed) |
+| `start_line` | int | `0` | No | Rows above the header to skip, e.g. title rows of a statistics table |
 
 ## Error Handling
 
