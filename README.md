@@ -1533,6 +1533,15 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
+### Version 1.2.0 (2026-11-08)
+
+- **Encodings**: compressed CSV files get their encoding from the decompressed bytes; Mac and DOS code page guesses map to the Windows code page; PC-Axis files use their `CODEPAGE`/`CHARSET`; Shapefile DBFs use `.cpg`, `.cst` or the DBF language driver
+- **Header offsets**: CSV `skip_rows` option and Excel `sep=` lines; XLSX/XLS/ODS `keys`, `start_line` and `page` (also a sheet name) through `open_iterable`
+- **JSON with an object at the root**: the list of records under a key (OData `value`, JSON-LD `@graph`) instead of `KeyError: 0`
+- **Geodata**: GML members of WFS 2.0 and service namespaces; zipped Shapefiles (`x.shp.zip`, `member` option); GML parse errors are raised
+- **PC-Axis**: `metadata=False` option, values that start on the `DATA=` line
+- **Spreadsheets**: empty XLSX cells are `None`, cells beyond the header are kept under the `None` key
+
 ### Version 1.1.0 (2026-10-29)
 
 - **Faster formats**: new `iterabledata[fast]` extra (orjson, msgspec, ISA-L): JSON Lines write ~5x and read ~2x; Parquet write ~5x; CSV -> Parquet ~12x with `convert(..., use_native_batch=True)`
