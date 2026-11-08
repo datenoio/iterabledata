@@ -9,11 +9,71 @@ try:
 except ImportError:
     HAS_SHAPEFILE = False
 
+import codecs
+import os
+import re
+import zipfile
 from typing import Any
 
 from ..base import BaseCodec, BaseFileIterable
 from ..exceptions import ReadError
 from ..types import Row
+
+# pyshp 3 reads the ``.cpg`` file for the DBF encoding; older versions default to UTF-8.
+_PYSHP_READS_CPG = HAS_SHAPEFILE and int(str(getattr(shapefile, "__version__", "0")).split(".")[0]) >= 3
+
+
+def cpg_encoding(text: str) -> str | None:
+    """Python codec for the content of a ``.cpg`` file (``UTF-8``, ``1252``, ``ANSI 1251``, ``ISO 8859-1``)."""
+    value = text.replace("\x00", "").strip()
+    if not value:
+        return None
+    compact = value.lower().replace(" ", "").replace("_", "-")
+    number = re.fullmatch(r"(?:ansi|cp|windows-?|oem|ibm)?(\d{3,5})", compact)
+    if number:
+        candidate = "utf-8" if number.group(1) == "65001" else f"cp{number.group(1)}"
+    else:
+        iso = re.fullmatch(r"(?:iso)?-?8859-?(\d{1,2})", compact)
+        candidate = f"iso-8859-{iso.group(1)}" if iso else value
+    try:
+        return codecs.lookup(candidate).name
+    except LookupError:
+        return None
+
+
+def shapefiles_in_zip(path: str) -> list[str]:
+    """Paths of the ``.shp`` members of a zip archive (empty when it is not a readable zip)."""
+    try:
+        with zipfile.ZipFile(path) as archive:
+            return [name for name in archive.namelist() if name.lower().endswith(".shp")]
+    except (OSError, zipfile.BadZipFile):
+        return []
+
+
+def _read_cpg(path: str, member: str | None) -> str | None:
+    """Text of the ``.cpg`` next to a ``.shp`` file or archive member, if there is one."""
+    if member is not None:
+        stem = member[: -len(".shp")]
+        with zipfile.ZipFile(path) as archive:
+            names = {name.lower(): name for name in archive.namelist()}
+            name = names.get(stem.lower() + ".cpg")
+            return archive.read(name).decode("ascii", "replace") if name else None
+    cpg = path[: -len(".shp")] + ".cpg" if path.lower().endswith(".shp") else None
+    if cpg is None or not os.path.exists(cpg):
+        return None
+    with open(cpg, encoding="ascii", errors="replace") as handle:
+        return handle.read()
+
+
+def _pyshp_decodes_cpg(text: str) -> bool:
+    """Whether pyshp >= 3, which reads the ``.cpg`` itself, can use its text as a codec name."""
+    if not _PYSHP_READS_CPG:
+        return False
+    try:
+        codecs.lookup(text.lower().replace("-", "_").strip())
+    except LookupError:
+        return False
+    return True
 
 
 def shape_to_geojson(shape_record, shape_obj):
@@ -119,11 +179,20 @@ class ShapefileIterable(BaseFileIterable):
         if not HAS_SHAPEFILE:
             raise ImportError("pyshp library is required for Shapefile support. Install it with: pip install pyshp")
 
-        # Shapefile requires .shp extension, but we accept the base filename
-        if filename and not filename.endswith(".shp"):
-            # Try to find .shp file
-            import os
+        # A zipped Shapefile (``x.shp.zip``, or ``x.zip`` holding one ``.shp``) arrives as a zip
+        # codec from open_iterable(); pyshp reads the archive from its path.
+        codec_path = getattr(codec, "filename", None)
+        if filename is None and codec is not None and str(codec_path or "").lower().endswith(".zip"):
+            filename, codec = codec_path, None
+        self.archive = bool(filename) and str(filename).lower().endswith(".zip")
+        # ``member`` picks one ``.shp`` of an archive that holds several.
+        self.member = options.get("member")
+        # ``encoding`` is the DBF encoding; by default the ``.cpg`` file decides, else UTF-8.
+        self.dbf_encoding = options.get("encoding")
 
+        # Shapefile requires .shp extension, but we accept the base filename
+        if filename and not self.archive and not filename.endswith(".shp"):
+            # Try to find .shp file
             base = filename.rsplit(".", 1)[0]
             shp_file = base + ".shp"
             if os.path.exists(shp_file):
@@ -132,7 +201,31 @@ class ShapefileIterable(BaseFileIterable):
                 filename = shp_file  # Will be created if writing
 
         super().__init__(filename, stream, codec=codec, mode=mode, binary=True, encoding="utf8", options=options)
-        self.reset()
+        try:
+            self.reset()
+        except Exception:
+            self.close()
+            raise
+
+    def _reader_target(self) -> tuple[str, str | None]:
+        """Path for ``shapefile.Reader`` and the archive member it reads (None for a plain .shp)."""
+        if not self.archive:
+            return self.filename, None
+        members = shapefiles_in_zip(self.filename)
+        if self.member is not None:
+            chosen = [m for m in members if m == self.member or os.path.basename(m) == self.member]
+        else:
+            chosen = members
+        if len(chosen) != 1:
+            found = ", ".join(members) or "none"
+            raise ReadError(
+                f"Zip archive must hold exactly one .shp file (or pass member=...); found: {found}",
+                filename=self.filename,
+                error_code="RESOURCE_REQUIREMENT_NOT_MET",
+            )
+        member = chosen[0]
+        target = self.filename if len(members) == 1 else f"{self.filename}/{member}"
+        return target, member
 
     def reset(self):
         super().reset()
@@ -145,12 +238,23 @@ class ShapefileIterable(BaseFileIterable):
                     filename=None,
                     error_code="RESOURCE_REQUIREMENT_NOT_MET",
                 )
+            target, member = self._reader_target()
+            cpg_text = None if self.dbf_encoding else _read_cpg(self.filename, member)
+            cpg = cpg_encoding(cpg_text) if cpg_text else None
+            encoding = self.dbf_encoding or cpg or "utf-8"
+            kwargs: dict[str, Any] = {"encoding": encoding}
+            if cpg_text is not None and _pyshp_decodes_cpg(cpg_text):
+                # pyshp >= 3 reads this .cpg itself, and warns when its text (``1252``) differs
+                # from a codec name passed in (``cp1252``).
+                kwargs = {}
             try:
-                self.reader = shapefile.Reader(self.filename)
-                self.iterator = self.__iterator()
-            except Exception:
-                self.reader = None
-                self.iterator = iter([])
+                self.reader = shapefile.Reader(target, **kwargs)
+            except Exception as e:
+                raise ReadError(
+                    f"Cannot read Shapefile {target}: {e}", filename=self.filename, error_code="READ_FAILED"
+                ) from e
+            self.encoding = encoding
+            self.iterator = self.__iterator()
         elif self.mode in ["w", "wr"]:
             # Initialize writer
             self.writer = None

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib
+import os
+import zipfile
 from typing import IO, Any, TypedDict, cast
 
 import chardet
@@ -301,6 +303,27 @@ def _detect_compound_format(filename: str, codec_registry: dict[str, tuple[str, 
     return None
 
 
+def _detect_zipped_shapefile(filename: str, parts: list[str]) -> FileTypeResult | None:
+    """``x.shp.zip``, or an existing ``x.zip`` that holds exactly one ``.shp``: a Shapefile.
+
+    pyshp reads the archive from its path, so no codec is used.
+    """
+    if parts[-1] != "zip":
+        return None
+    if len(parts) > 2 and parts[-2] == "shp":
+        return _filename_result(filename, _datatype_class("shp"), None)
+    if not os.path.isfile(filename):
+        return None
+    try:
+        with zipfile.ZipFile(filename) as archive:
+            shp_members = [name for name in archive.namelist() if name.lower().endswith(".shp")]
+    except (OSError, zipfile.BadZipFile):
+        return None
+    if len(shp_members) != 1:
+        return None
+    return _filename_result(filename, _datatype_class("shp"), None)
+
+
 def _detect_from_extension(
     filename: str,
     parts: list[str],
@@ -346,6 +369,10 @@ def _detect_by_filename(filename: str, debug: bool) -> FileTypeResult:
     compound = _detect_compound_format(filename, codec_registry)
     if compound is not None:
         return compound
+
+    zipped_shapefile = _detect_zipped_shapefile(filename, parts)
+    if zipped_shapefile is not None:
+        return zipped_shapefile
 
     extension = _detect_from_extension(filename, parts, format_registry, codec_registry, debug)
     if extension is not None:
