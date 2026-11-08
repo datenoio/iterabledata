@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CSV: a UTF-8 byte order mark no longer stays in the first header** (#37).
   `detect_encoding_raw` returned `utf-8` for any sample that decodes cleanly, including one
-  that starts with a BOM, so the first field was `﻿id`. It now returns `utf-8-sig` for
+  that starts with a BOM, so the first field was `\ufeffid`. It now returns `utf-8-sig` for
   such a sample. A sample cut at `limit` inside a multi-byte character also counts as UTF-8
   instead of going to chardet, so the result no longer depends on where the first megabyte
   ends.

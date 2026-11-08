@@ -101,7 +101,7 @@ def test_detect_encoding_reads_a_bom_file_as_utf8_sig(tmp_path):
     from iterable.datatypes.csv import detect_encoding_raw
 
     path = tmp_path / "bom.csv"
-    path.write_bytes("﻿id,name\n1,Иван\n".encode("utf-8"))
+    path.write_bytes("\ufeffid,name\n1,Иван\n".encode("utf-8"))
     assert detect_encoding_raw(filename=str(path))["encoding"] == "utf-8-sig"
     plain = tmp_path / "plain.csv"
     plain.write_bytes("id,name\n1,Иван\n".encode("utf-8"))
@@ -112,7 +112,7 @@ def test_bom_does_not_stay_in_the_first_header(tmp_path):
     from iterable.helpers.detect import open_iterable
 
     path = tmp_path / "bom.csv"
-    path.write_bytes("﻿asn,name\n2118,RELCOM-AS\n".encode("utf-8"))
+    path.write_bytes("\ufeffasn,name\n2118,RELCOM-AS\n".encode("utf-8"))
     rows = list(open_iterable(str(path)))
     assert list(rows[0]) == ["asn", "name"]
 
