@@ -76,7 +76,12 @@ Example record:
 
 ## Parameters
 
-- `encoding` (str): Character encoding (default: `utf-8`)
+- `encoding` (str): Character encoding. By default it is taken from the file: a UTF-8 byte order
+  mark, then `CODEPAGE="..."`, then UTF-8 if the file decodes as UTF-8, then `CHARSET="ANSI"`
+  (Windows, read as `cp1252`); a file without `CHARSET` is in DOS format (`cp850`), as the PC-Axis
+  specification defines.
+- `metadata` (bool): Add the `_KEYWORD` copies of the metadata (`_TITLE`, `_UNITS`, ...) to every
+  record (default: `True`). `False` leaves them out, so records hold only the dimensions and `VALUE`.
 
 ## Limitations
 
@@ -84,7 +89,7 @@ Example record:
 2. **Flat data only**: Only supports tabular/flat data structures
 3. **Multi-dimensional flattening**: Complex multi-dimensional data is flattened into records
 4. **File format**: Requires proper PC-Axis file structure
-5. **Encoding**: May require specific encoding for non-ASCII data
+5. **Encoding**: Files that declare neither `CODEPAGE` nor a `CHARSET` that matches their bytes may need an explicit `encoding`
 
 ## Compression Support
 
