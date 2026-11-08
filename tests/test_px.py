@@ -142,3 +142,13 @@ def test_px_metadata_option_leaves_out_keyword_copies(tmp_path):
         assert next(source) == {"Gemeinde": "Zürich", "Jahr": "2000", "VALUE": 1}
     with open_iterable(str(path)) as source:
         assert "_CHARSET" in next(source)
+
+
+def test_px_values_on_the_data_line(tmp_path):
+    """INE writes the first values on the DATA= line itself (#50)."""
+    from iterable.helpers.detect import open_iterable
+
+    path = tmp_path / "ine.px"
+    path.write_bytes(PX_ANSI.replace("DATA=\n1 2\n3 4;", "DATA=1 2\n3 4;").encode("cp1252"))
+    with open_iterable(str(path), iterableargs={"metadata": False}) as source:
+        assert [row["VALUE"] for row in source] == [1, 2, 3, 4]
