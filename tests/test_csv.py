@@ -95,3 +95,61 @@ class TestCSV:
         with pytest.raises(StopIteration):
             _ = iterable.read()
         iterable.close()
+
+
+def test_detect_encoding_reads_a_bom_file_as_utf8_sig(tmp_path):
+    from iterable.datatypes.csv import detect_encoding_raw
+
+    path = tmp_path / "bom.csv"
+    path.write_bytes("﻿id,name\n1,Иван\n".encode("utf-8"))
+    assert detect_encoding_raw(filename=str(path))["encoding"] == "utf-8-sig"
+    plain = tmp_path / "plain.csv"
+    plain.write_bytes("id,name\n1,Иван\n".encode("utf-8"))
+    assert detect_encoding_raw(filename=str(plain))["encoding"] == "utf-8"
+
+
+def test_bom_does_not_stay_in_the_first_header(tmp_path):
+    from iterable.helpers.detect import open_iterable
+
+    path = tmp_path / "bom.csv"
+    path.write_bytes("﻿asn,name\n2118,RELCOM-AS\n".encode("utf-8"))
+    rows = list(open_iterable(str(path)))
+    assert list(rows[0]) == ["asn", "name"]
+
+
+def test_detect_encoding_tolerates_a_sample_cut_inside_a_character(tmp_path):
+    from iterable.datatypes.csv import detect_encoding_raw
+
+    path = tmp_path / "cut.csv"
+    text = "name\n" + "Россия\n" * 20
+    path.write_bytes(text.encode("utf-8"))
+    limit = len("name\nР".encode("utf-8")) - 1  # ends after the first byte of "Р"
+    assert detect_encoding_raw(filename=str(path), limit=limit)["encoding"] == "utf-8"
+
+
+def test_delimiter_autodetection_on_zstandard_file(tmp_path):
+    zstd = pytest.importorskip("zstandard")
+    from iterable.helpers.detect import open_iterable
+
+    path = tmp_path / "rows.csv.zst"
+    path.write_bytes(zstd.ZstdCompressor().compress("id;name\n1;a\n2;b\n".encode("utf-8")))
+    source = open_iterable(str(path), iterableargs={"autodetect": True})
+    rows = list(source)
+    assert source.delimiter == ";"
+    assert rows == [{"id": "1", "name": "a"}, {"id": "2", "name": "b"}]
+
+
+def test_delimiter_autodetection_keeps_the_header_of_a_non_seekable_stream():
+    import io
+
+    from iterable.datatypes.csv import CSVIterable
+
+    class OneWay(io.StringIO):
+        def seekable(self):
+            return False
+
+    source = CSVIterable(stream=OneWay("id;name\n1;a\n"), autodetect=True)
+    rows = list(source)
+    # Detection would consume the header line; the stream keeps a comma instead.
+    assert source.delimiter == ","
+    assert list(rows[0]) == ["id;name"]

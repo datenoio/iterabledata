@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **CSV: a UTF-8 byte order mark no longer stays in the first header** (#37).
+  `detect_encoding_raw` returned `utf-8` for any sample that decodes cleanly, including one
+  that starts with a BOM, so the first field was `﻿id`. It now returns `utf-8-sig` for
+  such a sample. A sample cut at `limit` inside a multi-byte character also counts as UTF-8
+  instead of going to chardet, so the result no longer depends on where the first megabyte
+  ends.
+- **CSV delimiter autodetection works on zstandard files** (#38). `detect_delimiter` called
+  `tell()`, which raises `io.UnsupportedOperation` on a zstandard stream; codec streams are
+  reopened after detection anyway, so the position is no longer needed. On a plain
+  non-seekable stream (no codec) detection would consume the header line: it keeps the comma
+  and logs a warning.
+
 ## [1.1.0] - 2026-10-29
 
 ### Added

@@ -27,6 +27,16 @@ TSV_EXTENSIONS = ("tsv",)
 ARROW_COMPRESSION = {"gz": "gzip", "bz2": "bz2", "zst": "zstd", "zstd": "zstd"}
 
 
+def _is_rewindable(stream) -> bool:
+    """Whether ``stream`` can go back to where it is (seekable or with a reset())."""
+    if stream is None or hasattr(stream, "reset"):
+        return True
+    try:
+        return bool(stream.seekable()) if hasattr(stream, "seekable") else False
+    except (OSError, ValueError):
+        return False
+
+
 def _rewind_stream(stream, pos) -> None:
     """Restore a stream to a previous position, tolerating non-seekable streams."""
     if pos is not None and hasattr(stream, "seek"):
@@ -37,6 +47,9 @@ def _rewind_stream(stream, pos) -> None:
             pass
     if hasattr(stream, "reset"):
         stream.reset()
+
+
+_UTF8_BOM = b"\xef\xbb\xbf"
 
 
 def detect_encoding_raw(filename=None, stream=None, limit=1000000):
@@ -52,13 +65,19 @@ def detect_encoding_raw(filename=None, stream=None, limit=1000000):
         if isinstance(chunk, str):
             return {"encoding": DEFAULT_ENCODING}
     # Prefer UTF-8 when the sample decodes cleanly: chardet can mis-identify short
-    # multilingual UTF-8 samples (e.g. CJK/emoji) as a single-byte codepage.
+    # multilingual UTF-8 samples (e.g. CJK/emoji) as a single-byte codepage. A sample
+    # that starts with a byte order mark is read as utf-8-sig, so the BOM does not stay
+    # in the first header ("\ufeffid"). A sample cut at ``limit`` may end inside a
+    # multi-byte character; that alone does not make it non-UTF-8.
     try:
         chunk.decode("utf-8")
-        logging.debug("Detected encoding utf-8 (clean UTF-8 decode)")
-        return {"encoding": "utf-8", "confidence": 1.0}
-    except UnicodeDecodeError:
-        pass
+        clean = True
+    except UnicodeDecodeError as error:
+        clean = len(chunk) >= limit and error.reason == "unexpected end of data" and error.start >= len(chunk) - 3
+    if clean:
+        encoding = "utf-8-sig" if chunk.startswith(_UTF8_BOM) else "utf-8"
+        logging.debug(f"Detected encoding {encoding} (clean UTF-8 decode)")
+        return {"encoding": encoding, "confidence": 1.0}
     detected = chardet.detect(chunk)
     logging.debug("Detected encoding {}".format(detected["encoding"]))
     return detected
@@ -85,7 +104,12 @@ def detect_delimiter(filename=None, stream=None, encoding="utf8"):
         with open(filename, encoding=encoding) as f:
             line = f.readline()
     else:
-        pos = stream.tell() if hasattr(stream, "tell") else None
+        # A codec stream such as zstandard cannot tell() or seek(); the caller then
+        # reopens it (CSVIterable resets right after detecting the dialect).
+        try:
+            pos = stream.tell() if hasattr(stream, "tell") else None
+        except (OSError, ValueError):
+            pos = None
         line = stream.readline()
         _rewind_stream(stream, pos)
     dict1 = {",": line.count(","), ";": line.count(";"), "\t": line.count("\t"), "|": line.count("|")}
@@ -279,6 +303,10 @@ class CSVIterable(BaseFileIterable):
         if self._is_tsv_source(filename, codec, options):
             return TSV_DELIMITER
         if autodetect:
+            if filename is None and self.stype != ITERABLE_TYPE_CODEC and not _is_rewindable(self.fobj):
+                # Reading the first line of a plain non-seekable stream would lose it.
+                logging.warning("Cannot detect the CSV delimiter of a non-seekable stream; using a comma")
+                return DEFAULT_DELIMITER
             return detect_delimiter(filename, self.fobj, encoding=self.encoding)
         return DEFAULT_DELIMITER
 
