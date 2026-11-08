@@ -104,7 +104,7 @@ def test_detect_encoding_reads_a_bom_file_as_utf8_sig(tmp_path):
     path.write_bytes("\ufeffid,name\n1,Иван\n".encode("utf-8"))
     assert detect_encoding_raw(filename=str(path))["encoding"] == "utf-8-sig"
     plain = tmp_path / "plain.csv"
-    plain.write_bytes("id,name\n1,Иван\n".encode("utf-8"))
+    plain.write_bytes("id,name\n1,Иван\n".encode())
     assert detect_encoding_raw(filename=str(plain))["encoding"] == "utf-8"
 
 
@@ -123,7 +123,7 @@ def test_detect_encoding_tolerates_a_sample_cut_inside_a_character(tmp_path):
     path = tmp_path / "cut.csv"
     text = "name\n" + "Россия\n" * 20
     path.write_bytes(text.encode("utf-8"))
-    limit = len("name\nР".encode("utf-8")) - 1  # ends after the first byte of "Р"
+    limit = len("name\nР".encode()) - 1  # ends after the first byte of "Р"
     assert detect_encoding_raw(filename=str(path), limit=limit)["encoding"] == "utf-8"
 
 
@@ -132,7 +132,7 @@ def test_delimiter_autodetection_on_zstandard_file(tmp_path):
     from iterable.helpers.detect import open_iterable
 
     path = tmp_path / "rows.csv.zst"
-    path.write_bytes(zstd.ZstdCompressor().compress("id;name\n1;a\n2;b\n".encode("utf-8")))
+    path.write_bytes(zstd.ZstdCompressor().compress(b"id;name\n1;a\n2;b\n"))
     source = open_iterable(str(path), iterableargs={"autodetect": True})
     rows = list(source)
     assert source.delimiter == ";"
