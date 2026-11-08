@@ -7,6 +7,7 @@ from typing import Any
 import lxml.etree as etree
 
 from ..base import BaseCodec, BaseFileIterable
+from ..exceptions import FormatParseError
 from ..helpers.xmlsec import safe_parse
 from ..types import Row
 
@@ -42,8 +43,8 @@ def extract_gml_coordinates(elem, ns):
     coords = None
 
     # Try different GML coordinate formats
-    # GML 3.2 posList
-    pos_list = elem.find(".//{http://www.opengis.net/gml/3.2}posList", ns)
+    # GML 3.2 posList (GML 3.1 uses the same element in the http://www.opengis.net/gml namespace)
+    pos_list = _find_gml_element(elem, "posList", ns)
     if pos_list is not None and pos_list.text:
         coords_str = pos_list.text.strip()
         parts = coords_str.split()
@@ -57,9 +58,9 @@ def extract_gml_coordinates(elem, ns):
                 except ValueError:
                     continue
 
-    # GML 3.2 pos
+    # GML 3.2 / 3.1 pos
     if coords is None:
-        pos_elems = elem.findall(".//{http://www.opengis.net/gml/3.2}pos", ns)
+        pos_elems = _find_gml_elements(elem, "pos", ns)
         if pos_elems:
             coords = []
             for pos_elem in pos_elems:
@@ -261,6 +262,10 @@ def _add_geometry(feature, geometry):
         writer(geom_prop, coords)
 
 
+# Feature member elements, by local name: GML featureMember, WFS 2.0 member, GML 3 featureMembers.
+MEMBER_NAMES = ("featureMember", "member", "featureMembers")
+
+
 class GMLIterable(BaseFileIterable):
     datamode = "binary"
 
@@ -278,7 +283,10 @@ class GMLIterable(BaseFileIterable):
             options = {}
         super().__init__(filename, stream, codec=codec, mode=mode, binary=True, encoding="utf8", options=options)
         self.prefix_strip = prefix_strip
-        self.feature_member = feature_member or "featureMember"
+        # ``tagname`` (the option XML-like formats share) or ``feature_member`` names the
+        # member element; the defaults in MEMBER_NAMES are tried after it.
+        self.feature_member = feature_member or options.get("feature_member") or "featureMember"
+        self.tagname = options.get("tagname")
         self.reset()
 
     def reset(self):
@@ -287,41 +295,61 @@ class GMLIterable(BaseFileIterable):
         self.pos = 0
 
         if self.mode == "r":
-            # Parse GML document
-            try:
-                tree = safe_parse(self.fobj)
-                root = tree.getroot()
+            # Parse GML document; errors propagate instead of giving an empty result.
+            tree = safe_parse(self.fobj)
+            root = tree.getroot()
+            if root is None:
+                raise FormatParseError(format_id="gml", message="no XML document element", filename=self.filename)
 
-                # Common GML namespaces
-                ns = {"gml": "http://www.opengis.net/gml/3.2", "gml2": "http://www.opengis.net/gml"}
+            # Common GML namespaces
+            ns = {"gml": "http://www.opengis.net/gml/3.2", "gml2": "http://www.opengis.net/gml"}
+            for feature_elem in self._feature_elements(root):
+                feature = gml_to_geojson(feature_elem, ns)
+                if feature["geometry"] is not None or feature["properties"]:
+                    self.features.append(feature)
+            self.iterator = iter(self.features)
 
-                # Find all feature members
-                feature_members = root.findall(f".//{{http://www.opengis.net/gml/3.2}}{self.feature_member}", ns)
-                if not feature_members:
-                    feature_members = root.findall(f".//{{http://www.opengis.net/gml}}{self.feature_member}")
-                if not feature_members:
-                    # Try without namespace
-                    feature_members = root.findall(f".//{self.feature_member}")
+    def _member_names(self) -> list[str]:
+        """Local names of feature member elements to look for, most specific first."""
+        names = []
+        for name in (self.tagname, self.feature_member):
+            if name:
+                local = str(name).rsplit("}", 1)[-1].rsplit(":", 1)[-1]
+                if local not in names:
+                    names.append(local)
+        for name in MEMBER_NAMES:
+            if name not in names:
+                names.append(name)
+        return names
 
-                # If no featureMember, try to find feature elements directly
-                if not feature_members:
-                    # Look for common feature element names
-                    for tag_name in ["feature", "Feature", "member"]:
-                        feature_members = root.findall(f".//{tag_name}")
-                        if feature_members:
-                            break
+    def _feature_elements(self, root: Any) -> list[Any]:
+        """Feature elements of a feature collection.
 
-                for member in feature_members:
-                    # Get the feature element (first child or the member itself)
-                    feature_elem = member[0] if len(member) > 0 else member
-                    feature = gml_to_geojson(feature_elem, ns)
-                    if feature["geometry"] is not None or feature["properties"]:
-                        self.features.append(feature)
-
-                self.iterator = iter(self.features)
-            except Exception:
-                self.features = []
-                self.iterator = iter(self.features)
+        Members are matched by local name in any namespace: ``gml:featureMember`` (GML 2/3),
+        ``wfs:member`` (WFS 2.0), a service's own ``app:featureMember``, and
+        ``gml:featureMembers`` whose children are all features. Members nested inside an
+        already found member (e.g. an attribute element named ``member``) are skipped.
+        """
+        for name in self._member_names():
+            members = root.findall(f".//{{*}}{name}")
+            if not members:
+                continue
+            found = set(members)
+            top = [m for m in members if not any(a in found for a in m.iterancestors())]
+            features = []
+            for member in top:
+                children = [c for c in member if isinstance(c.tag, str)]
+                if name == "featureMembers":
+                    features.extend(children)
+                else:
+                    features.append(children[0] if children else member)
+            return features
+        # No member elements: look for feature elements directly
+        for tag_name in ("feature", "Feature"):
+            features = root.findall(f".//{{*}}{tag_name}")
+            if features:
+                return features
+        return []
 
     @staticmethod
     def id() -> str:

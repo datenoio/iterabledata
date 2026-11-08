@@ -88,3 +88,76 @@ class TestGML:
             n += 1
         assert n == len(FIXTURES)
         iterable.close()
+
+
+WFS2_GML = """<?xml version="1.0" encoding="UTF-8"?>
+<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0"
+    xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:app="http://example.org/app">
+  <wfs:member>
+    <app:apotheke gml:id="a1"><app:name>Apotheke am Markt</app:name><app:plz>18055</app:plz>
+      <app:geom><gml:Point srsName="EPSG:4326"><gml:pos>54.09 12.14</gml:pos></gml:Point></app:geom>
+      <app:member>nested element that is not a feature member</app:member></app:apotheke>
+  </wfs:member>
+  <wfs:member>
+    <app:apotheke gml:id="a2"><app:name>Linden-Apotheke</app:name><app:plz>18057</app:plz></app:apotheke>
+  </wfs:member>
+</wfs:FeatureCollection>
+"""
+
+SERVICE_NS_GML = """<?xml version="1.0" encoding="UTF-8"?>
+<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs"
+    xmlns:gml="http://www.opengis.net/gml" xmlns:hro="https://geo.sv.rostock.de">
+  <hro:featureMember><hro:apotheken gml:id="1"><hro:name>Apotheke am Markt</hro:name>
+    <hro:geometry><gml:Point srsName="EPSG:25833"><gml:pos>312000 6000000</gml:pos></gml:Point></hro:geometry>
+  </hro:apotheken></hro:featureMember>
+  <hro:featureMember><hro:apotheken gml:id="2"><hro:name>Linden</hro:name></hro:apotheken></hro:featureMember>
+</wfs:FeatureCollection>
+"""
+
+FEATURE_MEMBERS_GML = """<?xml version="1.0"?>
+<gml:FeatureCollection xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:app="urn:app">
+  <gml:featureMembers>
+    <app:School gml:id="s1"><app:name>A</app:name></app:School>
+    <app:School gml:id="s2"><app:name>B</app:name></app:School>
+  </gml:featureMembers>
+</gml:FeatureCollection>
+"""
+
+
+def _read_gml(tmp_path, text, **iterableargs):
+    from iterable.helpers.detect import open_iterable
+
+    path = tmp_path / "features.gml"
+    path.write_text(text, encoding="utf-8")
+    with open_iterable(str(path), iterableargs=iterableargs) as source:
+        return list(source)
+
+
+def test_gml_wfs2_members(tmp_path):
+    rows = _read_gml(tmp_path, WFS2_GML)
+    assert [row["properties"]["name"] for row in rows] == ["Apotheke am Markt", "Linden-Apotheke"]
+    assert rows[0]["geometry"] == {"type": "Point", "coordinates": [54.09, 12.14]}
+    assert _read_gml(tmp_path, WFS2_GML, tagname="wfs:member") == rows
+    assert _read_gml(tmp_path, WFS2_GML, feature_member="member") == rows
+
+
+def test_gml_feature_member_in_a_service_namespace(tmp_path):
+    rows = _read_gml(tmp_path, SERVICE_NS_GML)
+    assert [row["properties"]["name"] for row in rows] == ["Apotheke am Markt", "Linden"]
+    assert rows[0]["geometry"] == {"type": "Point", "coordinates": [312000.0, 6000000.0]}
+
+
+def test_gml_feature_members_container(tmp_path):
+    rows = _read_gml(tmp_path, FEATURE_MEMBERS_GML)
+    assert [row["properties"]["name"] for row in rows] == ["A", "B"]
+
+
+def test_gml_parse_errors_are_not_swallowed(tmp_path):
+    import pytest
+
+    from iterable.helpers.detect import open_iterable
+
+    path = tmp_path / "empty.gml"
+    path.write_text("", encoding="utf-8")
+    with pytest.raises(Exception, match="(?i)empty|document"):
+        list(open_iterable(str(path)))
