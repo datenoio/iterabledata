@@ -309,12 +309,17 @@ class GMLIterable(BaseFileIterable):
                     self.features.append(feature)
             self.iterator = iter(self.features)
 
+    @staticmethod
+    def _local(name: Any) -> str:
+        """Local part of ``prefix:name`` or ``{namespace}name``."""
+        return str(name).rsplit("}", 1)[-1].rsplit(":", 1)[-1]
+
     def _member_names(self) -> list[str]:
         """Local names of feature member elements to look for, most specific first."""
         names = []
         for name in (self.tagname, self.feature_member):
             if name:
-                local = str(name).rsplit("}", 1)[-1].rsplit(":", 1)[-1]
+                local = self._local(name)
                 if local not in names:
                     names.append(local)
         for name in MEMBER_NAMES:
@@ -337,12 +342,16 @@ class GMLIterable(BaseFileIterable):
             found = set(members)
             top = [m for m in members if not any(a in found for a in m.iterancestors())]
             features = []
+            wrapper = name in MEMBER_NAMES or name == self._local(self.feature_member)
             for member in top:
                 children = [c for c in member if isinstance(c.tag, str)]
                 if name == "featureMembers":
                     features.extend(children)
+                elif wrapper and len(children) == 1:
+                    features.append(children[0])
                 else:
-                    features.append(children[0] if children else member)
+                    # ``tagname`` names the feature element itself (``hro:apotheken``).
+                    features.append(member)
             return features
         # No member elements: look for feature elements directly
         for tag_name in ("feature", "Feature"):

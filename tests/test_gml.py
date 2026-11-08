@@ -147,6 +147,13 @@ def test_gml_feature_member_in_a_service_namespace(tmp_path):
     assert rows[0]["geometry"] == {"type": "Point", "coordinates": [312000.0, 6000000.0]}
 
 
+def test_gml_tagname_naming_the_feature_element(tmp_path):
+    rows = _read_gml(tmp_path, SERVICE_NS_GML, tagname="hro:apotheken")
+    assert [row["properties"]["name"] for row in rows] == ["Apotheke am Markt", "Linden"]
+    rows = _read_gml(tmp_path, WFS2_GML, tagname="app:apotheke")
+    assert [row["properties"]["name"] for row in rows] == ["Apotheke am Markt", "Linden-Apotheke"]
+
+
 def test_gml_feature_members_container(tmp_path):
     rows = _read_gml(tmp_path, FEATURE_MEMBERS_GML)
     assert [row["properties"]["name"] for row in rows] == ["A", "B"]
