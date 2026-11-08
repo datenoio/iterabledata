@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CSV `skip_rows` option** (#44): the number of lines before the header, for title, source
   and date rows above a statistics table (`iterableargs={"skip_rows": 3}`). Delimiter
   autodetection reads the header line after them; `totals()` does not count them.
+- **Zipped Shapefiles** (#46): `open_iterable("x.shp.zip")`, and a `.zip` that holds exactly
+  one `.shp`, open as Shapefiles (pyshp reads the archive; `member` picks one of several). The
+  DBF encoding comes from the `.cpg` file (`UTF-8`, `1252`, `ANSI 1251`, `ISO 8859-1`), also for
+  plain `.shp` files, unless `encoding` is given. Read errors raise `ReadError` instead of an
+  empty result.
 - **PC-Axis `metadata` option** (#41): `iterableargs={"metadata": False}` leaves the `_KEYWORD`
   copies of the metadata (`_TITLE`, `_UNITS`, ...) out of the records. The default (`True`)
   keeps the current records.
@@ -37,6 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `@graph`, `data`, `results`); the key is logged and set as `tagname`. An object without such a
   list is one record. Streaming mode (files over 10 MB) uses the first top-level list of
   objects.
+- **XLSX, XLS, ODS: `keys`, `start_line` and `page` work through `open_iterable`** (#45). They
+  were read only as constructor arguments, so `iterableargs={"start_line": 3}` was ignored and a
+  sheet with title rows read as one column. ODS now honours `start_line` at all.
 - **GML: features of WFS 2.0 and service namespaces are read** (#43). Members are matched by
   local name in any namespace (`wfs:member`, `app:featureMember`, `gml:featureMembers`), and
   `tagname` / `feature_member` name the member element. `gml:pos` and `gml:posList` of GML 3.1
