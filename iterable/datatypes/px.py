@@ -159,8 +159,10 @@ class PXIterable(BaseFileIterable):
 
         # Combine all data lines and split by whitespace
         data_text = " ".join(data_lines)
-        # Remove trailing semicolon if present
-        data_text = data_text.rstrip(";").strip()
+        # Values may start on the DATA= line itself (INE writes "DATA=70.0 68.0 ..."); #50.
+        data_text = re.sub(r"^DATA\s*=", "", data_text.strip(), flags=re.IGNORECASE)
+        # Remove the closing semicolon, also when spaces or a line break follow it
+        data_text = data_text.strip().rstrip(";").strip()
 
         # Split by whitespace and filter empty strings
         values = [v for v in data_text.split() if v]

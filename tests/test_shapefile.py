@@ -227,3 +227,60 @@ def test_zip_with_several_shapefiles_needs_a_member(tmp_path):
     source = ShapefileIterable(archive, options={"member": "b/other.shp"})
     assert source.read()["properties"]["plz"] == "79379"
     source.close()
+
+
+def _zip_without_cpg(tmp_path, sidecar=None, encoding="cp1252", ldid=None):
+    """A zipped Shapefile with a .cst file or no code page file at all (#50)."""
+    import zipfile
+
+    shapefile = pytest.importorskip("shapefile")
+    base = str(tmp_path / "kunta")
+    writer = shapefile.Writer(base, shapeType=shapefile.POINT, encoding=encoding)
+    writer.field("nimi", "C", 40)
+    writer.point(23.0, 63.0)
+    writer.record("Alajärvi")
+    writer.point(25.7, 62.2)
+    writer.record("Äänekoski")
+    writer.close()
+    if ldid is not None:
+        with open(base + ".dbf", "r+b") as handle:
+            handle.seek(29)
+            handle.write(bytes([ldid]))
+    exts = ["shp", "shx", "dbf"]
+    if sidecar is not None:
+        with open(base + ".cst", "w") as handle:
+            handle.write(sidecar)
+        exts.append("cst")
+    archive = str(tmp_path / "kunta.shp.zip")
+    with zipfile.ZipFile(archive, "w") as zipped:
+        for ext in exts:
+            zipped.write(f"{base}.{ext}", f"kunta.{ext}")
+    return archive
+
+
+@pytest.mark.parametrize(
+    "sidecar,encoding,ldid",
+    [
+        ("ISO-8859-1", "latin-1", 0),  # ESRI .cst file (Statistics Finland)
+        (None, "cp1252", 0x57),  # language driver id in the DBF header
+        (None, "cp1252", 0),  # nothing declared, not UTF-8: cp1252
+        (None, "utf-8", 0),  # nothing declared, UTF-8 records
+    ],
+)
+def test_dbf_encoding_without_cpg(tmp_path, sidecar, encoding, ldid):
+    from iterable.helpers.detect import open_iterable
+
+    archive = _zip_without_cpg(tmp_path, sidecar, encoding, ldid)
+    with open_iterable(archive) as source:
+        names = [row["properties"]["nimi"] for row in source]
+    assert names == ["Alajärvi", "Äänekoski"]
+
+
+def test_guess_dbf_encoding():
+    from iterable.datatypes.shapefile import guess_dbf_encoding
+
+    header = bytearray(64)
+    header[8:10] = (40).to_bytes(2, "little")
+    assert guess_dbf_encoding(bytes(header[:29]) + bytes([0xC9]) + bytes(header[30:])) == "cp1251"
+    assert guess_dbf_encoding(bytes(header) + "Äänekoski".encode()) == "utf-8"
+    assert guess_dbf_encoding(bytes(header) + "Äänekoski".encode("cp1252")) == "cp1252"
