@@ -58,9 +58,11 @@ with open_iterable("out.ods", mode="w") as target:
 
 | Parameter | Type | Default | Required | Description |
 |-----------|------|---------|----------|-------------|
-| `page` | int | `0` | No | Sheet index to read (0-indexed) |
+| `page` | int or str | `0` | No | Sheet index (0-indexed) or sheet name |
 | `keys` | list[str] | auto-detected | No | Column names. Extracted from the first row if omitted. |
 | `start_line` | int | `0` | No | Rows above the header to skip, e.g. title rows of a statistics table |
+
+Cells beyond the header width go to a list under the `None` key, as in CSV.
 
 ## Error Handling
 

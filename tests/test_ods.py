@@ -98,3 +98,31 @@ def test_ods_start_line_through_open_iterable(tmp_path):
     with open_iterable(path, iterableargs={"start_line": 2}) as source:
         assert source.keys == ["Schlüssel", "Kreis"]
         assert [row["Kreis"] for row in source] == ["Flensburg", "Kiel"]
+
+
+@pytest.mark.skipif(not HAS_ODF, reason="odfpy is required to write the test document")
+def test_ods_page_by_sheet_name_and_extra_cells(tmp_path):
+    from odf.opendocument import OpenDocumentSpreadsheet
+    from odf.table import Table, TableCell, TableRow
+    from odf.text import P
+
+    from iterable.helpers.detect import open_iterable
+
+    document = OpenDocumentSpreadsheet()
+    for name, rows in [("Notes", [["Read me first"]]), ("Data", [["id", "name"], ["1", "A", "extra"], ["2", "B"]])]:
+        table = Table(name=name)
+        for values in rows:
+            row = TableRow()
+            for value in values:
+                cell = TableCell()
+                cell.addElement(P(text=value))
+                row.addElement(cell)
+            table.addElement(row)
+        document.spreadsheet.addElement(table)
+    path = str(tmp_path / "two.ods")
+    document.save(path)
+    expected = [{"id": "1", "name": "A", None: ["extra"]}, {"id": "2", "name": "B"}]
+    assert list(open_iterable(path, iterableargs={"page": "Data"})) == expected
+    assert list(open_iterable(path, iterableargs={"page": 1})) == expected
+    with pytest.raises(ValueError, match="'Notes', 'Data'"):
+        ODSIterable(path, page="Missing")

@@ -50,19 +50,90 @@ def shapefiles_in_zip(path: str) -> list[str]:
         return []
 
 
-def _read_cpg(path: str, member: str | None) -> str | None:
-    """Text of the ``.cpg`` next to a ``.shp`` file or archive member, if there is one."""
+def _read_sidecar(path: str, member: str | None, extension: str) -> str | None:
+    """Text of the ``.cpg`` or ``.cst`` file next to a ``.shp`` file or archive member."""
     if member is not None:
         stem = member[: -len(".shp")]
         with zipfile.ZipFile(path) as archive:
             names = {name.lower(): name for name in archive.namelist()}
-            name = names.get(stem.lower() + ".cpg")
+            name = names.get(stem.lower() + extension)
             return archive.read(name).decode("ascii", "replace") if name else None
-    cpg = path[: -len(".shp")] + ".cpg" if path.lower().endswith(".shp") else None
-    if cpg is None or not os.path.exists(cpg):
+    sidecar = path[: -len(".shp")] + extension if path.lower().endswith(".shp") else None
+    if sidecar is None or not os.path.exists(sidecar):
         return None
-    with open(cpg, encoding="ascii", errors="replace") as handle:
+    with open(sidecar, encoding="ascii", errors="replace") as handle:
         return handle.read()
+
+
+def _read_cpg(path: str, member: str | None) -> str | None:
+    """Text of the ``.cpg`` next to a ``.shp`` file or archive member, if there is one."""
+    return _read_sidecar(path, member, ".cpg")
+
+
+# DBF language driver ids (header byte 29) and their code pages.
+_LDID_CODE_PAGES = {
+    0x01: "cp437",
+    0x02: "cp850",
+    0x03: "cp1252",
+    0x57: "cp1252",
+    0x58: "cp1252",
+    0x59: "cp1252",
+    0x64: "cp852",
+    0x65: "cp866",
+    0x66: "cp865",
+    0x67: "cp861",
+    0x6A: "cp737",
+    0x6B: "cp857",
+    0x78: "cp950",
+    0x79: "cp949",
+    0x7A: "cp936",
+    0x7B: "cp932",
+    0x7C: "cp874",
+    0x7D: "cp1255",
+    0x7E: "cp1256",
+    0xC8: "cp1250",
+    0xC9: "cp1251",
+    0xCA: "cp1254",
+    0xCB: "cp1253",
+    0xCC: "cp1257",
+}
+
+
+def _read_dbf_sample(path: str, member: str | None, size: int = 65536) -> bytes:
+    """The first bytes of the ``.dbf`` next to a ``.shp`` file or archive member."""
+    if member is not None:
+        stem = member[: -len(".shp")]
+        with zipfile.ZipFile(path) as archive:
+            names = {name.lower(): name for name in archive.namelist()}
+            name = names.get(stem.lower() + ".dbf")
+            if not name:
+                return b""
+            with archive.open(name) as handle:
+                return handle.read(size)
+    dbf = path[: -len(".shp")] + ".dbf" if path.lower().endswith(".shp") else None
+    if dbf is None or not os.path.exists(dbf):
+        return b""
+    with open(dbf, "rb") as handle:
+        return handle.read(size)
+
+
+def guess_dbf_encoding(sample: bytes) -> str:
+    """DBF encoding when no ``.cpg`` or ``.cst`` declares it.
+
+    The language driver id in header byte 29 names the code page; when it is 0, the records
+    are UTF-8 if they decode as UTF-8 (the end of the sample may cut a character), else cp1252.
+    """
+    if len(sample) > 29 and sample[29] in _LDID_CODE_PAGES:
+        return _LDID_CODE_PAGES[sample[29]]
+    header_length = int.from_bytes(sample[8:10], "little") if len(sample) >= 10 else 0
+    records = sample[header_length:] if 0 < header_length < len(sample) else b""
+    try:
+        records.decode("utf-8")
+        return "utf-8"
+    except UnicodeDecodeError as error:
+        if error.start >= len(records) - 3:
+            return "utf-8"
+    return "cp1252"
 
 
 def _pyshp_decodes_cpg(text: str) -> bool:
@@ -241,6 +312,11 @@ class ShapefileIterable(BaseFileIterable):
             target, member = self._reader_target()
             cpg_text = None if self.dbf_encoding else _read_cpg(self.filename, member)
             cpg = cpg_encoding(cpg_text) if cpg_text else None
+            if not (self.dbf_encoding or cpg):
+                # ESRI's .cst code page file (Statistics Finland), then the DBF header.
+                cst_text = _read_sidecar(self.filename, member, ".cst")
+                cpg = cpg_encoding(cst_text) if cst_text else None
+                cpg = cpg or guess_dbf_encoding(_read_dbf_sample(self.filename, member))
             encoding = self.dbf_encoding or cpg or "utf-8"
             kwargs: dict[str, Any] = {"encoding": encoding}
             if cpg_text is not None and _pyshp_decodes_cpg(cpg_text):

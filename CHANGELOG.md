@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-08
+
 ### Added
 
 - **CSV `skip_rows` option** (#44): the number of lines before the header, for title, source
@@ -23,6 +25,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keeps the current records.
 
 ### Fixed
+
+- **Spreadsheets: sheet names, empty cells, long rows** (#48).
+  - `page` takes a sheet name as documented, for XLSX, XLS and ODS, as a constructor argument
+    and through `iterableargs` (`{"page": "Data"}`); an unknown name raises `ValueError` that
+    lists the sheets. A string of digits that is not a sheet name is still an index.
+  - XLSX empty cells are `None` instead of the string `"None"`. Other values stay strings.
+  - XLSX and ODS cells beyond the header width are kept in a list under the `None` key, as CSV
+    does, instead of being dropped; trailing empty cells are padding and are left out.
+- **PX: values that start on the `DATA=` line** (#50). INE writes `DATA=70.0 68.0 ...`; the
+  first value was `"DATA=70.0"`, and a closing `;` followed by a space stayed on the last value.
+- **Shapefile: DBF encodings without a `.cpg` file** (#50). The ESRI `.cst` code page file is read
+  (Statistics Finland ships one), then the language driver id in the DBF header; with neither, the
+  records are UTF-8 when they decode as UTF-8, else cp1252. Such files failed with
+  `dbfFileException`.
 
 - **CSV: the encoding of compressed files is detected** (#40). A `.csv.gz`, `.csv.bz2`,
   `.csv.xz` or `.csv.zst` file was always read as UTF-8, so cp1252 or cp932 files failed with

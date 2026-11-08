@@ -8,7 +8,7 @@ import xlrd
 from xlrd import open_workbook
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
-from ..helpers.sheets import sheet_options
+from ..helpers.sheets import resolve_page, sheet_options
 
 
 def read_row_keys(rownum, ncols, sheet):
@@ -54,7 +54,7 @@ class XLSIterable(BaseFileIterable):
         codec: BaseCodec | None = None,
         mode="r",
         keys: list[str] | None = None,
-        page: int = 0,
+        page: int | str = 0,
         start_line: int = 0,
         options: dict[str, Any] | None = None,
     ):
@@ -75,7 +75,7 @@ class XLSIterable(BaseFileIterable):
         super().reset()
         self.pos = self.start_line
         self.workbook = open_workbook(self.filename)
-        self.sheet = self.workbook.sheet_by_index(self.page)
+        self.sheet = self.workbook.sheet_by_index(resolve_page(self.page, self.workbook.sheet_names()))
         if self.extracted_keys:
             self.keys = read_row_keys(self.pos, self.sheet.ncols, self.sheet)
             self.pos += 1

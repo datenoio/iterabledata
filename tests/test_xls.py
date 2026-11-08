@@ -124,3 +124,24 @@ def test_xls_start_line_and_page_through_open_iterable(tmp_path):
     with open_iterable(path, iterableargs={"start_line": 3, "page": 1}) as source:
         assert source.keys == ["Schlüssel", "Kreis"]
         assert list(source) == [{"Schlüssel": "01001", "Kreis": "Flensburg"}]
+
+
+def test_xls_page_by_sheet_name(tmp_path):
+    import pytest
+
+    xlwt = pytest.importorskip("xlwt")
+    from iterable.helpers.detect import open_iterable
+
+    workbook = xlwt.Workbook()
+    workbook.add_sheet("Notes").write(0, 0, "Read me first")
+    data = workbook.add_sheet("Data")
+    for row, values in enumerate([["id", "name"], ["1", "A"]]):
+        for col, value in enumerate(values):
+            data.write(row, col, value)
+    path = str(tmp_path / "two.xls")
+    workbook.save(path)
+    expected = [{"id": "1", "name": "A"}]
+    assert list(open_iterable(path, iterableargs={"page": "Data"})) == expected
+    assert list(open_iterable(path, iterableargs={"page": 1})) == expected
+    with pytest.raises(ValueError, match="'Notes', 'Data'"):
+        XLSIterable(path, page="Missing")

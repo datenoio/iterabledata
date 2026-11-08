@@ -6,7 +6,7 @@ from typing import Any
 from openpyxl import Workbook, load_workbook
 
 from ..base import DEFAULT_BULK_NUMBER, BaseCodec, BaseFileIterable
-from ..helpers.sheets import sheet_options
+from ..helpers.sheets import resolve_page, row_with_rest, sheet_options
 
 _BLANK_HEADER_TOKENS = frozenset({"", "none", "null", "<na>", "nan"})
 
@@ -45,7 +45,7 @@ class XLSXIterable(BaseFileIterable):
         codec: BaseCodec | None = None,
         mode="r",
         keys: list[str] | None = None,
-        page: int = 0,
+        page: int | str = 0,
         start_line: int = 0,
         options: dict[str, Any] | None = None,
     ):
@@ -74,7 +74,7 @@ class XLSXIterable(BaseFileIterable):
             return
         # read_only avoids loading the whole workbook into memory.
         self.workbook = load_workbook(self.filename, read_only=True)
-        self.sheet = self.workbook[self.workbook.sheetnames[self.page]]
+        self.sheet = self.workbook[self.workbook.sheetnames[resolve_page(self.page, self.workbook.sheetnames)]]
         self._total_rows = self.sheet.max_row
         self.pos = self.start_line
         # Some workbooks advertise incorrect dimensions (e.g. ref="A1").
@@ -169,13 +169,16 @@ class XLSXIterable(BaseFileIterable):
         finally:
             workbook.close()
 
+    def _record(self, row: Any) -> dict:
+        """Record of a sheet row: cell values as strings, empty cells as ``None``."""
+        values = [None if cell.value is None else str(cell.value) for cell in row]
+        record: dict[Any, Any] = row_with_rest(self.keys, values)
+        return record
+
     def read(self, skip_empty: bool = True) -> dict:
         """Read single XLSX record"""
         row = next(self.cursor)
-        tmp = list()
-        for cell in row:
-            tmp.append(str(cell.value))
-        result = dict(zip(self.keys, tmp, strict=False))
+        result = self._record(row)
         self.pos += 1
         return result
 
@@ -187,11 +190,7 @@ class XLSXIterable(BaseFileIterable):
                 row = next(self.cursor)
             except StopIteration:
                 break
-            tmp = list()
-            for cell in row:
-                tmp.append(str(cell.value))
-            result = dict(zip(self.keys, tmp, strict=False))
-            chunk.append(result)
+            chunk.append(self._record(row))
             self.pos += 1
         return chunk
 
