@@ -117,7 +117,7 @@ def detect_encoding_bytes(chunk: bytes, limit: int | None = None) -> dict[str, A
         encoding = "utf-8-sig" if chunk.startswith(_UTF8_BOM) else "utf-8"
         logging.debug(f"Detected encoding {encoding} (clean UTF-8 decode)")
         return {"encoding": encoding, "confidence": 1.0}
-    detected = _windows_code_page(chardet.detect(chunk), chunk)
+    detected = _windows_code_page(dict(chardet.detect(chunk)), chunk)
     logging.debug("Detected encoding {}".format(detected["encoding"]))
     return detected
 
@@ -186,7 +186,7 @@ def detect_delimiter(filename=None, stream=None, encoding="utf8"):
 def _delimiter_from_line(line: str) -> str:
     """The most frequent of ``,`` ``;`` tab ``|`` in a header line (a comma when none occurs)."""
     counts = {",": line.count(","), ";": line.count(";"), "\t": line.count("\t"), "|": line.count("|")}
-    delimiter = max(counts, key=counts.get)
+    delimiter = max(counts, key=lambda d: counts[d])
     return delimiter if counts[delimiter] else DEFAULT_DELIMITER
 
 
@@ -351,37 +351,53 @@ class CSVIterable(BaseFileIterable):
         autodetect = autodetect or bool(options.get("autodetect", False))
         self.escapechar = options.get("escapechar")
         self.doublequote = options.get("doublequote", True)
-        skip_rows = options.get("skip_rows") or 0
-        if not isinstance(skip_rows, int) or isinstance(skip_rows, bool) or skip_rows < 0:
-            raise ValueError(f"skip_rows must be a non-negative integer, got {skip_rows!r}")
         # Lines dropped before the header: a ``sep=`` hint line (found below) and ``skip_rows``.
-        self.skip_rows = skip_rows
+        self.skip_rows = self._skip_rows_option(options)
         self._sep_hint_line = False
 
         super().__init__(
             filename, stream, codec=codec, binary=False, encoding=self.encoding, mode=mode, options=options
         )
         if codec is not None and mode == "r" and encoding is None and options.get("encoding") is None:
-            # The text wrapper of a codec cannot show the bytes: detect from the decompressed
-            # data, then rebuild the wrapper with the detected encoding.
-            self.encoding = detect_codec_encoding(codec)["encoding"]
-            logging.debug(f"Detected codec encoding {self.encoding}")
-            self._reset_codec_source()
+            self._detect_codec_encoding(codec)
         header_line = None
         if mode == "r":
-            head = self._peek_lines(filename, 2 + self.skip_rows)
-            if head is not None:
-                hint = sep_hint(head[0])
-                if hint is not None:
-                    self._sep_hint_line = True
-                    delimiter = delimiter if delimiter is not None else hint
-                header_line = head[int(self._sep_hint_line) + self.skip_rows]
+            delimiter, header_line = self._read_sep_hint(filename, delimiter)
         self.delimiter = delimiter or self._default_delimiter(
             filename, codec, options, autodetect and mode == "r", header_line
         )
         self.quotechar = quotechar or DEFAULT_QUOTECHAR
         logging.debug(f"Detected delimiter {self.delimiter}")
         self.reset()
+
+    @staticmethod
+    def _skip_rows_option(options: dict[str, Any]) -> int:
+        """``options["skip_rows"]``: lines before the header, a non-negative integer."""
+        skip_rows = options.get("skip_rows") or 0
+        if not isinstance(skip_rows, int) or isinstance(skip_rows, bool) or skip_rows < 0:
+            raise ValueError(f"skip_rows must be a non-negative integer, got {skip_rows!r}")
+        return skip_rows
+
+    def _detect_codec_encoding(self, codec: BaseCodec) -> None:
+        """The text wrapper of a codec cannot show the bytes: detect the encoding from the
+        decompressed data, then rebuild the wrapper with it."""
+        self.encoding = detect_codec_encoding(codec)["encoding"]
+        logging.debug(f"Detected codec encoding {self.encoding}")
+        self._reset_codec_source()
+
+    def _read_sep_hint(self, filename: str | None, delimiter: str | None) -> tuple[str | None, str | None]:
+        """(delimiter, header line) after a ``sep=`` hint line and ``skip_rows``.
+
+        A ``sep=X`` first line sets the delimiter unless one is given and is skipped.
+        """
+        head = self._peek_lines(filename, 2 + self.skip_rows)
+        if head is None:
+            return delimiter, None
+        hint = sep_hint(head[0])
+        if hint is not None:
+            self._sep_hint_line = True
+            delimiter = delimiter if delimiter is not None else hint
+        return delimiter, head[int(self._sep_hint_line) + self.skip_rows]
 
     @staticmethod
     def _resolve_encoding(
@@ -395,11 +411,11 @@ class CSVIterable(BaseFileIterable):
         if encoding is None:
             encoding = options.get("encoding")
         if encoding is not None:
-            return encoding
+            return str(encoding)
         if mode == "r" and stream is not None:
-            return detect_encoding_raw(stream=stream)["encoding"]
+            return str(detect_encoding_raw(stream=stream)["encoding"])
         if mode == "r" and filename is not None:
-            return detect_encoding_raw(filename=filename)["encoding"]
+            return str(detect_encoding_raw(filename=filename)["encoding"])
         return DEFAULT_ENCODING
 
     def _peek_lines(self, filename: str | None, count: int) -> list[str] | None:
@@ -480,7 +496,7 @@ class CSVIterable(BaseFileIterable):
             total -= self._lines_before_header()
             if self.keys is None and total > 0:
                 total -= 1
-        return max(total, 0)
+        return max(int(total), 0)
 
     def _lines_before_header(self) -> int:
         """Lines skipped before the header: a ``sep=`` hint line plus ``skip_rows``."""

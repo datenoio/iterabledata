@@ -40,7 +40,7 @@ def etree_to_dict(t, prefix_strip=True):
 
 def extract_gml_coordinates(elem, ns):
     """Extract coordinates from GML geometry elements"""
-    coords = None
+    coords: list[Any] | None = None
 
     # Try different GML coordinate formats
     # GML 3.2 posList (GML 3.1 uses the same element in the http://www.opengis.net/gml namespace)
@@ -348,7 +348,7 @@ class GMLIterable(BaseFileIterable):
         for tag_name in ("feature", "Feature"):
             features = root.findall(f".//{{*}}{tag_name}")
             if features:
-                return features
+                return list(features)
         return []
 
     @staticmethod
